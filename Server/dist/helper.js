@@ -1,6 +1,7 @@
 import ejs from "ejs";
 import path from "path";
 import { fileURLToPath } from "url";
+import moment from "moment";
 export const formatError = (error) => {
     let errors = {};
     error.errors?.map((error) => {
@@ -18,4 +19,10 @@ export const renderEmailEjs = async (filename, payload) => {
         console.error("Error rendering EJS template:", error);
         throw error; // Re-throw the error to handle it in the calling function
     }
+};
+export const checkDataDiffent = (data) => {
+    const now = moment();
+    const tokenSendAt = moment(data);
+    const diffence = moment.duration(now.diff(tokenSendAt)).asHours();
+    return diffence;
 };

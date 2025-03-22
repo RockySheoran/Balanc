@@ -44,6 +44,7 @@ app.get("/", asyncHandler(async (req, res) => {
 import "./Job/index.js";
 import { emailQueue, emailQueueName } from "./Job/emailJob.js";
 import asyncHandler from "./Config/asyncHandler.js";
+import { limiter } from "./Config/rateLimit.js";
 //! Routes
 const corsOption = {
     origin: ["http://localhost:3000"],
@@ -52,6 +53,8 @@ const corsOption = {
 };
 app.use(cors(corsOption));
 app.use(route);
+// app limit
+app.use(limiter);
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);

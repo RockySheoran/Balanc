@@ -4,5 +4,6 @@ export const user = async (req, res) => {
         res.status(200).json({ data: { user } });
     }
     catch (error) {
+        return res.status(422).json({ message: "user not found" });
     }
 };

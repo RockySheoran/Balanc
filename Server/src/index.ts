@@ -64,6 +64,7 @@ import { emailQueue, emailQueueName } from "./Job/emailJob.js"
 import { promises } from "dns"
 import asyncHandler from "./Config/asyncHandler.js"
 import prisma from "./Config/DataBase.js"
+import { limiter } from "./Config/rateLimit.js"
 
 
 //! Routes
@@ -75,6 +76,8 @@ const corsOption = {
 app.use(cors(corsOption))
 
 app.use(route)
+// app limit
+app.use(limiter)
 
 
 // Start the server
