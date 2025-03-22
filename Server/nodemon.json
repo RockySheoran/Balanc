@@ -1,0 +1,5 @@
+{
+  "watch": ["dist", "src/views"],
+  "ext": "js,ejs",
+  "exec": "node ./dist/index.js"
+}
