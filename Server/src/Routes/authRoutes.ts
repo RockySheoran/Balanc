@@ -5,7 +5,8 @@ import { Registration } from "../Controller/auth/register.js"
 import { Check_Login, Login } from "../Controller/auth/login.js";
 import { user } from "../Controller/auth/user.js";
 import { Middleware } from "../Middleware/AuthMiddleWare.js";
-import { forgetPassword } from "../Controller/auth/passwordForget.js";
+import { forgetPassword } from "../Controller/auth/ForgetPassword.js";
+import { reset_password } from "../Controller/auth/resetPassword.js";
 
 
 const authRoute = express.Router()
@@ -16,6 +17,7 @@ authRoute.post("/login", Login);
 authRoute.post("/check/credentials", Check_Login)
 authRoute.get("/user",Middleware ,user);
 authRoute.post("/forget-password",forgetPassword)
+authRoute.post("/reset-password",reset_password)
 
 
 

@@ -12,11 +12,11 @@ export default async function register() {
   //   redirect("/dashboard");
   // }
   return (
-    <div className="flex justify-center items-center h-screen ">
-      <div className="w-full px-10 md:w-[550px] shadow-md rounded-xl py-5 bg-white">
+    <div className="flex justify-center items-center h-screen bg-gradient-to-r from-cyan-500 to-blue-500 ">
+      <div className="w-full px-10 md:w-[550px] shadow-neutral-800   rounded-xl py-5 bg-white ">
         <div>
           <h1 className="text-4xl text-center font-extrabold bg-gradient-to-r from-pink-400 to-purple-500 text-transparent bg-clip-text">
-            Clash
+            PFMA
           </h1>
           <h1 className="text-3xl font-bold">Register</h1>
           <p>Start clashing now</p>
@@ -30,5 +30,5 @@ export default async function register() {
         </p>
       </div>
     </div>
-  );
+  )
 }

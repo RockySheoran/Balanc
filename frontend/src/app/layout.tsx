@@ -6,6 +6,7 @@ import "./globals.css"
 import { Toaster } from "@/Components/ui/sonner"
 import { cn } from "@/lib/utils"
 import ClientSessionProvider from "./provider/ClientSessionProvider"
+import NavbarComponent from "@/Components/base/navbar"
 
 
 const fontSans = FontSans({
@@ -30,7 +31,10 @@ export default function RootLayout({
           "min-h-screen  font-sans antialiased bg-slate-50",
           fontSans.variable
         )}>
-        <ClientSessionProvider>{children}</ClientSessionProvider>
+        <ClientSessionProvider>
+          
+          {children}
+          </ClientSessionProvider>
         {/* {children} */}
         <Toaster richColors position="top-right" />
       </body>

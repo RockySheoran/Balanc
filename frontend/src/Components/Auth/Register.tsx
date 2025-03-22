@@ -1,17 +1,19 @@
 /** @format */
 
 "use client"
-import React, { useEffect } from "react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import React, { useEffect, useState } from "react"
+import { Input } from "@/Components/ui/input"
+import { Label } from "@/Components/ui/label"
 
 import { useFormState } from "react-dom"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { registerAction } from "@/Actions/Auth/RegisterActions"
 import { SubmitButton } from "../common/SubmitButton"
-
+import { IoEye } from "react-icons/io5"
+import { IoEyeOff } from "react-icons/io5"
 export default function Register() {
+  const [eyeOpen, setEyeOpen] = useState(false)
   const router = useRouter()
   const initialState = {
     message: "",
@@ -19,8 +21,9 @@ export default function Register() {
     errors: {},
   }
   const [state, formAction] = useFormState(registerAction, initialState)
-  console.log("object")
-console.log(state)
+
+  // console.log("object")
+  console.log(state)
   useEffect(() => {
     if (state.status === 500) {
       toast.error(state.message)
@@ -31,31 +34,55 @@ console.log(state)
   return (
     <form action={formAction}>
       <div className="mt-4">
-        <Label htmlFor="name">Name</Label>
-        <Input placeholder="Type your name" name="name" />
+        <Label className="my-2" htmlFor="name">
+          Name
+        </Label>
+        <Input placeholder="Type your name" name="name" id="name" />
         <span className="text-red-400">{state.errors?.name}</span>
       </div>
       <div className="mt-4">
-        <Label htmlFor="email">Email</Label>
-        <Input placeholder="Type your email" name="email" />
+        <Label className="my-2" htmlFor="email">
+          Email
+        </Label>
+        <Input placeholder="Type your email" name="email" id="email" />
         <span className="text-red-400">{state.errors?.email}</span>
       </div>
       <div className="mt-4">
-        <Label htmlFor="password">Password</Label>
-        <Input
-          type="password"
-          placeholder="Type your password"
-          name="password"
-        />
+        <Label className="my-2" htmlFor="password">
+          Password
+        </Label>
+        <div className="di relative">
+          <Input
+            type={eyeOpen ? "text" : "password"}
+            placeholder="Type your password"
+            name="password"
+            id="password"
+          />
+          <span
+            onClick={() => setEyeOpen(!eyeOpen)}
+            className="absolute cursor-pointer top-2 right-2 text-2xl">
+            {eyeOpen ? <IoEye /> : <IoEyeOff />}
+          </span>
+        </div>
         <span className="text-red-400">{state.errors?.password}</span>
       </div>
       <div className="mt-4">
-        <Label htmlFor="confirm_password">Confirm Password</Label>
-        <Input
-          type="password"
-          placeholder="Type your password"
-          name="confirm_password"
-        />
+        <Label className="my-2" htmlFor="confirm_password">
+          Confirm Password
+        </Label>
+        <div className="di relative">
+          <Input
+            type={eyeOpen ? "text" : "password"}
+            placeholder="Type your password"
+            name="confirm_password"
+            id="confirm_password"
+          />
+          <span
+            onClick={() => setEyeOpen(!eyeOpen)}
+            className="absolute cursor-pointer top-2 right-2 text-2xl">
+            {eyeOpen ? <IoEye /> : <IoEyeOff />}
+          </span>
+        </div>
         <span className="text-red-400">{state.errors?.confirm_password}</span>
       </div>
       <div className="mt-4">

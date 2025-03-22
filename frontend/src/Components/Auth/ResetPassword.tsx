@@ -8,47 +8,49 @@ import { Label } from "@/Components/ui/label"
 import { useFormState } from "react-dom"
 
 import { toast } from "sonner"
-
-import Link from "next/link"
-import { loginAction } from "@/Actions/Auth/LoginActions"
+import { useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { SubmitButton } from "../common/SubmitButton"
-import { signIn } from "next-auth/react"
+import { resetPasswordAction } from "@/Actions/Auth/resetPasswordAction"
 import { IoEye } from "react-icons/io5"
 import { IoEyeOff } from "react-icons/io5"
-
-export default function Login() {
+export default function ResetPassword() {
   const [eyeOpen, setEyeOpen] = useState(false)
+
   const initialState = {
     message: "",
     status: 0,
     errors: {},
-    data: {},
   }
-  const [state, formAction] = useFormState(loginAction, initialState)
-
+  const sParams = useSearchParams()
+  const [state, formAction] = useFormState(resetPasswordAction, initialState)
+  const router = useRouter()
   useEffect(() => {
     if (state.status === 500) {
       toast.error(state.message)
     } else if (state.status === 200) {
       toast.success(state.message)
-      console.log(state.data?.email, state.data?.password)
-      console.log(state.data)
-      signIn("credentials", {
-        email: state.data?.email,
-        password: state.data?.password,
-        redirect: true,
-        callbackUrl: "/dashboard",
-      }).catch((error) => {
-        console.error("Sign-in error:", error)
-      })
+      var timeOut = setTimeout(() => {
+        router.replace("/login")
+      }, 1500)
+    }
+
+    return () => {
+      clearTimeout(timeOut)
     }
   }, [state])
 
   return (
     <form action={formAction}>
+      <input type="hidden" name="token" value={sParams.get("token") ?? ""} />
       <div className="mt-4">
         <Label className="my-2" htmlFor="email">Email</Label>
-        <Input placeholder="Type your email" name="email" id="email" />
+        <Input
+          placeholder="Type your email"
+          name="email"
+          readOnly
+          value={sParams.get("email") ?? ""}
+        />
         <span className="text-red-400">{state.errors?.email}</span>
       </div>
       <div className="mt-4">
@@ -56,20 +58,32 @@ export default function Login() {
         <div className="di relative">
           <Input
             type={eyeOpen ? "text" : "password"}
-            id="password"
             placeholder="Type your password"
             name="password"
           />
           <span
             onClick={() => setEyeOpen(!eyeOpen)}
-            className="absolute top-2 right-2 text-2xl cursor-pointer">
+            className="absolute top-2 right-2 text-2xl">
             {eyeOpen ? <IoEye /> : <IoEyeOff />}
           </span>
         </div>
-        <div className="text-right font-bold">
-          <Link href="/forgot-password">Forgot Password?</Link>
+        <span className="text-red-400">{state.errors?.password}</span>
+      </div>
+      <div className="mt-4">
+        <Label className="my-2" htmlFor="confirm_password">Confirm Password</Label>
+        <div className="di relative">
+          <Input
+            type={eyeOpen ? "text" : "password"}
+            placeholder="Type your password"
+            name="confirm_password"
+          />
+          <span
+            onClick={() => setEyeOpen(!eyeOpen)}
+            className="absolute top-2 right-2 text-2xl">
+            {eyeOpen ? <IoEye /> : <IoEyeOff />}
+          </span>
         </div>
-        <span  className="text-red-400 ">{state.errors?.password}</span>
+        <span className="text-red-400">{state.errors?.confirm_password}</span>
       </div>
       <div className="mt-4">
         <SubmitButton />
