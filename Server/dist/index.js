@@ -23,7 +23,7 @@ app.get("/", asyncHandler(async (req, res) => {
     const html = await ejs.renderFile(__dirname + `/views/email/welcome.ejs`, {
         name: "rocky",
     });
-    console.log(html);
+    // console.log(html)
     await sendMail("rockysheoran1@gmail.com", "test", html);
     await emailQueue.add(emailQueueName, {
         to: "rotoma4007@bankrau.com",

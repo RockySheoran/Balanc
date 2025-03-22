@@ -1,6 +1,7 @@
 
 
 import nodemailer from "nodemailer"
+import logger from "./logger.js"
 
 
 const transporter = nodemailer.createTransport({
@@ -27,6 +28,7 @@ export const sendMail = async (to: string, subject: string, html: string) => {
   } catch (error) {
     // logger.error({ type: "Email Error", error })
     // console.log("dsf")
-    console.log(process.env.SMTP_HOST)
+    console.log(error)
+    // console.log(process.env.SMTP_HOST)
   }
 }
