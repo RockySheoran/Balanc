@@ -1,5 +1,3 @@
-
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,16 +7,109 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model User {
   id                   String    @id @default(auto()) @map("_id") @db.ObjectId
   name                 String
   email                String    @unique
   password             String
-  password_reset_token String?
-  token_send_at        DateTime?
+  passwordResetToken  String?
+  email_verify_token  String?
+  tokenSendAt        DateTime?
   email_verified_at    DateTime?
-  email_verify_token   String?
   created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
 
-  // @@index([name])
+  accounts     Account[]
+  transactions Transaction[]
+  investments  Investment[]
+
+  @@map("users")
+}
+
+model Account {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  type      AccountType
+  income   Float @default(0)
+  userId    String      @db.ObjectId
+  balance   Float       @default(0)
+  totalExpense Float      @default(0)
+  currency  String      @default("USD")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+  investments  Investment[]
+
+  @@index([userId], name: "account_user_idx")
+  @@index([type], name: "account_type_idx")
+  @@map("accounts")
+}
+
+model Transaction {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  accountId   String          @db.ObjectId
+  userId      String          @db.ObjectId
+  amount      Float
+  type        TransactionType
+  category    String
+  description String
+  date        DateTime        @default(now())
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  account Account @relation(fields: [accountId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([accountId], name: "transaction_account_idx")
+  @@index([userId], name: "transaction_user_idx")
+  @@index([date], name: "transaction_date_idx")
+  @@index([type], name: "transaction_type_idx")
+  @@index([category], name: "transaction_category_idx")
+  @@map("transactions")
+}
+
+model Investment {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String         @db.ObjectId
+  accountId    String         @db.ObjectId
+  name         String
+  type         InvestmentType
+  amount       Float
+  quantity     Float?
+  buyDate      DateTime       @map("buy_date")
+  sellDate     DateTime?      @map("sell_date")
+  currentValue Float?         @map("current_value")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([userId], name: "investment_user_idx")
+  @@index([accountId], name: "investment_account_idx")
+  @@index([type], name: "investment_type_idx")
+  @@index([buyDate], name: "investment_buy_date_idx")
+  @@map("investments")
+}
+
+enum AccountType {
+  SAVINGS
+  CHECKING
+  CREDIT
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+}
+
+enum InvestmentType {
+  STOCK
+  BOND
+  REAL_ESTATE
+  MUTUAL_FUND
 }

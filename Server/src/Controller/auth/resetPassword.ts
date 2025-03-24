@@ -32,7 +32,7 @@ export const reset_password = async (
       })
     }
 
-    if (user.password_reset_token !== payload.token) {
+    if (user.passwordResetToken !== payload.token) {
       return res.status(422).json({
         errors: {
           email: "Please make sure you are using correct url.",
@@ -42,7 +42,7 @@ export const reset_password = async (
 
     // check 2 hours  time
 
-    const diff = checkDataDiffent(user.token_send_at!)
+    const diff = checkDataDiffent(user.tokenSendAt!)
 
     if (diff > 2) {
       return res.status(422).json({
@@ -58,8 +58,8 @@ export const reset_password = async (
     await prisma.user.update({
       data: {
         password: newPass,
-        password_reset_token: null,
-        token_send_at: null,
+        passwordResetToken: null,
+        tokenSendAt: null,
       },
       where: { email: payload.email },
     })

@@ -30,6 +30,7 @@
     "nodemailer": "^6.10.0",
     "npx": "^10.2.2",
     "uuid": "^11.1.0",
+    "winston": "^3.17.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

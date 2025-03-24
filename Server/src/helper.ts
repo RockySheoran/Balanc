@@ -30,7 +30,7 @@ export const renderEmailEjs = async (filename: string, payload: any) => {
 }
 
 
-export const checkDataDiffent = (data:Data | string) : number =>{
+export const checkDataDiffent = (data:Date | string) : number =>{
   const now  = moment()
   const tokenSendAt = moment(data)
   const diffence = moment.duration(now.diff(tokenSendAt)).asHours()

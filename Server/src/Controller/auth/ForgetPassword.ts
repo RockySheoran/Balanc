@@ -39,8 +39,8 @@ export const forgetPassword = async (
         email: payload.email,
       },
       data: {
-        password_reset_token: token,
-        token_send_at: new Date().toISOString(),
+        passwordResetToken: token,
+        tokenSendAt: new Date().toISOString(),
       },
     })
 
