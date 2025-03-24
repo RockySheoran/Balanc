@@ -20,6 +20,7 @@ export const Login = async(req:Request,res:Response):Promise<any> => {
                 email:payload.email
             }
         })
+     
         if(!user || user===null){
             return res.status(422).json({errors:{email:"User not found"}})
         }

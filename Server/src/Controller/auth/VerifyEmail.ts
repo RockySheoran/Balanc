@@ -21,7 +21,7 @@ export const verifyEmail = async (
         await prisma.user.update({
           data: {
             email_verify_token: null,
-            email_verified_at: new Date().toISOString(),
+            email_verified_at : new Date().toISOString(),
           },
           where: {
             email: email as string,
