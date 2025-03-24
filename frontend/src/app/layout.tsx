@@ -15,7 +15,7 @@ const fontSans = FontSans({
 })
 
 export const metadata: Metadata = {
-  title: "Clash App",
+  title: "PFM App",
   description: "Add your VS to start clashing",
 }
 
@@ -31,11 +31,10 @@ export default function RootLayout({
           "min-h-screen  font-sans antialiased bg-slate-50",
           fontSans.variable
         )}>
-        <ClientSessionProvider>
-          
-          {children}
-          </ClientSessionProvider>
-        {/* {children} */}
+        <div className=" px-2 sm:px-10  md:px-12 lg:px-28 ">
+          <ClientSessionProvider>{children}</ClientSessionProvider>
+          {/* {children} */}
+        </div>
         <Toaster richColors position="top-right" />
       </body>
     </html>

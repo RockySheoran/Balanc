@@ -1,16 +1,16 @@
 
 import Link from "next/link";
 import React from "react";
-// import { getServerSession } from "next-auth";
-// import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { redirect } from "next/navigation";
 import Register from "@/Components/Auth/Register";
 
 export default async function register() {
-  // const session = await getServerSession(authOptions);
-  // if (session !== null) {
-  //   redirect("/dashboard");
-  // }
+  const session = await getServerSession(authOptions);
+  if (session !== null) {
+    redirect("/");
+  }
   return (
     <div className="flex justify-center items-center h-screen bg-gradient-to-r from-cyan-500 to-blue-500 ">
       <div className="w-full px-10 md:w-[550px] shadow-neutral-800   rounded-xl py-5 bg-white ">

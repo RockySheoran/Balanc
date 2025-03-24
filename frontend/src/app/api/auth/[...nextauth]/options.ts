@@ -5,6 +5,7 @@ import { JWT } from "next-auth/jwt"
 import axios from "axios"
 import Credentials from "next-auth/providers/credentials"
 import { loginApi } from "@/lib/EndPointApi"
+import GoogleProvider from "next-auth/providers/google"
 
 
 export type CustomSession = {
@@ -58,7 +59,7 @@ export const authOptions: AuthOptions = {
         },
         password: { label: "Password", type: "password" },
       },
-     
+
       async authorize(credentials, req) {
         // console.log(credentials)
         const { data } = await axios.post(loginApi, credentials)
@@ -71,5 +72,11 @@ export const authOptions: AuthOptions = {
       },
     }),
     // ...add more providers here
+
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
 }

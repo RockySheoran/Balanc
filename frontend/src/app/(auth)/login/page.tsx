@@ -7,12 +7,16 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/options"
 import { redirect } from "next/navigation"
 import Login from "@/Components/Auth/Login"
+import { GoogleSubmitBtn } from "@/Components/common/GoogleSubmitBtn"
+import { signIn } from "next-auth/react"
 
 export default async function login() {
   const session = await getServerSession(authOptions)
   if (session !== null) {
-    redirect("/dashboard")
+    redirect("/")
   }
+  
+
   return (
     <div className="flex justify-center items-center h-screen ">
       <div className="w-full md:w-[550px] shadow-md rounded-xl py-5 px-10 bg-white">
@@ -24,6 +28,7 @@ export default async function login() {
           <p>Welcome back</p>
         </div>
         <Login />
+       
         <p className="text-center mt-2">
           Don't have an account ?{" "}
           <strong>
