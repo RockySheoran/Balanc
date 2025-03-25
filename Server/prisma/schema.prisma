@@ -20,9 +20,6 @@ model User {
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
-  accounts      Account[]
-  transactions  Transaction[]
-  investments   Investment[]
 
   @@map("users")
 }
@@ -33,15 +30,14 @@ model Account {
   type         AccountType
   income       Float       @default(0)
   userId       String      @db.ObjectId
-  balance      Float       @default(0)
-  totalExpense Float       @default(0)
-  currency     String      @default("USD")
+  balance      Float?       @default(0)
+  totalExpense Float?       @default(0)
+  currency     String?      @default("USD")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   user         User         @relation(fields: [userId], references: [id])
-  transactions Transaction[]
-  investments  Investment[]
+
 
   @@index([userId], name: "account_user_idx")
   @@index([type], name: "account_type_idx")

@@ -12,9 +12,10 @@ export const Middleware = async (req, res, next) => {
     try {
         const decoded = JsonWebToken.verify(token, process.env.JWT_SECRET_KEY, (error, user) => {
             if (error) {
-                return res.status(401).json({ message: "Unauthorized" });
+                return res.status(401).json({ message: "Unauthorized .." });
             }
             req.user = user;
+            // console.log(req.user)
         });
     }
     catch (error) {

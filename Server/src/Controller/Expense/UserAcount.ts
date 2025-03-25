@@ -18,7 +18,7 @@ export const AccountController = {
          }
       const userId = req.user.id // Corrected from req.user.Id
 
-      const account = await prisma.account.findFirst({
+      const account = await prisma.account.findMany({
         where: {
           userId: userId,
         },
@@ -62,15 +62,17 @@ export const AccountController = {
  */
 async createAccount(req: Request, res: Response): Promise<any> {
     try {
+        
       if (!req.user) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
         });
       }
-      const userId = req.user.id;
-      const { name, type, initialBalance = 0 } = req.body
-
+    //   console.log(req.user)
+      const userId = req.user?.Id;
+      const { name, type ,income} = req.body
+        //  console.log(userId)
       // Validate input
       if (!name || !type) {
         return res.status(400).json({
@@ -83,9 +85,9 @@ async createAccount(req: Request, res: Response): Promise<any> {
         data: {
           name,
           type,
-          balance: initialBalance,
-          userId,
-          income: 0,
+          balance:income,
+          userId: userId,
+          income ,
           totalExpense: 0,
         },
         select: {
@@ -94,8 +96,11 @@ async createAccount(req: Request, res: Response): Promise<any> {
           type: true,
           balance: true,
           createdAt: true,
+          income: true,
+          totalExpense: true,
         },
       })
+      console.log(account)
 
       return res.status(201).json({
         success: true,

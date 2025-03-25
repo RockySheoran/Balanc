@@ -54,7 +54,7 @@ console.log(user)
        email_verify_token: token,
      },
    })
-    // console.log(a)
+    console.log(a)
 
     return res.json({ message: "Account created successfully" })
   } catch (error) {

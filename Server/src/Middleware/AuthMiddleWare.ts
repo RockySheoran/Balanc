@@ -26,9 +26,10 @@ export const Middleware = async (
       process.env.JWT_SECRET_KEY!,
       (error, user) => {
         if (error) {
-          return res.status(401).json({ message: "Unauthorized" })
+          return res.status(401).json({ message: "Unauthorized .." })
         }
         req.user = user as AuthUser
+        // console.log(req.user)
       }
     )
   } catch (error) {

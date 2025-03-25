@@ -8,6 +8,6 @@ const route =express.Router();
 
 route.use("/api/auth",authlimiter,authRoute);
 route.use("/",emailVerify);
-route.use("api/account", accountRoute)
+route.use("/api/account", accountRoute)
 
 export default route;
