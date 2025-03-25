@@ -9,7 +9,7 @@ import { transactionSchema } from "../../Validation/TransactionsValidation.js"
 
 const prisma = new PrismaClient()
 
-// 🎯 Create a Transaction
+//! 🎯 Create a Transaction
 export const createTransaction = async (req: Request, res: Response) :Promise<any> => {
   try {
     if (!req.user) {
@@ -80,7 +80,7 @@ await prisma.account.update({
   }
 }
 
-// 🎯 Get All Transactions
+//! 🎯 Get All Transactions
 export const getAllTransactions = async (req: Request, res: Response) :Promise<any> => {
   try {
     if (!req.user) {
@@ -111,7 +111,7 @@ export const getAllTransactions = async (req: Request, res: Response) :Promise<a
 
 // 🎯 Get Transactions by Date
 
-// 🎯 Get Transactions by Date
+//! 🎯 Get Transactions by Date
 export const getTransactionsByDate = async (req: Request, res: Response) :Promise<any> => {
   try {
     const { date } = req.params
@@ -152,7 +152,7 @@ export const getTransactionsByDate = async (req: Request, res: Response) :Promis
   }
 }
 
-// 🎯 Get Transactions by Month
+//! 🎯 Get Transactions by Month
 export const getTransactionsByMonth = async (req: Request, res: Response) :Promise<any> => {
   try {
     if (!req.user) {
@@ -180,7 +180,7 @@ export const getTransactionsByMonth = async (req: Request, res: Response) :Promi
   }
 }
 
-// 🎯 Get Transactions by Year
+//! 🎯 Get Transactions by Year
 export const getTransactionsByYear = async (req: Request, res: Response) :Promise<any> => {
   try {
     if (!req.user) {
@@ -205,5 +205,177 @@ export const getTransactionsByYear = async (req: Request, res: Response) :Promis
     res.status(200).json(transactions)
   } catch (error) {
     res.status(500).json({ error: (error as Error).message })
+  }
+}
+
+
+
+//! ❌ Delete Transaction
+export const deleteTransaction = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      })
+    }
+    const userId = req.user?.Id
+
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
+    })
+
+    if (!transaction || transaction.userId !== userId) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found or unauthorized",
+      })
+    }
+    const account = await prisma.account.findUnique({
+      where: { id: transaction.accountId },
+    })
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      })
+    }
+        let updatedBalance = account.balance ?? 0
+        let updatedTotalExpense = account.totalExpense ?? 0
+        if(transaction.type === "CREDIT") {
+          updatedBalance -= transaction.amount
+          
+        }else{
+          updatedBalance += transaction.amount
+          updatedTotalExpense -= transaction.amount
+        }
+
+    await prisma.transaction.delete({
+      where: { id },
+    })
+await prisma.account.update({
+  where: { id: transaction.accountId },
+  data: {
+    balance: updatedBalance,
+    totalExpense: updatedTotalExpense,
+  },
+})
+    res.status(200).json({
+      success: true,
+      message: "Transaction deleted successfully",
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message,
+    })
+  }
+}
+
+//! ✏️ Update Transaction
+export const updateTransaction = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      })
+    }
+    const userId = req.user?.Id
+    const data = req.body
+    const payload = await transactionSchema.parse(data)
+
+    // Fetch existing transaction
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
+    })
+
+    if (!transaction || transaction.userId !== userId) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found or unauthorized",
+      })
+    }
+
+    // Fetch account details
+    const account = await prisma.account.findUnique({
+      where: { id: transaction.accountId },
+    })
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      })
+    }
+
+    // Revert previous transaction impact on balance and totalExpense
+    let updatedBalance = account.balance ?? 0
+    let updatedTotalExpense = account.totalExpense ?? 0
+
+    if (transaction.type ===  payload.type) {
+      if(transaction.amount >= payload.amount) {
+        updatedBalance -= (transaction.amount-payload.amount)
+         updatedTotalExpense -= transaction.amount - payload.amount
+      }
+      else{
+        updatedBalance +=  payload.amount -transaction.amount 
+      }
+    
+    } else {
+      if(transaction.type === "CREDIT" && payload.type !== "CREDIT"){
+        updatedBalance -= (transaction.amount + payload.amount)
+        updatedTotalExpense +=payload.amount
+      }
+      else{
+         updatedBalance += transaction.amount + payload.amount
+         updatedTotalExpense -= transaction.amount
+
+      }
+    
+   
+    
+    }
+
+    
+
+    // Update transaction
+    const updatedTransaction = await prisma.transaction.update({
+      where: { id },
+      data: {
+        accountId: payload.accountId,
+        amount: payload.amount,
+        type: payload.type,
+        category: payload.category,
+        description: payload.description,
+      },
+    })
+
+    // Update account balance and totalExpense
+    await prisma.account.update({
+      where: { id: transaction.accountId },
+      data: {
+        balance: updatedBalance,
+        totalExpense: updatedTotalExpense,
+      },
+    })
+
+    res.status(200).json({
+      success: true,
+      message: "Transaction updated successfully",
+      transaction: updatedTransaction,
+    })
+  } catch (error) {
+     if(error instanceof ZodError){
+            const errors = await formatError(error)
+            return res.status(422).json({message:"Invalid Data",errors:errors})
+        }
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message,
+    })
   }
 }

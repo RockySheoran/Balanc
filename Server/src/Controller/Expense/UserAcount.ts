@@ -121,3 +121,101 @@ async createAccount(req: Request, res: Response): Promise<any> {
     }
   },
 }
+
+
+// Delete an account
+export const deleteAccount = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      })
+    }
+    const userId = req.user?.Id
+
+    const account = await prisma.account.findUnique({
+      where: { id },
+    })
+
+    if (!account || account.userId !== userId) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found or unauthorized",
+      })
+    }
+
+    await prisma.account.delete({
+      where: { id },
+    })
+
+    res.status(200).json({
+      success: true,
+      message: "Account deleted successfully",
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message,
+    })
+  }
+}
+
+
+// //! ✏️ Update Account
+// export const updateAccount = async (req: Request, res: Response)   :Promise<any>=> {
+//   try {
+//     const { id } = req.params
+//     if (!req.user) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       })
+//     }
+//     const userId = req.user?.Id
+//     const data = req.body
+
+//     const payload = await accountSchema.parse(data)
+//     const account = await prisma.account.findUnique({
+//       where: { id },
+//     })
+
+//     if (!account || account.userId !== userId) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Account not found or unauthorized",
+//       })
+//     }
+//     let balance =  account.balance;
+//     if(account.income < payload.income!){
+//       balance = account.balance! + (payload.income! - account.income)
+//     }else{
+       
+//     }
+
+
+//     const updatedAccount = await prisma.account.update({
+//       where: { id },
+//       data: {
+//         name: payload.name,
+//         type: payload.type,
+//         income: payload.income,
+//         balance: ,
+//         totalExpense: payload.totalExpense,
+        
+//       },
+//     })
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Account updated successfully",
+//       account: updatedAccount,
+//     })
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: (error as Error).message,
+//     })
+//   }
+// }
