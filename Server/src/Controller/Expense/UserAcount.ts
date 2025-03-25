@@ -2,6 +2,10 @@
 
 import { Request, Response } from "express"
 import prisma from "../../Config/DataBase.js"
+import { accountSchema } from "../../Validation/AccountValidations.js"
+import { ZodError } from "zod"
+import { formatError } from "../../helper.js"
+import { json } from "stream/consumers"
 
 
 export const AccountController = {
@@ -16,7 +20,7 @@ export const AccountController = {
              message: "Unauthorized",
            })
          }
-      const userId = req.user.id // Corrected from req.user.Id
+      const userId = req.user.Id // Corrected from req.user.Id
 
       const account = await prisma.account.findMany({
         where: {
@@ -69,25 +73,21 @@ async createAccount(req: Request, res: Response): Promise<any> {
           message: "Unauthorized",
         });
       }
-    //   console.log(req.user)
+      //   console.log(req.user)
       const userId = req.user?.Id;
-      const { name, type ,income} = req.body
+      const data= req.body
+      const payload = accountSchema.parse(data);
         //  console.log(userId)
       // Validate input
-      if (!name || !type) {
-        return res.status(400).json({
-          success: false,
-          message: "Name and account type are required",
-        })
-      }
+      
 
       const account = await prisma.account.create({
         data: {
-          name,
-          type,
-          balance:income,
+          name:payload.name,
+          type:payload.type,
+          balance:payload.income,
           userId: userId,
-          income ,
+          income:payload.income ,
           totalExpense: 0,
         },
         select: {
@@ -100,7 +100,7 @@ async createAccount(req: Request, res: Response): Promise<any> {
           totalExpense: true,
         },
       })
-      console.log(account)
+      // console.log(account)
 
       return res.status(201).json({
         success: true,
@@ -109,10 +109,14 @@ async createAccount(req: Request, res: Response): Promise<any> {
       })
     } catch (error) {
       console.error("Error creating account:", error)
+      if(error instanceof ZodError ){
+        const errors  = await formatError(error);
+        return res.status(422).json({ message: "Invalid Data" ,errors:errors})
+      }
       return res.status(500).json({
         success: false,
         message: "Failed to create account",
-        error: error instanceof Error ? error.message : "Unknown error",
+        errors: error instanceof Error ? error.message : "Unknown error",
       })
     }
   },
