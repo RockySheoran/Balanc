@@ -9,13 +9,14 @@ import {
   getTransactionsByMonth,
   getTransactionsByYear,
 } from "../Controller/Expense/Transaction.js"
+import { Middleware } from "../Middleware/AuthMiddleWare.js"
 
 const TransactionRouter = express.Router()
 
-TransactionRouter.post("/createTransaction", createTransaction)
-TransactionRouter.get("/transactions", getAllTransactions)
-TransactionRouter.get("/transactions/date/:date", getTransactionsByDate)
-TransactionRouter.get("/transactions/month/:year/:month", getTransactionsByMonth)
-TransactionRouter.get("/transactions/year/:year", getTransactionsByYear)
+TransactionRouter.post("/createTransaction", Middleware, createTransaction)
+TransactionRouter.get("/transactions", Middleware, getAllTransactions)
+TransactionRouter.get("/date/:date", Middleware, getTransactionsByDate)
+TransactionRouter.get("/month/:year/:month", Middleware, getTransactionsByMonth)
+TransactionRouter.get("/year/:year", Middleware, getTransactionsByYear)
 
 export default TransactionRouter

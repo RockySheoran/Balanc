@@ -49,6 +49,14 @@ if (payload.type === "CREDIT") {
 } else  {
   updatedBalance -= payload.amount
 }
+let expense = account.totalExpense || 0;
+
+if (payload.type === "CREDIT") {
+    
+  
+} else  {
+  expense += payload.amount
+}
 
 // Update the account balance
 await prisma.account.update({
@@ -56,6 +64,7 @@ await prisma.account.update({
     id: payload.accountId,
   },
   data: {
+    totalExpense: expense,
     balance: updatedBalance,
   },
 })
@@ -113,6 +122,7 @@ export const getTransactionsByDate = async (req: Request, res: Response) :Promis
         message: "Unauthorized",
       })
     }
+    // console.log(date)
 
     const userId = req.user?.Id
 

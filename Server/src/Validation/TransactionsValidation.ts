@@ -8,7 +8,7 @@ export const TransactionTypeEnum = z.enum(["CREDIT","TRANSFER", "DEBIT","INVESTM
 
 // 🎯 Transaction Schema Validation
 export const transactionSchema = z.object({
-  accountId: z.string().length(26, { message: "Invalid Account ID format" }),
+  accountId: z.string().length(24, { message: "Invalid Account ID format" }),
   amount: z.number().positive({ message: "Amount must be greater than 0" }),
   type: TransactionTypeEnum,
   category: z
