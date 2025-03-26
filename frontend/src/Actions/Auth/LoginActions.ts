@@ -13,7 +13,7 @@ export async function loginAction(prevState: any, formData: FormData) {
     
     return {
       status: 200,
-      message: "Credentials matched loging you shortly!",
+      message: "Credentials matched login you shortly!",
       errors: {},
       data: {
         email: formData.get("email"),

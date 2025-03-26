@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils"
 import ClientSessionProvider from "./provider/ClientSessionProvider"
 import NavbarComponent from "@/Components/base/navbar"
 
+import { Provider } from "react-redux"
+import StoreProvider from "./StoreProvider"
+
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -32,7 +35,12 @@ export default function RootLayout({
           fontSans.variable
         )}>
         <div className=" px-2 sm:px-10  md:px-12 lg:px-28 ">
-          <ClientSessionProvider>{children}</ClientSessionProvider>
+          <ClientSessionProvider>
+            <StoreProvider>
+              <main>{children}</main>
+            </StoreProvider>
+          </ClientSessionProvider>
+
           {/* {children} */}
         </div>
         <Toaster richColors position="top-right" />
