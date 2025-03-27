@@ -34,7 +34,7 @@ export default function RootLayout({
           "min-h-screen  font-sans antialiased bg-slate-50",
           fontSans.variable
         )}>
-        <div className=" px-2 sm:px-10  md:px-12 lg:px-28 ">
+        <div className="  ">
           <ClientSessionProvider>
             <StoreProvider>
               <main>{children}</main>
