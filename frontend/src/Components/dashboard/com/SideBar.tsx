@@ -114,8 +114,8 @@ export const SideBar = ({ session }: NavbarProps) => {
         <div
           className={`fixed inset-y-0 left-0 z-40 transform ${
             isMobileOpen ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 transition-transform duration-300 ease-in-out ${
-            isCollapsed ? "w-20" : "w-64"
+          } md:translate-x-0 transition-all duration-300 ease-in-out ${
+            isCollapsed ? "w-20 delay-[40]" : "w-64 delay-[40]"
           } bg-gradient-to-b from-gray-50 to-gray-100 shadow-xl`}>
           <div className="flex flex-col h-full p-4">
             {/* Header */}
