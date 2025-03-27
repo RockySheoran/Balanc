@@ -7,16 +7,17 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react"; // Assuming you're using NextAuth.js
 import LogoutModal from "@/Components/Auth/LogoutModal";
 import UserAvatar from "@/Components/base/UserAvatar";
-interface NavbarProps {
-  session: any // Replace `any` with a proper type for your session data
+interface SideBarProps {
+  session: any; // Replace 'Session' with your actual session type
+  isCollapsed: boolean;
+  setIsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
 }
-export const SideBar = ({ session }: NavbarProps) => {
+export const SideBar: React.FC<SideBarProps> = ({ session ,isCollapsed, setIsCollapsed }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
-  
   // Close mobile sidebar when route changes
   useEffect(() => {
     setIsMobileOpen(false)
@@ -71,7 +72,7 @@ export const SideBar = ({ session }: NavbarProps) => {
 
   return (
     <>
-      <div className="relative w-64 ">
+      <div className={`${isCollapsed ? "w-20 " : "md:w-64 "}`}>
         {/* Mobile Hamburger Button */}
         <button
           onClick={toggleSidebar}
