@@ -11,6 +11,8 @@ import { BalanceCardComponent } from "./com/BalanceCardComponentGrid"
 import { RecentTransaction } from "./com/recentTransaction"
 
 import {ExpenseTracker } from "./com/ExpenseTracker"
+import IncomeDashboard from "./com/IncomeDashboard"
+import InvestmentTracker from "./com/InvestmentTracker"
 
 interface SessionProps {
     session: Session | any
@@ -31,6 +33,8 @@ export default function DashboardWrapper({ session }:SessionProps) {
           <BalanceCardComponent />
           <RecentTransaction />
           <ExpenseTracker />
+          <IncomeDashboard/>
+          <InvestmentTracker/>
         </div>
       </div>
     </div>
