@@ -14,6 +14,8 @@ import {
 } from "@/Components/ui/alert-dialog"
 import { signOut } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAppDispatch } from "@/lib/Redux/hooks"
+import { setUser } from "@/lib/Redux/features/user/userInfoSlice"
 
 export default function LogoutModal({
   open,
@@ -22,8 +24,15 @@ export default function LogoutModal({
   open: boolean
   setOpen: Dispatch<SetStateAction<boolean>>
 }) {
+  const dispatch = useAppDispatch();
   const handleLogout = () => {
     signOut({ redirect: true, callbackUrl: "/login" })
+    const data = {
+      name: "",
+      email:  "",
+      image:  "",
+    }
+           dispatch(setUser(data))
   }
 
   const handleCancel = () => {

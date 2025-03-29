@@ -25,7 +25,7 @@ export const Login = async(req:Request,res:Response):Promise<any> => {
             return res.status(422).json({errors:{email:"User not found"}})
         }
         // Check if the password is correct
-        const isMatch  = await bcrypt.compare(payload.password,user.password);
+        const isMatch  = await bcrypt.compare(payload.password,user.password!);
         if(!isMatch){
             return res.status(422).json({errors:{password:"Password not correct"}})
         }
@@ -75,7 +75,7 @@ export const Check_Login = async(req:Request,res:Response):Promise<any> => {
             return res.status(422).json({errors:{email:"User not found"}})
         }
         // Check if the password is correct
-        const isMatch  = await bcrypt.compare(payload.password,user.password);
+        const isMatch  = await bcrypt.compare(payload.password,user.password!);
         if(!isMatch){
             return res.status(422).json({errors:{password:"Password not correct"}})
         }

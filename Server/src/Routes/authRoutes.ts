@@ -7,6 +7,7 @@ import { user } from "../Controller/auth/user.js";
 import { Middleware } from "../Middleware/AuthMiddleWare.js";
 import { forgetPassword } from "../Controller/auth/ForgetPassword.js";
 import { reset_password } from "../Controller/auth/resetPassword.js";
+import { handleGoogleAuth } from "../Controller/auth/Google.js";
 
 
 const authRoute = express.Router()
@@ -14,6 +15,7 @@ const authRoute = express.Router()
 // Define the registration route
 authRoute.post("/register", Registration);
 authRoute.post("/login", Login);
+authRoute.post("/google",handleGoogleAuth)
 authRoute.post("/check/credentials", Check_Login)
 authRoute.get("/user",Middleware ,user);
 authRoute.post("/forget-password",forgetPassword)
