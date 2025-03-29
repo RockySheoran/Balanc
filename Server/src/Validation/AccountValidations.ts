@@ -17,11 +17,10 @@ export const accountSchema = z.object({
     .string()
     .min(3, { message: "Account name must be at least 3 characters long" }),
   type: AccountTypeEnum,
-  income: z
+  income: z.coerce
     .number()
     .nonnegative({ message: "Income cannot be negative" })
     .optional(),
-
 })
 
 // 🎯 Account Update Schema

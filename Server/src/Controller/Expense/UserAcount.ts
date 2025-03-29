@@ -14,14 +14,15 @@ export const AccountController = {
    */
   async getUserAccount(req: Request, res: Response): Promise<any> {
     try {
+      // console.log(req.user)
          if (!req.user) {
            return res.status(401).json({
              success: false,
              message: "Unauthorized",
            })
          }
-      const userId = req.user.Id // Corrected from req.user.Id
-
+      const userId = req?.user?.id // Corrected from req.user.Id
+   
       const account = await prisma.account.findMany({
         where: {
           userId: userId,
@@ -37,6 +38,7 @@ export const AccountController = {
           createdAt: true,
         },
       })
+      console.log(account)
 
       if (!account) {
         return res.status(404).json({
@@ -74,7 +76,7 @@ async createAccount(req: Request, res: Response): Promise<any> {
         });
       }
         console.log(req.user)
-      const userId = req.user?.Id;
+      const userId = req.user?.id;
       const data= req.body
       const payload = accountSchema.parse(data);
          console.log(userId)

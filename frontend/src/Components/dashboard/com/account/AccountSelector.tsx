@@ -1,5 +1,5 @@
 /** @format */
-
+"use client"
 import { useEffect, useState } from "react"
 import { Button } from "@/Components/ui/button"
 import {
@@ -18,36 +18,79 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select"
-import { IoEye, IoEyeOff } from "react-icons/io5"
 import { useFormState } from "react-dom"
 import { toast } from "sonner"
 import { CreateAccountAction } from "@/Actions/AccountActions/CreateAccountAction"
+import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount"
+
+interface Account {
+  id: string
+  name: string
+  type: string
+  income?: number
+}
+
+interface FormState {
+  message: string
+  status: number
+  errors: Record<string, string[]>
+  data: Account | null
+}
 
 export function AccountSelector() {
-  const [selectedAccount, setSelectedAccount] = useState("account1")
-  const [eyeOpen, setEyeOpen] = useState(false)
-   const initialState = {
-     message: "",
-     status: 0,
-     errors: {},
-     data: {},
-   }
-     const [state, formAction] = useFormState(CreateAccountAction, initialState)
-    useEffect(() => {
-      if (state.status === 500) {
-        toast.error(state.message)
-      } else if (state.status === 200) {
-        toast.success(state.message)
-       
-        console.log(state.data)
-       
+  const [allAccounts, setAllAccounts] = useState<Account[]>([])
+  const [selectedAccount, setSelectedAccount] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const initialState: FormState = {
+    message: "",
+    status: 0,
+    errors: {},
+    data: null,
+  }
+
+  const [state, formAction] = useFormState(CreateAccountAction, initialState)
+
+  // Fetch accounts on mount
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        setIsLoading(true)
+        const response = await getAllAccounts()
+
+        if (response.status !== 200 || !response.data) {
+          throw new Error(response.message || "Failed to fetch accounts")
+        }
+
+        setAllAccounts(response.data)
+        if (response.data.length > 0) {
+          setSelectedAccount(response.data[0].id)
+        }
+      } catch (err) {
+        setError(err.message)
+        toast.error("Failed to load accounts")
+      } finally {
+        setIsLoading(false)
       }
-    }, [state])
-  const accounts = [
-    { id: "account1", name: "Personal Account" },
-    { id: "account2", name: "Business Account" },
-    { id: "account3", name: "Family Account" },
-  ]
+    }
+
+    fetchAccounts()
+  }, [])
+
+  // Handle form state changes
+  useEffect(() => {
+    if (state.status === 500) {
+      toast.error(state.message)
+    } else if (state.status === 200) {
+      toast.success(state.message)
+      // Refresh accounts after successful creation
+      if (state.data) {
+        setAllAccounts((prev) => [...prev, state.data!])
+        setSelectedAccount(state.data.id)
+      }
+    }
+  }, [state])
 
   const accountTypes = [
     { value: "SAVINGS", label: "Savings" },
@@ -55,8 +98,6 @@ export function AccountSelector() {
     { value: "CREDIT", label: "Credit" },
     { value: "INVESTMENT", label: "Investment" },
   ]
-
-  
 
   return (
     <div className="w-full max-w-md space-y-4">
@@ -87,17 +128,20 @@ export function AccountSelector() {
                   placeholder="e.g., My Savings Account"
                   name="name"
                   id="name"
+                  required
                 />
-                <span className="text-red-400">
-                  {state.errors?.name?.join(", ")}
-                </span>
+                {state.errors?.name && (
+                  <p className="mt-1 text-sm text-red-500">
+                    {state.errors.name}
+                  </p>
+                )}
               </div>
 
               <div className="mt-4">
                 <Label className="my-2" htmlFor="type">
                   Account Type
                 </Label>
-                <Select name="type">
+                <Select name="type" required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select account type" />
                   </SelectTrigger>
@@ -109,9 +153,11 @@ export function AccountSelector() {
                     ))}
                   </SelectContent>
                 </Select>
-                <span className="text-red-400">
-                  {state.errors?.type?.join(", ")}
-                </span>
+                {state.errors?.type && (
+                  <p className="mt-1 text-sm text-red-500">
+                    {state.errors.type}
+                  </p>
+                )}
               </div>
 
               <div className="mt-4">
@@ -124,13 +170,14 @@ export function AccountSelector() {
                   name="income"
                   id="income"
                   min="0"
+                  step="0.01"
                 />
-                <span className="text-red-400">
-                  {state.errors?.income?.join(", ")}
-                </span>
+                {state.errors?.income && (
+                  <p className="mt-1 text-sm text-red-500">
+                    {state.errors.income}
+                  </p>
+                )}
               </div>
-
-              
 
               <div className="flex justify-end space-x-2 pt-4">
                 <DialogTrigger asChild>
@@ -138,7 +185,9 @@ export function AccountSelector() {
                     Cancel
                   </Button>
                 </DialogTrigger>
-                <Button type="submit">Create Account</Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Creating..." : "Create Account"}
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -146,16 +195,24 @@ export function AccountSelector() {
       </div>
 
       <div className="relative">
-        <select
-          value={selectedAccount}
-          onChange={(e) => setSelectedAccount(e.target.value)}
-          className="block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-600">
-          {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
+        {isLoading ? (
+          <div className="h-10 w-full rounded-md bg-gray-100 dark:bg-gray-800 animate-pulse" />
+        ) : error ? (
+          <p className="text-red-500">{error}</p>
+        ) : allAccounts.length === 0 ? (
+          <p className="text-gray-500">No accounts available</p>
+        ) : (
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            className="block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-600">
+            {allAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name} ({account.type})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
     </div>
   )

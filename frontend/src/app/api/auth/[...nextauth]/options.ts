@@ -93,10 +93,10 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           image: user.image,
-          provider: user?.provider || account?.provider,
-          googleId: user?.googleId,
+          provider: (user as CustomUser)?.provider || account?.provider,
+          googleId: (user as CustomUser)?.googleId,
         }
-        token.token = user.token
+        token.token = (user as CustomUser)?.token
       }
       return token
     },

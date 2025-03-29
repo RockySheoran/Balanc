@@ -36,7 +36,7 @@ export const Login = async (req: Request, res: Response): Promise<any> => {
         .json({ errors: { password: "Password not correct" } })
     }
     let JWTPayload = {
-      Id: user.id,
+      id: user.id,
       name: user.name,
       email: user.email,
     }

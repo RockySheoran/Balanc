@@ -4,7 +4,7 @@
 import { CREATE_ACCOUNT_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
 import { headers } from "next/headers"
-import { getServerSession } from "next-auth"
+import { getServerSession, Session } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/options"
 
 interface AccountActionResponse {
@@ -25,8 +25,8 @@ export const CreateAccountAction = async (
   formData: FormData
 ): Promise<AccountActionResponse> => {
   // Get session on server side
-  const session = await getServerSession(authOptions)
-
+  const session = await getServerSession(authOptions) as Session & { token?: string }
+  
   if (!session?.token) {
     return {
       status: 401,
@@ -41,6 +41,7 @@ export const CreateAccountAction = async (
     income: formData.get("income"),
   }
 
+//  console.log(data)
   try {
     const response = await axios.post(CREATE_ACCOUNT_URL, data, {
       headers: {
@@ -48,7 +49,7 @@ export const CreateAccountAction = async (
         "Content-Type": "application/json",
       },
     })
-
+// console.log(response)
     return {
       status: 200,
       message: "Account created successfully",
@@ -56,29 +57,22 @@ export const CreateAccountAction = async (
       data: response.data,
     }
   } catch (error) {
-    const axiosError = error as AxiosError
+     if (error instanceof AxiosError) {
+       if (error.response?.status === 422) {
+         return {
+           status: 422,
+           message: error.response?.data?.message,
+           errors: error.response?.data?.errors,
+         }
+       }
+     }
+     return {
+       status: 500,
+       message: "Something went wrong.please try again!",
+       errors: {},
+       data: {},
+     }
 
-    if (axiosError.response?.status === 401) {
-      return {
-        status: 401,
-        message: "Session expired - Please login again",
-        errors: {},
-      }
-    }
-
-    if (axiosError.response?.status === 422) {
-      return {
-        status: 422,
-        message: axiosError.response.data?.message || "Validation failed",
-        errors: axiosError.response.data?.errors || {},
-      }
-    }
-
-    console.error("Account creation error:", error)
-    return {
-      status: 500,
-      message: "Something went wrong. Please try again!",
-      errors: {},
-    }
+    
   }
 }

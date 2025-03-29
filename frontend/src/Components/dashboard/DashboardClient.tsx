@@ -33,7 +33,7 @@ export default function DashboardClient({
         email: session.user?.email || "",
         image: session.user?.image || "",
       }
-     console.log(data)
+    //  console.log(data)
       dispatch(setUser(data))
     }
   }, [session, dispatch])
