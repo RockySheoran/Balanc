@@ -6,8 +6,9 @@
 import { useEffect } from "react"
 
 import { signOut } from "next-auth/react"
-import { useAppDispatch } from "@/lib/Redux/hooks"
+
 import { setUser } from "@/lib/Redux/features/user/userInfoSlice"
+import { useAppDispatch } from "@/lib/Redux/hooks"
 
 interface SessionProps {
   session: {
@@ -21,7 +22,7 @@ interface SessionProps {
 
 export default function DashboardClient({ session }: SessionProps) {
   const dispatch = useAppDispatch()
-
+  // console.log(session?.user)
   useEffect(() => {
     if (!session) {
       signOut({ redirect: true, callbackUrl: "/login" })
@@ -31,6 +32,7 @@ export default function DashboardClient({ session }: SessionProps) {
         email: session.user?.email || "",
         image: session.user?.image || "",
       }
+  
       dispatch(setUser(data))
     }
   }, [session, dispatch])

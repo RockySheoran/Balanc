@@ -213,7 +213,7 @@ export const SideBar: React.FC<SideBarProps> = ({ session ,isCollapsed, setIsCol
                   }`}>
                   <div className="relative">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
-                      <UserAvatar user={session.user} />
+                      <UserAvatar user={session?.user} />
                     </div>
                   </div>
 

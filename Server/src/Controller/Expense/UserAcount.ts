@@ -73,12 +73,13 @@ async createAccount(req: Request, res: Response): Promise<any> {
           message: "Unauthorized",
         });
       }
-      //   console.log(req.user)
+        console.log(req.user)
       const userId = req.user?.Id;
       const data= req.body
       const payload = accountSchema.parse(data);
-        //  console.log(userId)
+         console.log(userId)
       // Validate input
+      console.log(payload)
       
 
       const account = await prisma.account.create({

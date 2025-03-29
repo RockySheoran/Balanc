@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET_KEY as string
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "30d"
 
 // Helper function to send authentication response
-const sendAuthResponse = (res: Response, user: any, isNewUser: boolean) => {
+const sendAuthResponse = (res: Response, user: any, isNewUser: boolean) :Promise<any>=> {
   const token = jwt.sign(
     { id: user.id, name: user.name, email: user.email },
     JWT_SECRET,

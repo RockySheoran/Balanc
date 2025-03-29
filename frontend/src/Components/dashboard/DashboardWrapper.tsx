@@ -7,7 +7,7 @@ import { Session } from "next-auth"
 import React, { useState } from "react"
 import DashboardClient from "./DashboardClient"
 import { SideBar } from "./com/SideBar"
-import { BalanceCardComponent } from "./com/BalanceCardComponentGrid"
+import { BalanceCardComponent } from "./com/account/BalanceCardComponentGrid"
 import { RecentTransaction } from "./com/recentTransaction"
 
 import {ExpenseTracker } from "./com/ExpenseTracker"

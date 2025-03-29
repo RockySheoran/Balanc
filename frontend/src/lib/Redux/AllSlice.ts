@@ -3,8 +3,8 @@
 import { combineReducers } from "@reduxjs/toolkit"
 import userSlice from "./features/user/userInfoSlice"
 
-const rootReducer = combineReducers({
+const AllSlice = combineReducers({
   userInfo: userSlice,
 })
 
-export default rootReducer
+export default AllSlice

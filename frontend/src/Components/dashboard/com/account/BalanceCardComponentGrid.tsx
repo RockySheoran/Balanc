@@ -2,10 +2,17 @@
 
 "use client"
 
+import { Button } from "@/Components/ui/button"
+import { AccountSelector } from "./AccountSelector"
+
 export const BalanceCardComponent = () => {
+
   return (
-    <div className="w-full mt-10 px-4 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-7xl w-full mx-auto">
+    <div className="w-full mt-10 px-4 sm:px-6 lg:px-8 gap-4">
+      <div className="chooseAccount w-full flex flex-col justify-end items-end ">
+        <AccountSelector/>
+      </div>
+      <div className="grid grid-cols-1 mt-6 sm:grid-cols-3 gap-4 max-w-7xl w-full mx-auto">
         {/* Total Balance Card */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-gray-100 w-full">
           <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100">

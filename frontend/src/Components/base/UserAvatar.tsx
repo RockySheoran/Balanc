@@ -1,6 +1,5 @@
 /** @format */
-
-"use client" // Mark this component as a client component
+"use client"
 
 import React from "react"
 import { Avatar, AvatarFallback } from "@/Components/ui/avatar"
@@ -15,12 +14,18 @@ interface UserAvatarProps {
 
 export default function UserAvatar({ user }: UserAvatarProps) {
   return (
-    <Avatar>
-      {user.image ? (
-        <img src={user.image} alt={user.name || "User"} />
+    <Avatar className="relative h-10 w-10">
+      {user?.image ? (
+        // Using regular img tag instead of Next.js Image
+        <img
+          src={user.image}
+          alt={user.name || "User"}
+          className="h-full w-full object-cover"
+          referrerPolicy="no-referrer" // Important for Google images
+        />
       ) : (
-        <AvatarFallback>
-          {user.name
+        <AvatarFallback className="h-full w-full">
+          {user?.name
             ? user.name
                 .split(" ")
                 .map((part) => part[0])
