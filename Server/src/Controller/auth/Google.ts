@@ -1,40 +1,24 @@
-/** @format */
-// src/controllers/auth.controller.ts
+/**
+ * Handles Google OAuth authentication
+ *
+ * @format
+ */
 import { Request, Response } from "express"
-import jwt from "jsonwebtoken"
+import { loginSchema } from "../../Validation/AuthValidation.js"
 import prisma from "../../Config/DataBase.js"
-
+import bcrypt from "bcrypt"
+import { ZodError } from "zod"
+import { formatError } from "../../helper.js"
+import jwt from "jsonwebtoken"
 const JWT_SECRET = process.env.JWT_SECRET_KEY as string
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "30d"
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "10d"
 
-// Helper function to send authentication response
-const sendAuthResponse = (res: Response, user: any, isNewUser: boolean) :Promise<any>=> {
-  const token = jwt.sign(
-    { id: user.id, name: user.name, email: user.email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  )
-
-  return res.json({
-    success: true,
-    token,
-    isNewUser,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      image: user.image,
-      provider: user.provider,
-      verified: user.verified,
-    },
-  })
-}
-
-// Handle Google OAuth registration/login
-export const handleGoogleAuth = async (req: Request, res: Response) : Promise<any> => {
+export const handleGoogleAuth = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   try {
     const { email, name, image, googleId } = req.body
-    // console.log(email, name, image, googleId)
 
     // Validate required fields
     if (!email || !googleId) {
@@ -44,52 +28,49 @@ export const handleGoogleAuth = async (req: Request, res: Response) : Promise<an
       })
     }
 
-    // Check for existing user by googleId first (preferred)
+    // Check for existing user by googleId or email
     let user = await prisma.user.findFirst({
-      where: { googleId },
+      where: {
+        OR: [{ googleId }, { email }],
+      },
     })
-
-    // If no user found by googleId, check by email
-    if (!user) {
-      user = await prisma.user.findUnique({
-        where: { email },
-      })
-    }
 
     // Handle new user registration
     if (!user) {
       user = await prisma.user.create({
         data: {
           email,
-          name,
+          name: name || email.split("@")[0],
           image,
           googleId,
           provider: "google",
           verified: true,
         },
       })
-
       return sendAuthResponse(res, user, true)
     }
 
-    // Handle existing user cases
+    // Handle case where email exists but with different provider
     if (user.provider !== "google") {
       return res.status(400).json({
         success: false,
-        error: "This email is already registered with another method",
+        error: `This email is already registered with ${user.provider}`,
       })
     }
 
-    // Update existing user's profile if needed
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        name: name || user.name,
-        image: image || user.image,
-      },
-    })
+    // Update existing user profile if needed
+    if (!user.googleId || name !== user.name || image !== user.image) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          name: name || user.name,
+          image: image || user.image,
+          googleId: googleId || user.googleId,
+        },
+      })
+    }
 
-    return sendAuthResponse(res, updatedUser, false)
+    return sendAuthResponse(res, user, false)
   } catch (error) {
     console.error("Google auth error:", error)
     return res.status(500).json({
@@ -97,4 +78,40 @@ export const handleGoogleAuth = async (req: Request, res: Response) : Promise<an
       error: "Authentication failed",
     })
   }
+}
+
+/**
+ * Helper function to send authentication response
+ */
+const sendAuthResponse = (
+  res: Response,
+  user: any,
+  isNewUser: boolean
+): Response => {
+  const token = jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      provider: user.provider,
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  )
+
+  return res.json({
+    success: true,
+    isNewUser,
+    data: {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        provider: user.provider,
+        verified: user.verified,
+      },
+    },
+  })
 }

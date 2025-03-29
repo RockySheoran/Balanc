@@ -39,6 +39,7 @@ export const Registration = async (req, res) => {
                 email: payload.email,
                 password: payload.password,
                 email_verify_token: token,
+                provider: "email"
             },
         });
         console.log(a);

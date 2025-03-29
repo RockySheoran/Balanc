@@ -20,9 +20,10 @@ interface SessionProps {
   } | null
 }
 
-export default function DashboardClient({ session }: SessionProps) {
+export default function DashboardClient({
+   session }: SessionProps) {
   const dispatch = useAppDispatch()
-  // console.log(session?.user)
+  // console.log(session.token)
   useEffect(() => {
     if (!session) {
       signOut({ redirect: true, callbackUrl: "/login" })
@@ -32,7 +33,7 @@ export default function DashboardClient({ session }: SessionProps) {
         email: session.user?.email || "",
         image: session.user?.image || "",
       }
-  
+     console.log(data)
       dispatch(setUser(data))
     }
   }, [session, dispatch])

@@ -52,6 +52,7 @@ console.log(user)
        email: payload.email,
        password: payload.password,
        email_verify_token: token,
+       provider:"email"
      },
    })
     console.log(a)

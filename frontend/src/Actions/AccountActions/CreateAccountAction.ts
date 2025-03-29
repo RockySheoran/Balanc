@@ -1,45 +1,84 @@
-
+/** @format */
 "use server"
+
 import { CREATE_ACCOUNT_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
+import { headers } from "next/headers"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/options"
 
-export const CreateAccountAction = async  (prevState:any,formData:FormData)=>{
-const data ={
-       name:formData.get("name"),
-       type:formData.get("type"),
-       income:formData.get("income")
+interface AccountActionResponse {
+  status: number
+  message: string
+  errors: Record<string, string[]>
+  data?: any
+}
+
+interface AccountFormData {
+  name: FormDataEntryValue | null
+  type: FormDataEntryValue | null
+  income: FormDataEntryValue | null
+}
+
+export const CreateAccountAction = async (
+  prevState: AccountActionResponse | null,
+  formData: FormData
+): Promise<AccountActionResponse> => {
+  // Get session on server side
+  const session = await getServerSession(authOptions)
+
+  if (!session?.token) {
+    return {
+      status: 401,
+      message: "Unauthorized - Please login first",
+      errors: {},
     }
-    console.log(data)
-try {
-  console.log(CREATE_ACCOUNT_URL)
-  const response = await axios.post(CREATE_ACCOUNT_URL,{
-       name:formData.get("name"),
-       type:formData.get("type"),
-       income:formData.get("income")
+  }
+
+  const data: AccountFormData = {
+    name: formData.get("name"),
+    type: formData.get("type"),
+    income: formData.get("income"),
+  }
+
+  try {
+    const response = await axios.post(CREATE_ACCOUNT_URL, data, {
+      headers: {
+        Authorization: ` ${session?.token}`,
+        "Content-Type": "application/json",
+      },
     })
-    console.log(response)
+
     return {
       status: 200,
       message: "Account created successfully",
-      errors: {}
+      errors: {},
+      data: response.data,
     }
-   
-    
-} catch (error) {
-    if (error instanceof AxiosError) {
-          if (error.response?.status === 422) {
-            return {
-              status: 422,
-              message: error.response?.data?.message,
-              errors: error.response?.data?.errors,
-            }
-          }
-        }
-        return {
-          status: 500,
-          message: "Something went wrong.please try again!",
-          errors: {},
-          data: {},
-        }
-}
+  } catch (error) {
+    const axiosError = error as AxiosError
+
+    if (axiosError.response?.status === 401) {
+      return {
+        status: 401,
+        message: "Session expired - Please login again",
+        errors: {},
+      }
+    }
+
+    if (axiosError.response?.status === 422) {
+      return {
+        status: 422,
+        message: axiosError.response.data?.message || "Validation failed",
+        errors: axiosError.response.data?.errors || {},
+      }
+    }
+
+    console.error("Account creation error:", error)
+    return {
+      status: 500,
+      message: "Something went wrong. Please try again!",
+      errors: {},
+    }
+  }
 }
