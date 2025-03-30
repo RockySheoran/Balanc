@@ -1,42 +1,43 @@
 /** @format */
+
 import type { Metadata } from "next"
-import { Inter as FontSans } from "next/font/google"
+import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/Components/ui/sonner"
-import { cn } from "@/lib/utils"
-import ClientSessionProvider from "./provider/ClientSessionProvider"
-import NavbarComponent from "@/Components/base/navbar"
-import StoreProvider from "./StoreProvider"
+import StoreProvider from "./providers/StoreProvider"
 
-const fontSans = FontSans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-})
+import { getServerSession } from "next-auth"
+import { authOptions } from "./api/auth/[...nextauth]/options"
+import { Session } from "inspector/promises"
+
+import ReduxProvider from "./providers/ReduxProvider"
+import ClientSessionProvider from "./providers/ClientSessionProvider"
+
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "PFM App",
-  description: "Add your VS to start clashing",
+  title: "Next.js Redux Template",
+  description: "Next.js with Redux Toolkit and TypeScript",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
+    const session = await getServerSession(authOptions) as Session & { token?: string }
+  
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          "min-h-screen font-sans antialiased bg-slate-50",
-          fontSans.variable
-        )}>
-        <ClientSessionProvider>
-          <StoreProvider>
-            {/* <NavbarComponent /> */}
-            <main>{children}</main>
-          </StoreProvider>
-        </ClientSessionProvider>
-        <Toaster richColors position="top-right" />
+    <html lang="en">
+      <body className={inter.className}>
+        <ReduxProvider>
+          <ClientSessionProvider>
+
+          <main className="container mx-auto ">{children}</main>
+          </ClientSessionProvider>
+          <Toaster richColors position="top-right" />
+        </ReduxProvider>
       </body>
     </html>
   )

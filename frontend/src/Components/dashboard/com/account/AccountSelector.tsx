@@ -1,6 +1,6 @@
 /** @format */
 "use client"
-import { useEffect, useState } from "react"
+import { useActionState, useEffect } from "react"
 import { Button } from "@/Components/ui/button"
 import {
   Dialog,
@@ -18,10 +18,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select"
-import { useFormState } from "react-dom"
+import { useFormState, useFormStatus } from "react-dom"
 import { toast } from "sonner"
 import { CreateAccountAction } from "@/Actions/AccountActions/CreateAccountAction"
 import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount"
+import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
+import {
+  addAccount,
+  selectAccount,
+  setAccounts,
+} from "@/lib/Redux/features/account/accountSlice"
+import { PlusIcon, ChevronDownIcon } from "./Icons"
+import { Skeleton } from "@/Components/ui/skeleton"
+import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card"
 
 interface Account {
   id: string
@@ -38,10 +47,11 @@ interface FormState {
 }
 
 export function AccountSelector() {
-  const [allAccounts, setAllAccounts] = useState<Account[]>([])
-  const [selectedAccount, setSelectedAccount] = useState<string>("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const dispatch = useAppDispatch()
+  const { allAccounts, selectedAccount, isLoading, error } = useAppSelector(
+    (state) => state.account
+  )
+  const { pending } = useFormStatus()
 
   const initialState: FormState = {
     message: "",
@@ -50,33 +60,29 @@ export function AccountSelector() {
     data: null,
   }
 
-  const [state, formAction] = useFormState(CreateAccountAction, initialState)
+  const [state, formAction] = useActionState(CreateAccountAction, initialState)
 
   // Fetch accounts on mount
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        setIsLoading(true)
         const response = await getAllAccounts()
-
         if (response.status !== 200 || !response.data) {
           throw new Error(response.message || "Failed to fetch accounts")
         }
-
-        setAllAccounts(response.data)
+        dispatch(setAccounts(response.data))
         if (response.data.length > 0) {
-          setSelectedAccount(response.data[0].id)
+          dispatch(selectAccount(response.data[0].id))
         }
       } catch (err) {
-        setError(err.message)
-        toast.error("Failed to load accounts")
-      } finally {
-        setIsLoading(false)
+        toast.error(
+          err instanceof Error ? err.message : "An unknown error occurred"
+        )
       }
     }
 
     fetchAccounts()
-  }, [])
+  }, [dispatch])
 
   // Handle form state changes
   useEffect(() => {
@@ -84,155 +90,242 @@ export function AccountSelector() {
       toast.error(state.message)
     } else if (state.status === 200) {
       toast.success(state.message)
-      // Refresh accounts after successful creation
       if (state.data) {
-        setAllAccounts((prev) => [...prev, state.data!])
-        setSelectedAccount(state.data.id)
+        dispatch(addAccount(state.data))
+        dispatch(selectAccount(state.data.id))
       }
     }
-  }, [state])
+  }, [state, dispatch])
 
   const accountTypes = [
-    { value: "SAVINGS", label: "Savings" },
-    { value: "CHECKING", label: "Checking" },
-    { value: "CREDIT", label: "Credit" },
-    { value: "INVESTMENT", label: "Investment" },
+    { value: "SAVINGS", label: "Savings", color: "text-emerald-500" },
+    { value: "CHECKING", label: "Checking", color: "text-blue-500" },
+    { value: "CREDIT", label: "Credit", color: "text-amber-500" },
+    { value: "INVESTMENT", label: "Investment", color: "text-purple-500" },
   ]
 
+  const getTypeColor = (type: string) => {
+    return accountTypes.find((t) => t.value === type)?.color || "text-gray-500"
+  }
+
   return (
-    <div className="w-full max-w-md space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-          Choose Account
-        </h2>
+    <Card className="w-full max-w-md border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-primary/10 to-secondary/10 p-6">
+        <div className="flex justify-between items-center  ">
+          <CardTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+            Account Management
+          </CardTitle>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <PlusIcon className="mr-2 h-4 w-4" />
-              New Account
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-primary">
-                Create New Account
-              </DialogTitle>
-            </DialogHeader>
-            <form action={formAction}>
-              <div className="mt-4">
-                <Label className="my-2" htmlFor="name">
-                  Account Name
-                </Label>
-                <Input
-                  placeholder="e.g., My Savings Account"
-                  name="name"
-                  id="name"
-                  required
-                />
-                {state.errors?.name && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {state.errors.name}
-                  </p>
-                )}
-              </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="default"
+                size="sm"
+                className="shadow-md hover:shadow-lg content-center transition-shadow">
+                <PlusIcon className="mr-2 h-4 w-4" />
+                <span className="hidden sm:block">New Account</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] rounded-lg">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold text-primary">
+                  Create New Account
+                </DialogTitle>
+              </DialogHeader>
+              <form action={formAction} className="space-y-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="name"
+                    className="text-gray-700 dark:text-gray-300">
+                    Account Name
+                  </Label>
+                  <Input
+                    placeholder="e.g., My Savings Account"
+                    name="name"
+                    id="name"
+                    required
+                    className="focus:ring-2 focus:ring-primary/50"
+                  />
+                  {state.errors?.name && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {state.errors.name}
+                    </p>
+                  )}
+                </div>
 
-              <div className="mt-4">
-                <Label className="my-2" htmlFor="type">
-                  Account Type
-                </Label>
-                <Select name="type" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select account type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accountTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {state.errors?.type && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {state.errors.type}
-                  </p>
-                )}
-              </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="type"
+                    className="text-gray-700 dark:text-gray-300">
+                    Account Type
+                  </Label>
+                  <Select name="type" required>
+                    <SelectTrigger className="w-full focus:ring-2 focus:ring-primary/50">
+                      <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-md border border-gray-200 dark:border-gray-700 shadow-lg">
+                      {accountTypes.map((type) => (
+                        <SelectItem
+                          key={type.value}
+                          value={type.value}
+                          className={`${type.color} hover:bg-gray-100 dark:hover:bg-gray-800`}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {state.errors?.type && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {state.errors.type}
+                    </p>
+                  )}
+                </div>
 
-              <div className="mt-4">
-                <Label className="my-2" htmlFor="income">
-                  Monthly Income (Optional)
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  name="income"
-                  id="income"
-                  min="0"
-                  step="0.01"
-                />
-                {state.errors?.income && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {state.errors.income}
-                  </p>
-                )}
-              </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="income"
+                    className="text-gray-700 dark:text-gray-300">
+                    Monthly Income (Optional)
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    name="income"
+                    id="income"
+                    min="0"
+                    step="0.01"
+                    className="focus:ring-2 focus:ring-primary/50"
+                  />
+                  {state.errors?.income && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {state.errors.income}
+                    </p>
+                  )}
+                </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
-                <DialogTrigger asChild>
-                  <Button type="button" variant="outline">
-                    Cancel
+                <div className="flex justify-end space-x-3 pt-4">
+                  <DialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800">
+                      Cancel
+                    </Button>
+                  </DialogTrigger>
+                  <Button
+                    type="submit"
+                    disabled={pending}
+                    className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all">
+                    {pending ? (
+                      <span className="flex items-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creating...
+                      </span>
+                    ) : (
+                      "Create Account"
+                    )}
                   </Button>
-                </DialogTrigger>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? "Creating..." : "Create Account"}
-                </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300">
+            Select Account
+          </h3>
+
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-4 w-1/2 rounded-md" />
+            </div>
+          ) : error ? (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800">
+              <p className="text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          ) : allAccounts.length === 0 ? (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 text-center">
+              <p className="text-blue-600 dark:text-blue-400">
+                No accounts available. Create your first account!
+              </p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <ChevronDownIcon className="h-5 w-5 text-gray-400" />
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+              <select
+                value={selectedAccount?.id || ""}
+                onChange={(e) => dispatch(selectAccount(e.target.value))}
+                className="appearance-none block w-full px-4 py-3 pr-10 text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all cursor-pointer">
+                {allAccounts.map((account) => (
+                  <option
+                    key={account.id}
+                    value={account.id}
+                    className={`${getTypeColor(
+                      account.type
+                    )} bg-white dark:bg-gray-800`}>
+                    {account.name} ({account.type})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-      <div className="relative">
-        {isLoading ? (
-          <div className="h-10 w-full rounded-md bg-gray-100 dark:bg-gray-800 animate-pulse" />
-        ) : error ? (
-          <p className="text-red-500">{error}</p>
-        ) : allAccounts.length === 0 ? (
-          <p className="text-gray-500">No accounts available</p>
-        ) : (
-          <select
-            value={selectedAccount}
-            onChange={(e) => setSelectedAccount(e.target.value)}
-            className="block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-600">
-            {allAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name} ({account.type})
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-    </div>
-  )
-}
+          {selectedAccount && (
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h4 className="font-medium text-gray-800 dark:text-white mb-2">
+                Selected Account Details
+              </h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="text-gray-600 dark:text-gray-400">Name:</div>
+                <div className="font-medium text-gray-800 dark:text-white">
+                  {selectedAccount.name}
+                </div>
 
-function PlusIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round">
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </svg>
+                <div className="text-gray-600 dark:text-gray-400">Type:</div>
+                <div
+                  className={`font-medium ${getTypeColor(
+                    selectedAccount.type
+                  )}`}>
+                  {selectedAccount.type}
+                </div>
+
+                {selectedAccount.income && (
+                  <>
+                    <div className="text-gray-600 dark:text-gray-400">
+                      Income:
+                    </div>
+                    <div className="font-medium text-gray-800 dark:text-white">
+                      ${selectedAccount.income.toFixed(2)}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

@@ -1,7 +1,7 @@
 /** @format */
 
 "use client"
-import React, { useEffect, useState } from "react"
+import React, { useActionState, useEffect, useState } from "react"
 import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
 
@@ -22,7 +22,7 @@ export default function Register() {
     status: 0,
     errors: {},
   }
-  const [state, formAction] = useFormState(registerAction, initialState)
+  const [state, formAction] = useActionState(registerAction, initialState)
 
   // console.log("object")
   console.log(state)

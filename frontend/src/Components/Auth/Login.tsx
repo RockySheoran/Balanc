@@ -1,7 +1,7 @@
 /** @format */
 
 "use client"
-import React, { useEffect, useState } from "react"
+import React, { useActionState, useEffect, useState } from "react"
 import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
 
@@ -25,7 +25,7 @@ export default function Login() {
     errors: {},
     data: {},
   }
-  const [state, formAction] = useFormState(loginAction, initialState)
+  const [state, formAction] = useActionState(loginAction, initialState)
 
   useEffect(() => {
     if (state.status === 500) {

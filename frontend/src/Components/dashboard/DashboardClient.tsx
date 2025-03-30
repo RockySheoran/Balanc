@@ -6,9 +6,9 @@
 import { useEffect } from "react"
 
 import { signOut } from "next-auth/react"
+import { useAppDispatch } from "@/lib/Redux/store/hooks"
+import { setUser } from "@/lib/Redux/features/user/userSlice"
 
-import { setUser } from "@/lib/Redux/features/user/userInfoSlice"
-import { useAppDispatch } from "@/lib/Redux/hooks"
 
 interface SessionProps {
   session: {
@@ -20,8 +20,7 @@ interface SessionProps {
   } | null
 }
 
-export default function DashboardClient({
-   session }: SessionProps) {
+export default function DashboardClient({ session }: SessionProps) {
   const dispatch = useAppDispatch()
   // console.log(session.token)
   useEffect(() => {
@@ -29,17 +28,15 @@ export default function DashboardClient({
       signOut({ redirect: true, callbackUrl: "/login" })
     } else {
       const data = {
+        id: null, // Add a default value for id
         name: session.user?.name || "",
         email: session.user?.email || "",
         image: session.user?.image || "",
+        token: session?.token || "",
       }
-    //  console.log(data)
+       console.log(data)
       dispatch(setUser(data))
     }
   }, [session, dispatch])
-  return (
-    <></>
-  )
-
- 
+  return <></>
 }

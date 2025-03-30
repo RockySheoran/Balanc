@@ -4,13 +4,16 @@
 
 import { Button } from "@/Components/ui/button"
 import { AccountSelector } from "./AccountSelector"
-
+import { useAppSelector } from "@/lib/Redux/store/hooks"
 export const BalanceCardComponent = () => {
-
+  
+  const { selectedAccount} = useAppSelector(
+     (state) => state.account
+   )
   return (
     <div className="w-full mt-10 px-4 sm:px-6 lg:px-8 gap-4">
       <div className="chooseAccount w-full flex flex-col justify-end items-end ">
-        <AccountSelector/>
+        <AccountSelector />
       </div>
       <div className="grid grid-cols-1 mt-6 sm:grid-cols-3 gap-4 max-w-7xl w-full mx-auto">
         {/* Total Balance Card */}
@@ -37,7 +40,7 @@ export const BalanceCardComponent = () => {
               </div>
             </div>
             <h2 className="mt-3 text-3xl font-semibold text-gray-900">
-              $5,280.90
+              ${selectedAccount?.balance}
             </h2>
             <p className="mt-2 text-sm text-blue-600 flex items-center">
               <svg
@@ -82,7 +85,7 @@ export const BalanceCardComponent = () => {
               </div>
             </div>
             <h2 className="mt-3 text-3xl font-semibold text-gray-900">
-              $3,450.00
+              ${selectedAccount?.income}
             </h2>
             <p className="mt-2 text-sm text-green-600 flex items-center">
               <svg
@@ -127,7 +130,7 @@ export const BalanceCardComponent = () => {
               </div>
             </div>
             <h2 className="mt-3 text-3xl font-semibold text-gray-900">
-              $1,830.90
+              ${selectedAccount?.totalExpense}
             </h2>
             <p className="mt-2 text-sm text-purple-600 flex items-center">
               <svg

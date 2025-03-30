@@ -13,7 +13,7 @@ import { signIn } from "next-auth/react"
 export default async function login() {
   const session = await getServerSession(authOptions)
   if (session !== null) {
-    redirect("/")
+    redirect("/dashboard")
   }
   
 
