@@ -127,22 +127,23 @@ async createAccount(req: Request, res: Response): Promise<any> {
 
 
 // Delete an account
-export const deleteAccount = async (req: Request, res: Response) => {
+export const deleteAccount = async (req: Request, res: Response):Promise<any> => {
   try {
-    const { id } = req.params
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      })
-    }
-    const userId = req.user?.Id
-
+    // const { id } = req.params
+    // if (!req.user) {
+    //   return res.status(401).json({
+    //     success: false,
+    //     message: "Unauthorized",
+    //   })
+    // }
+    // const userId = req.user?.id;
+    const {accountId }  = req.body;
+console.log(accountId)
     const account = await prisma.account.findUnique({
-      where: { id },
+      where: { id:accountId },
     })
 
-    if (!account || account.userId !== userId) {
+    if (!account ) {
       return res.status(404).json({
         success: false,
         message: "Account not found or unauthorized",
@@ -150,7 +151,10 @@ export const deleteAccount = async (req: Request, res: Response) => {
     }
 
     await prisma.account.delete({
-      where: { id },
+      where: { id:accountId },
+    })
+    await prisma.transaction.deleteMany({
+      where: { id: accountId },
     })
 
     res.status(200).json({

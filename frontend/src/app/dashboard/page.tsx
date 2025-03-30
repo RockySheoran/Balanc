@@ -7,7 +7,7 @@ import DashboardWrapper from '@/Components/dashboard/DashboardWrapper'
 
 const page =async () => {
   const session = await getServerSession(authOptions) as Session & { token?: string }
-          console.log(session)
+          // console.log(session)
 
   return <DashboardWrapper session={session} />;
   
