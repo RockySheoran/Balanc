@@ -5,8 +5,7 @@
 
 import { Session } from "next-auth"
 import React, { useState } from "react"
-import DashboardClient from "./DashboardClient"
-import { SideBar } from "./com/SideBar"
+
 import { BalanceCardComponent } from "./com/account/BalanceCardComponentGrid"
 import { RecentTransaction } from "./com/recentTransaction"
 
@@ -14,22 +13,16 @@ import {ExpenseTracker } from "./com/ExpenseTracker"
 import IncomeDashboard from "./com/IncomeDashboard"
 import InvestmentTracker from "./com/InvestmentTracker"
 
-interface SessionProps {
-    session: Session | any
-}
-export default function DashboardWrapper({ session }:SessionProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+
+export default function DashboardWrapper() {
+  
 
   return (
     <div className="dashboard">
-      <DashboardClient session={session} />
+      
       <div className="flex">
-        <SideBar
-          session={session}
-          isCollapsed={isCollapsed}
-          setIsCollapsed={setIsCollapsed}
-        />
-        <div className={`${isCollapsed ? " " : ""} w-full`}>
+       
+        <div className={` w-full`}>
           <BalanceCardComponent />
           <RecentTransaction />
           <ExpenseTracker />

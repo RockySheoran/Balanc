@@ -10,7 +10,10 @@ import { transactionSchema } from "../../Validation/TransactionsValidation.js"
 const prisma = new PrismaClient()
 
 //! 🎯 Create a Transaction
-export const createTransaction = async (req: Request, res: Response) :Promise<any> => {
+export const createTransaction = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -19,18 +22,18 @@ export const createTransaction = async (req: Request, res: Response) :Promise<an
       })
     }
     //   console.log(req.user)
-    const userId = req.user?.Id
+    const userId = req.user?.id
     const data = req.body
     const payload = await transactionSchema.parse(data)
-     const account = await prisma.account.findUnique({
-       where: {
-         id: payload.accountId,
-       },
-     })
+    const account = await prisma.account.findUnique({
+      where: {
+        id: payload.accountId,
+      },
+    })
 
-     if (!account) {
-       return res.status(404).json({ message: "Account not found" })
-     }
+    if (!account) {
+      return res.status(404).json({ message: "Account not found" })
+    }
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -42,35 +45,33 @@ export const createTransaction = async (req: Request, res: Response) :Promise<an
         description: payload.description,
       },
     })
-let updatedBalance = account.balance || 0
+    let updatedBalance = account.balance || 0
 
-if (payload.type === "CREDIT") {
-  updatedBalance += payload.amount
-} else  {
-  updatedBalance -= payload.amount
-}
-let expense = account.totalExpense || 0;
+    if (payload.type === "CREDIT") {
+      updatedBalance += payload.amount
+    } else {
+      updatedBalance -= payload.amount
+    }
+    let expense = account.totalExpense || 0
 
-if (payload.type === "CREDIT") {
-    
-  
-} else  {
-  expense += payload.amount
-}
+    if (payload.type === "CREDIT") {
+    } else {
+      expense += payload.amount
+    }
 
-// Update the account balance
-await prisma.account.update({
-  where: {
-    id: payload.accountId,
-  },
-  data: {
-    totalExpense: expense,
-    balance: updatedBalance,
-  },
-})
+    // Update the account balance
+    await prisma.account.update({
+      where: {
+        id: payload.accountId,
+      },
+      data: {
+        totalExpense: expense,
+        balance: updatedBalance,
+      },
+    })
     res
       .status(201)
-      .json({ message: "Transaction created successfully", transaction })
+      .json({ message: "Transaction created successfully",data:{ transaction} })
   } catch (error) {
     if (error instanceof ZodError) {
       const errors = await formatError(error)
@@ -81,7 +82,10 @@ await prisma.account.update({
 }
 
 //! 🎯 Get All Transactions
-export const getAllTransactions = async (req: Request, res: Response) :Promise<any> => {
+export const getAllTransactions = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -89,30 +93,37 @@ export const getAllTransactions = async (req: Request, res: Response) :Promise<a
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
+    const { accountId } = req.body
     const transactions = await prisma.transaction.findMany({
       where: {
-        userId,
+        accountId,
       },
       orderBy: {
         date: "desc",
       },
     })
-    res.status(200).json(transactions)
+    res.status(200).json({
+      message: "transaction find successful",
+      data: {
+        transactions,
+      },
+    })
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "Transaction not found",
-        error: (error as Error).message,
-      })
+    res.status(500).json({
+      message: "Transaction not found",
+      error: (error as Error).message,
+    })
   }
 }
 
 // 🎯 Get Transactions by Date
 
 //! 🎯 Get Transactions by Date
-export const getTransactionsByDate = async (req: Request, res: Response) :Promise<any> => {
+export const getTransactionsByDate = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { date } = req.params
 
@@ -153,7 +164,10 @@ export const getTransactionsByDate = async (req: Request, res: Response) :Promis
 }
 
 //! 🎯 Get Transactions by Month
-export const getTransactionsByMonth = async (req: Request, res: Response) :Promise<any> => {
+export const getTransactionsByMonth = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -181,7 +195,10 @@ export const getTransactionsByMonth = async (req: Request, res: Response) :Promi
 }
 
 //! 🎯 Get Transactions by Year
-export const getTransactionsByYear = async (req: Request, res: Response) :Promise<any> => {
+export const getTransactionsByYear = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -208,174 +225,168 @@ export const getTransactionsByYear = async (req: Request, res: Response) :Promis
   }
 }
 
+// //! ❌ Delete Transaction
+// export const deleteTransaction = async (req: Request, res: Response) => {
+//   try {
+//     const { id } = req.params
+//     if (!req.user) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       })
+//     }
+//     const userId = req.user?.Id
 
+//     const transaction = await prisma.transaction.findUnique({
+//       where: { id },
+//     })
 
-//! ❌ Delete Transaction
-export const deleteTransaction = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      })
-    }
-    const userId = req.user?.Id
+//     if (!transaction || transaction.userId !== userId) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Transaction not found or unauthorized",
+//       })
+//     }
+//     const account = await prisma.account.findUnique({
+//       where: { id: transaction.accountId },
+//     })
 
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
-    })
+//     if (!account) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Account not found",
+//       })
+//     }
+//         let updatedBalance = account.balance ?? 0
+//         let updatedTotalExpense = account.totalExpense ?? 0
+//         if(transaction.type === "CREDIT") {
+//           updatedBalance -= transaction.amount
 
-    if (!transaction || transaction.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        message: "Transaction not found or unauthorized",
-      })
-    }
-    const account = await prisma.account.findUnique({
-      where: { id: transaction.accountId },
-    })
+//         }else{
+//           updatedBalance += transaction.amount
+//           updatedTotalExpense -= transaction.amount
+//         }
 
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: "Account not found",
-      })
-    }
-        let updatedBalance = account.balance ?? 0
-        let updatedTotalExpense = account.totalExpense ?? 0
-        if(transaction.type === "CREDIT") {
-          updatedBalance -= transaction.amount
-          
-        }else{
-          updatedBalance += transaction.amount
-          updatedTotalExpense -= transaction.amount
-        }
+//     await prisma.transaction.delete({
+//       where: { id },
+//     })
+// await prisma.account.update({
+//   where: { id: transaction.accountId },
+//   data: {
+//     balance: updatedBalance,
+//     totalExpense: updatedTotalExpense,
+//   },
+// })
+//     res.status(200).json({
+//       success: true,
+//       message: "Transaction deleted successfully",
+//     })
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: (error as Error).message,
+//     })
+//   }
+// }
 
-    await prisma.transaction.delete({
-      where: { id },
-    })
-await prisma.account.update({
-  where: { id: transaction.accountId },
-  data: {
-    balance: updatedBalance,
-    totalExpense: updatedTotalExpense,
-  },
-})
-    res.status(200).json({
-      success: true,
-      message: "Transaction deleted successfully",
-    })
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: (error as Error).message,
-    })
-  }
-}
+// //! ✏️ Update Transaction
+// export const updateTransaction = async (req: Request, res: Response) => {
+//   try {
+//     const { id } = req.params
+//     if (!req.user) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       })
+//     }
+//     const userId = req.user?.Id
+//     const data = req.body
+//     const payload = await transactionSchema.parse(data)
 
-//! ✏️ Update Transaction
-export const updateTransaction = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      })
-    }
-    const userId = req.user?.Id
-    const data = req.body
-    const payload = await transactionSchema.parse(data)
+//     // Fetch existing transaction
+//     const transaction = await prisma.transaction.findUnique({
+//       where: { id },
+//     })
 
-    // Fetch existing transaction
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
-    })
+//     if (!transaction || transaction.userId !== userId) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Transaction not found or unauthorized",
+//       })
+//     }
 
-    if (!transaction || transaction.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        message: "Transaction not found or unauthorized",
-      })
-    }
+//     // Fetch account details
+//     const account = await prisma.account.findUnique({
+//       where: { id: transaction.accountId },
+//     })
 
-    // Fetch account details
-    const account = await prisma.account.findUnique({
-      where: { id: transaction.accountId },
-    })
+//     if (!account) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Account not found",
+//       })
+//     }
 
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: "Account not found",
-      })
-    }
+//     // Revert previous transaction impact on balance and totalExpense
+//     let updatedBalance = account.balance ?? 0
+//     let updatedTotalExpense = account.totalExpense ?? 0
 
-    // Revert previous transaction impact on balance and totalExpense
-    let updatedBalance = account.balance ?? 0
-    let updatedTotalExpense = account.totalExpense ?? 0
+//     if (transaction.type ===  payload.type) {
+//       if(transaction.amount >= payload.amount) {
+//         updatedBalance -= (transaction.amount-payload.amount)
+//          updatedTotalExpense -= transaction.amount - payload.amount
+//       }
+//       else{
+//         updatedBalance +=  payload.amount -transaction.amount
+//       }
 
-    if (transaction.type ===  payload.type) {
-      if(transaction.amount >= payload.amount) {
-        updatedBalance -= (transaction.amount-payload.amount)
-         updatedTotalExpense -= transaction.amount - payload.amount
-      }
-      else{
-        updatedBalance +=  payload.amount -transaction.amount 
-      }
-    
-    } else {
-      if(transaction.type === "CREDIT" && payload.type !== "CREDIT"){
-        updatedBalance -= (transaction.amount + payload.amount)
-        updatedTotalExpense +=payload.amount
-      }
-      else{
-         updatedBalance += transaction.amount + payload.amount
-         updatedTotalExpense -= transaction.amount
+//     } else {
+//       if(transaction.type === "CREDIT" && payload.type !== "CREDIT"){
+//         updatedBalance -= (transaction.amount + payload.amount)
+//         updatedTotalExpense +=payload.amount
+//       }
+//       else{
+//          updatedBalance += transaction.amount + payload.amount
+//          updatedTotalExpense -= transaction.amount
 
-      }
-    
-   
-    
-    }
+//       }
 
-    
+//     }
 
-    // Update transaction
-    const updatedTransaction = await prisma.transaction.update({
-      where: { id },
-      data: {
-        accountId: payload.accountId,
-        amount: payload.amount,
-        type: payload.type,
-        category: payload.category,
-        description: payload.description,
-      },
-    })
+//     // Update transaction
+//     const updatedTransaction = await prisma.transaction.update({
+//       where: { id },
+//       data: {
+//         accountId: payload.accountId,
+//         amount: payload.amount,
+//         type: payload.type,
+//         category: payload.category,
+//         description: payload.description,
+//       },
+//     })
 
-    // Update account balance and totalExpense
-    await prisma.account.update({
-      where: { id: transaction.accountId },
-      data: {
-        balance: updatedBalance,
-        totalExpense: updatedTotalExpense,
-      },
-    })
+//     // Update account balance and totalExpense
+//     await prisma.account.update({
+//       where: { id: transaction.accountId },
+//       data: {
+//         balance: updatedBalance,
+//         totalExpense: updatedTotalExpense,
+//       },
+//     })
 
-    res.status(200).json({
-      success: true,
-      message: "Transaction updated successfully",
-      transaction: updatedTransaction,
-    })
-  } catch (error) {
-     if(error instanceof ZodError){
-            const errors = await formatError(error)
-            return res.status(422).json({message:"Invalid Data",errors:errors})
-        }
-    res.status(500).json({
-      success: false,
-      error: (error as Error).message,
-    })
-  }
-}
+//     res.status(200).json({
+//       success: true,
+//       message: "Transaction updated successfully",
+//       transaction: updatedTransaction,
+//     })
+//   } catch (error) {
+//      if(error instanceof ZodError){
+//             const errors = await formatError(error)
+//             return res.status(422).json({message:"Invalid Data",errors:errors})
+//         }
+//     res.status(500).json({
+//       success: false,
+//       error: (error as Error).message,
+//     })
+//   }
+// }
