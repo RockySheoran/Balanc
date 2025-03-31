@@ -13,6 +13,7 @@ export const RESET_PASSWORD_URL = `${Api}/api/auth/reset-password`
 export const CREATE_ACCOUNT_URL = `${Api}/api/account/createAccount` 
 export const GET_ALL_ACCOUNT_URL = `${Api}/api/account/getAccount` 
 export const DELETE_ACCOUNT_URL = `${Api}/api/account/accountDelete` 
+export const CREATE_TRANSACTION_URL = `${Api}/api/transaction/createTransaction` 
 // Ensure ALPHA_VANTAGE_API_KEY is declared or imported before using it
 
 

@@ -16,12 +16,14 @@ import { combineReducers } from "redux"
 import userSlice from "../features/user/userSlice"
 import accountReducer from "../features/account/accountSlice"
 import transactionSlice from "../features/transactions/transactionsSlice"
+import expenseReducer from "../features/expense/expenseSlice"
 
 // 1. Define root reducer
 const rootReducer = combineReducers({
   user: userSlice,
   account: accountReducer,
   transaction: transactionSlice,
+  expenses: expenseReducer,
   // Add other reducers here
 })
 

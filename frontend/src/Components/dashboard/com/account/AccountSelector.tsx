@@ -169,7 +169,115 @@ export function AccountSelector() {
                 </DialogTitle>
               </DialogHeader>
               <form action={formAction} className="space-y-4">
-                {/* Keep existing form fields */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="name"
+                    className="text-gray-700 dark:text-gray-300">
+                    Account Name
+                  </Label>
+                  <Input
+                    placeholder="e.g., My Savings Account"
+                    name="name"
+                    id="name"
+                    required
+                    className="focus:ring-2 focus:ring-primary/50"
+                  />
+                  {state.errors?.name && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {state.errors.name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="type"
+                    className="text-gray-700 dark:text-gray-300">
+                    Account Type
+                  </Label>
+                  <Select name="type" required>
+                    <SelectTrigger className="w-full focus:ring-2 focus:ring-primary/50">
+                      <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-md border border-gray-200 dark:border-gray-700 shadow-lg">
+                      {accountTypes.map((type) => (
+                        <SelectItem
+                          key={type.value}
+                          value={type.value}
+                          className={`${type.color} hover:bg-gray-100 dark:hover:bg-gray-800`}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {state.errors?.type && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {state.errors.type}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="income"
+                    className="text-gray-700 dark:text-gray-300">
+                    Monthly Income (Optional)
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    name="income"
+                    id="income"
+                    min="0"
+                    step="0.01"
+                    className="focus:ring-2 focus:ring-primary/50"
+                  />
+                  {state.errors?.income && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {state.errors.income}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <DialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800">
+                      Cancel
+                    </Button>
+                  </DialogTrigger>
+                  <Button
+                    type="submit"
+                    disabled={pending}
+                    className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all">
+                    {pending ? (
+                      <span className="flex items-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creating...
+                      </span>
+                    ) : (
+                      "Create Account"
+                    )}
+                  </Button>
+                </div>
               </form>
             </DialogContent>
           </Dialog>

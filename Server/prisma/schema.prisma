@@ -58,6 +58,7 @@ model Transaction {
   userId      String          @db.ObjectId
   amount      Float
   type        TransactionType
+  name         String
   category    String
   description String
   date        DateTime        @default(now())

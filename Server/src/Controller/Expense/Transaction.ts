@@ -14,7 +14,7 @@ import prisma from "../../Config/DataBase.js"
 export const createTransaction = async (
   req: Request,
   res: Response
-): Promise<any> => {
+): Promise<any>=> {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -23,9 +23,11 @@ export const createTransaction = async (
       })
     }
     const userId = req.user?.id
+    console.log(userId)
     const data = req.body
+    console.log(data)
     const payload = await transactionSchema.parse(data)
-
+console.log(payload)
     const account = await prisma.account.findUnique({
       where: { id: payload.accountId },
     })
@@ -36,12 +38,13 @@ export const createTransaction = async (
 
     const transaction = await prisma.transaction.create({
       data: {
+        name:payload.name,
         accountId: payload.accountId,
         userId,
         amount: payload.amount,
         type: payload.type,
         category: payload.category,
-        description: payload.description,
+        description: payload.description || "",
       },
     })
 
@@ -72,12 +75,12 @@ export const createTransaction = async (
       const errors = await formatError(error)
       return res.status(422).json({ message: "Invalid Data", errors })
     }
-    res.status(500).json({ error: (error as Error).message })
+   return res.status(500).json({ error: (error as Error).message })
   }
 }
 
 //! 🎯 Get All Transactions
-export const getAllTransactions = async (req: Request, res: Response) => {
+export const getAllTransactions = async (req: Request, res: Response) : Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, message: "Unauthorized" })
@@ -100,7 +103,7 @@ export const getAllTransactions = async (req: Request, res: Response) => {
 }
 
 //! 🎯 Get Transactions by Date
-export const getTransactionsByDate = async (req: Request, res: Response) => {
+export const getTransactionsByDate = async (req: Request, res: Response) : Promise<any> => {
   try {
     const { date } = req.params
     if (!req.user) {
@@ -130,7 +133,7 @@ export const getTransactionsByDate = async (req: Request, res: Response) => {
 }
 
 //! 🎯 Get Transactions by Month
-export const getTransactionsByMonth = async (req: Request, res: Response) => {
+export const getTransactionsByMonth = async (req: Request, res: Response) : Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, message: "Unauthorized" })
@@ -154,7 +157,7 @@ export const getTransactionsByMonth = async (req: Request, res: Response) => {
 }
 
 //! 🎯 Get Transactions by Year
-export const getTransactionsByYear = async (req: Request, res: Response) => {
+export const getTransactionsByYear = async (req: Request, res: Response) : Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, message: "Unauthorized" })
@@ -178,7 +181,7 @@ export const getTransactionsByYear = async (req: Request, res: Response) => {
 }
 
 //! ❌ Delete Transaction
-export const deleteTransaction = async (req: Request, res: Response) => {
+export const deleteTransaction = async (req: Request, res: Response) : Promise<any> => {
   try {
     const { id } = req.params
     if (!req.user) {
@@ -234,7 +237,7 @@ export const deleteTransaction = async (req: Request, res: Response) => {
 }
 
 //! ✏️ Update Transaction
-export const updateTransaction = async (req: Request, res: Response) => {
+export const updateTransaction = async (req: Request, res: Response) : Promise<any> => {
   try {
     const { id } = req.params
     if (!req.user) {
