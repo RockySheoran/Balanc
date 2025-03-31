@@ -33,13 +33,16 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} `}>
         <ReduxProvider>
           <ClientSessionProvider>
-            <main className=" flex  ">
+            <div className="md:flex ">
               <SideBarWrapper />
-              <div className="flex-2/4">{children}</div>
-            </main>
+              <div
+                className={`overflow-x-hidden md:mx-auto md:flex-2/12`}>
+                {children}
+              </div>
+            </div>
           </ClientSessionProvider>
           <Toaster richColors position="top-right" />
         </ReduxProvider>

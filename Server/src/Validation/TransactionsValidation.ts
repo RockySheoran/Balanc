@@ -4,7 +4,7 @@
 import { z } from "zod"
 
 // 🎯 TransactionType Enum
-export const TransactionTypeEnum = z.enum(["CREDIT","TRANSFER", "DEBIT","INVESTMENT","CASH"])
+export const TransactionTypeEnum = z.enum(["CREDIT","TRANSFER", "DEBIT","INVESTMENT","CASH","INCOME","EXPENSES",])
 
 // 🎯 Transaction Schema Validation
 export const transactionSchema = z.object({
@@ -15,7 +15,7 @@ export const transactionSchema = z.object({
     .string()
     .min(3, { message: "Category must be at least 3 characters long" }),
   description: z.string(),
-
+ 
 })
 
 // 🎯 Transaction Update Schema

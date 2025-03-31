@@ -43,7 +43,7 @@ export const ExpenseTracker = () => {
   }
 
   return (
-    <div className="max-w-[1230px] mt-3 mx-auto bg-white rounded-lg shadow-md p-6">
+    <div className="w-full mt-3 mx-auto bg-white rounded-lg shadow-md p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column - Transactions */}
         <div>

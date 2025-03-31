@@ -15,11 +15,13 @@ import storage from "redux-persist/lib/storage"
 import { combineReducers } from "redux"
 import userSlice from "../features/user/userSlice"
 import accountReducer from "../features/account/accountSlice"
+import transactionSlice from "../features/transactions/transactionsSlice"
 
 // 1. Define root reducer
 const rootReducer = combineReducers({
   user: userSlice,
   account: accountReducer,
+  transaction: transactionSlice,
   // Add other reducers here
 })
 

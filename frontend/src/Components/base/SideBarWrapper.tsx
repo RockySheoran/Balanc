@@ -3,7 +3,7 @@
 // app/components/SideBarWrapper.tsx
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/options"
-import { ClientSideBar } from "./sideBar"
+import { ClientSideBar } from "./ClientSideBarProps"
 import DashboardClient from "../dashboard/DashboardClient";
 
 export default async function SideBarWrapper() {

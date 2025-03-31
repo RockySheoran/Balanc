@@ -52,7 +52,7 @@ export const RecentTransaction = () => {
   }
 
   return (
-    <div className="max-w-[1230px] mt-5 mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
+    <div className="w-full mt-5 mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left Column - Financial Summary */}
 

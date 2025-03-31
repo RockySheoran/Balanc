@@ -696,7 +696,7 @@ const InvestmentTracker = () => {
                 <h3 className="text-lg font-semibold text-gray-800">
                   Portfolio Performance
                 </h3>
-                <div className="flex space-x-2 overflow-x-scroll">
+                <div className="flex space-x-2 over">
                   {["1m", "3m", "6m", "1y"].map((range) => (
                     <button
                       key={range}

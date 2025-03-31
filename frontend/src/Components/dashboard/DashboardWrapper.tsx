@@ -20,15 +20,15 @@ export default function DashboardWrapper() {
   return (
     <div className="dashboard">
       
-      <div className="flex">
+    
        
-        <div className={` w-full`}>
+        <div className={` mx-auto w-[96%]`}>
           <BalanceCardComponent />
           <RecentTransaction />
           <ExpenseTracker />
           <IncomeDashboard/>
           <InvestmentTracker/>
-        </div>
+      
       </div>
     </div>
   )
