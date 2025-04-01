@@ -11,12 +11,12 @@ import { getServerSession } from "next-auth";
 
 export default async function Home() {
 // const session = await GetServerSession();
-const session1 = await getServerSession(authOptions)
+// const session1 = await getServerSession(authOptions)
 // console.log(session)
 
   return (
     <div className="">
-      <NavbarComponent session={session1} />
+      {/* <NavbarComponent session={session1} /> */}
       {/* <h1>{session?.user?.name}</h1> */}
       {/* <h1>{session1?.user?.name}</h1> */}
 

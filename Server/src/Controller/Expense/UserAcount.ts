@@ -38,7 +38,7 @@ export const AccountController = {
           createdAt: true,
         },
       })
-      console.log(account)
+      // console.log(account)
 
       if (!account) {
         return res.status(404).json({
@@ -138,7 +138,7 @@ export const deleteAccount = async (req: Request, res: Response):Promise<any> =>
     // }
     // const userId = req.user?.id;
     const {accountId }  = req.body;
-console.log(accountId)
+// console.log(accountId)
     const account = await prisma.account.findUnique({
       where: { id:accountId },
     })

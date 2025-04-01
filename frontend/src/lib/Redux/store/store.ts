@@ -22,7 +22,7 @@ import expenseReducer from "../features/expense/expenseSlice"
 const rootReducer = combineReducers({
   user: userSlice,
   account: accountReducer,
-  transaction: transactionSlice,
+  transactions: transactionSlice,
   expenses: expenseReducer,
   // Add other reducers here
 })

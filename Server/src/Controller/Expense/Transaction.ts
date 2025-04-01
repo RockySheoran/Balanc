@@ -82,19 +82,22 @@ console.log(payload)
 //! 🎯 Get All Transactions
 export const getAllTransactions = async (req: Request, res: Response) : Promise<any> => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: "Unauthorized" })
-    }
+
     const { accountId } = req.body
+    console.log(accountId)
     const transactions = await prisma.transaction.findMany({
       where: { accountId },
-      orderBy: { date: "desc" },
+      orderBy: {
+        createdAt: "desc", // Optional: sort by creation date
+      },
     })
+    console.log(transactions)
     res.status(200).json({
       message: "Transactions retrieved successfully",
       data: { transactions },
     })
   } catch (error) {
+    console.log(error)
     res.status(500).json({
       message: "Error retrieving transactions",
       error: (error as Error).message,
