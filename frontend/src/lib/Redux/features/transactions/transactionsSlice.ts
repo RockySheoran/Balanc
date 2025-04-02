@@ -165,7 +165,11 @@ const calculateMetrics = (transactions: Transaction[]) => {
     (t) => t.type === "INCOME" || t.type === "CREDIT"
   )
   const expenseTransactions = transactions.filter(
-    (t) => t.type === "EXPENSE" || t.type === "DEBIT"
+    (t) =>
+      t.type === "EXPENSE" ||
+      t.type === "DEBIT" ||
+      t.type === "TRANSFER" ||
+      t.type === "CASH"
   )
   const investmentTransactions = transactions.filter(
     (t) => t.type === "INVESTMENT"

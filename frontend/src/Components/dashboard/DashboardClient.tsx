@@ -41,30 +41,39 @@ export default function DashboardClient({ session }: SessionProps) {
       dispatch(setUser(data))
     }
   }, [session, dispatch])
-   const { selectedAccount } = useAppSelector(
-        (state: { account: { selectedAccount: { id: string } | null } }) =>
-          state.account
-      )
 
-  useEffect(() => () => {
-      const allTransaction = async () => {
-        
+  const { selectedAccount } = useAppSelector((state: { account: { selectedAccount: { id: string } | null } }) => state.account)
+
+  useEffect(() => {
+    console.log(`object`)
+    const allTransaction = async () => {
+      // Skip if no account is selected
+      if (!selectedAccount?.id) return
+
+      // Optional: Check if transactions for this account already exist in Redux
+    
         try {
-          const AllTransactions = await fetchAllTransactions({accountId:selectedAccount?.id})
+          const AllTransactions = await fetchAllTransactions({
+            accountId: selectedAccount.id,
+          })
           if (AllTransactions.status === 200) {
-            console.log(AllTransactions.data);
-            dispatch(addTransaction(AllTransactions.data.transactions))
-            
+            // Dispatch only if data is new
+            AllTransactions.data.transactions.forEach((transaction :any) => {
+              console.log(transaction)
+              dispatch(addTransaction(transaction))
+            })
+
           } else {
-            toast.error(AllTransactions.message);
+            toast.error(AllTransactions.message)
           }
         } catch (error) {
-          toast.error("An error occurred while fetching transactions.");
+          toast.error("An error occurred while fetching transactions.")
         }
       }
-      allTransaction();
-
-  }, [selectedAccount]) // Empty array ensures effect is only run once on mount
     
+
+    allTransaction()
+  }, [selectedAccount?.id]) // Dependency only on selectedAccount.id
+
   return <></>
 }

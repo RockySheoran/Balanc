@@ -37,6 +37,6 @@ export const Middleware = async (
 
   }
 
-  console.log("Middleware")
+  // console.log("Middleware")
   next()
 }

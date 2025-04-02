@@ -21,6 +21,6 @@ export const Middleware = async (req, res, next) => {
     catch (error) {
         return res.status(401).json({ message: "Unauthorized" });
     }
-    console.log("Middleware");
+    // console.log("Middleware")
     next();
 };

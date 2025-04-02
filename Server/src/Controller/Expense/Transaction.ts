@@ -23,9 +23,9 @@ export const createTransaction = async (
       })
     }
     const userId = req.user?.id
-    console.log(userId)
+    // console.log(userId)
     const data = req.body
-    console.log(data)
+    // console.log(data)
     const payload = await transactionSchema.parse(data)
 console.log(payload)
     const account = await prisma.account.findUnique({
@@ -51,21 +51,25 @@ console.log(payload)
     let updatedBalance = account.balance || 0
     let expense = account.totalExpense || 0
 
-    if (payload.type === "CREDIT" || "INCOME") {
+    console.log(updatedBalance, expense)
+
+    if (payload.type === "CREDIT" || payload.type === "INCOME") {
       updatedBalance += payload.amount
     } else {
       updatedBalance -= payload.amount
       expense += payload.amount
     }
+    console.log(updatedBalance,expense)
 
-    await prisma.account.update({
+    const newaccount = await prisma.account.update({
       where: { id: payload.accountId },
       data: {
         totalExpense: expense,
         balance: updatedBalance,
       },
     })
-
+    console.log(newaccount)
+console.log(transaction)
     res.status(201).json({
       message: "Transaction created successfully",
       data: { transaction },
@@ -92,6 +96,7 @@ export const getAllTransactions = async (req: Request, res: Response) : Promise<
       },
     })
     console.log(transactions)
+    console.log("dddddddddddddd")
     res.status(200).json({
       message: "Transactions retrieved successfully",
       data: { transactions },

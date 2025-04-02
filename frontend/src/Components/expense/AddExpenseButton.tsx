@@ -25,6 +25,7 @@ import { newTransactionAction } from "@/Actions/transactionActions/newTransactio
 import { toast } from "sonner"
 import { SubmitButton } from "../common/SubmitButton"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
+import { addTransaction } from "@/lib/Redux/features/transactions/transactionsSlice"
 
 const categories = [
   "Food",
@@ -36,15 +37,7 @@ const categories = [
   "Other",
 ]
 
-const transactionTypes = [
-  "CREDIT",
-  "TRANSFER",
-  "DEBIT",
-  "INVESTMENT",
-  "CASH",
-  "INCOME",
-  "EXPENSES",
-]
+const transactionTypes = ["TRANSFER", "DEBIT", "INVESTMENT", "CASH", "EXPENSES"]
 
 const initialState = {
   message: "",
@@ -68,10 +61,11 @@ const AddExpenseButton = () => {
     } else if (formState.status === 200 && formState.data) {
       toast.success(formState.message)
       dispatch(addExpense(formState.data.data.transaction))
-      
+      dispatch(addTransaction(formState.data.data.transaction))
+
       setIsOpen(false)
     }
-  }, [formState])
+  }, [formState, dispatch])
 
   const handleClose = () => {
     setIsOpen(false)
@@ -160,7 +154,9 @@ const AddExpenseButton = () => {
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <SubmitButton />
+            <div>
+              <SubmitButton />
+            </div>
           </div>
         </form>
       </DialogContent>
