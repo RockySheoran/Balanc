@@ -199,7 +199,7 @@ const TransactionTableContent = () => {
           <select
             value={timeFilter || "month"}
             onChange={(e) => handleTimeFilterChange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary dark:bg-gray-700/50 backdrop-blur-sm transition-all duration-200">
+            className="px-3 py-2 cursor-pointer border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary dark:bg-gray-700/50 backdrop-blur-sm transition-all duration-200">
             {timeFilters.map((filter) => (
               <option key={filter.value} value={filter.value}>
                 {filter.label}
@@ -210,7 +210,7 @@ const TransactionTableContent = () => {
           <select
             value={typeFilter || "all"}
             onChange={(e) => handleTypeFilterChange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary dark:bg-gray-700/50 backdrop-blur-sm transition-all duration-200">
+            className="px-3 py-2 cursor-pointer border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary dark:bg-gray-700/50 backdrop-blur-sm transition-all duration-200">
             {transactionTypes.map((type) => (
               <option key={type.value} value={type.value}>
                 {type.label}
@@ -221,7 +221,7 @@ const TransactionTableContent = () => {
 
         <Button
           variant="outline"
-          className="border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200">
+          className="border-gray-300 cursor-pointer dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200">
           <DownloadIcon className="mr-2 h-4 w-4" />
           Export
         </Button>

@@ -10,7 +10,8 @@ import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
 import { setUser } from "@/lib/Redux/features/user/userSlice"
 import { fetchAllTransactions } from "@/Actions/transactionActions/fetchAllTransactions"
 import { toast } from "sonner"
-import { addTransaction } from "@/lib/Redux/features/transactions/transactionsSlice"
+import { addTransaction, clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
+import { addExpense, clearExpense } from "@/lib/Redux/features/expense/expenseSlice"
 
 
 interface SessionProps {
@@ -43,7 +44,7 @@ export default function DashboardClient({ session }: SessionProps) {
   }, [session, dispatch])
 
   const { selectedAccount } = useAppSelector((state: { account: { selectedAccount: { id: string } | null } }) => state.account)
-
+const {expenseTransactions} = useAppSelector(state=> state.transactions)
   useEffect(() => {
     console.log(`object`)
     const allTransaction = async () => {
@@ -57,11 +58,15 @@ export default function DashboardClient({ session }: SessionProps) {
             accountId: selectedAccount.id,
           })
           if (AllTransactions.status === 200) {
+            console.log(AllTransactions.status)
             // Dispatch only if data is new
+            dispatch(clearTransactions())
+            console.log(AllTransactions.data.transactions)
             AllTransactions.data.transactions.forEach((transaction :any) => {
               console.log(transaction)
               dispatch(addTransaction(transaction))
             })
+            expenseTransactions
 
           } else {
             toast.error(AllTransactions.message)
@@ -70,10 +75,24 @@ export default function DashboardClient({ session }: SessionProps) {
           toast.error("An error occurred while fetching transactions.")
         }
       }
-    
+    console.log("`````````````````````````````````")
+
 
     allTransaction()
   }, [selectedAccount?.id]) // Dependency only on selectedAccount.id
+
+
+  useEffect(() => { 
+    console.log("````````````1111`````````")
+    dispatch(clearExpense())
+    expenseTransactions.forEach((transaction :any) => {
+      console.log(transaction)
+      dispatch(addExpense(transaction))
+    })
+
+
+  }, [expenseTransactions]) // Dependency only on selectedAccount.id
+
 
   return <></>
 }

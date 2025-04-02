@@ -88,11 +88,13 @@ const ExpenseAnalysis: React.FC = () => {
         </h2>
         <div className="flex space-x-2">
           <Button
+            className="cursor-pointer"
             variant={activeChart === "bar" ? "default" : "outline"}
             onClick={() => dispatch(setActiveChart("bar"))}>
             Monthly View
           </Button>
           <Button
+            className="cursor-pointer"
             variant={activeChart === "pie" ? "default" : "outline"}
             onClick={() => dispatch(setActiveChart("pie"))}>
             Category View

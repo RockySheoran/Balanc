@@ -76,7 +76,7 @@ const AddExpenseButton = () => {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full sm:w-auto">Add Expense</Button>
+        <Button className="w-full cursor-pointer sm:w-auto">Add Expense</Button>
       </DialogTrigger>
       <DialogContent className="max-w-md w-full">
         <DialogHeader>
@@ -110,7 +110,9 @@ const AddExpenseButton = () => {
           </div>
 
           <div>
-            <Label htmlFor="type">Type</Label>
+            <Label className="mb-2" htmlFor="type">
+              Type
+            </Label>
             <Select name="type" required>
               <SelectTrigger id="type">
                 <SelectValue placeholder="Select transaction type" />
@@ -126,7 +128,9 @@ const AddExpenseButton = () => {
           </div>
 
           <div>
-            <Label htmlFor="category">Category</Label>
+            <Label className="mb-2" htmlFor="category">
+              Category
+            </Label>
             <Select name="category" required>
               <SelectTrigger id="category">
                 <SelectValue placeholder="Select category" />
@@ -151,7 +155,11 @@ const AddExpenseButton = () => {
           </div>
 
           <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
+            <Button
+              className="cursor-pointer"
+              type="button"
+              variant="outline"
+              onClick={handleClose}>
               Cancel
             </Button>
             <div>

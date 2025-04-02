@@ -11,78 +11,151 @@ import {
   Legend,
 } from "chart.js"
 import { motion } from "framer-motion"
+import { useAppSelector } from "@/lib/Redux/store/hooks"
+import { useMemo } from "react"
+import { FiDollarSign } from "react-icons/fi"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 export const ExpenseTracker = () => {
-  const transactions = [
-    { category: "Shopping", amount: 430, date: "17th Feb 2025" },
-    { category: "Travel", amount: 670, date: "13th Feb 2025" },
-    { category: "Electricity Bill", amount: 200, date: "11th Feb 2025" },
-    { category: "Loan Repayment", amount: 600, date: "10th Feb 2025" },
-  ]
+  const { transactions } = useAppSelector((state) => state.transactions)
 
-  // Chart data
-  const chartData = {
-    labels: transactions.map((t) => t.category),
-    datasets: [
-      {
-        label: "Expense Amount",
-        data: transactions.map((t) => t.amount),
-        backgroundColor: [
-          "#FF6384", // Red
-          "#36A2EB", // Blue
-          "#FFCE56", // Yellow
-          "#4BC0C0", // Teal
+  // Filter and process expense transactions
+  const { expenseData, recentExpenses } = useMemo(() => {
+    // Filter only DEBIT/EXPENSE transactions from last 30 days
+    const expenseTransactions = transactions
+      .filter(
+        (t) =>
+          (t.type === "DEBIT" || t.type === "EXPENSE") &&
+          new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      )
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    // Group by category for chart
+    const categoryMap = expenseTransactions.reduce((acc, transaction) => {
+      if (!acc[transaction.category]) {
+        acc[transaction.category] = 0
+      }
+      acc[transaction.category] += transaction.amount
+      return acc
+    }, {} as Record<string, number>)
+
+    // Prepare chart data
+    const categories = Object.keys(categoryMap)
+    const amounts = Object.values(categoryMap)
+
+    // Generate distinct colors for each category
+    const colors = [
+      "#FF6384", // Red
+      "#36A2EB", // Blue
+      "#FFCE56", // Yellow
+      "#4BC0C0", // Teal
+      "#9966FF", // Purple
+      "#FF9F40", // Orange
+      "#8AC24A", // Green
+    ]
+
+    return {
+      expenseData: {
+        labels: categories,
+        datasets: [
+          {
+            label: "Expense Amount",
+            data: amounts,
+            backgroundColor: categories.map(
+              (_, i) => colors[i % colors.length]
+            ),
+            borderRadius: 6,
+            borderSkipped: false,
+          },
         ],
-        drawBorder: false,
-        borderRadius: 6, // Pillar effect
-        borderSkipped: false,
       },
-    ],
-  }
+      recentExpenses: expenseTransactions.slice(0, 5),
+    }
+  }, [transactions])
+
+  // Calculate total expenses
+  const totalExpenses = useMemo(() => {
+    return recentExpenses.reduce((sum, t) => sum + t.amount, 0)
+  }, [recentExpenses])
 
   return (
-    <div className="w-full mt-3 mx-auto bg-white rounded-lg shadow-md p-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="w-full mt-3 mx-auto bg-white rounded-lg shadow-md p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column - Transactions */}
+        {/* Left Column - Recent Expenses */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-6">Expenses</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">
+              Recent Expenses
+            </h1>
+            <div className="flex items-center bg-red-50 px-3 py-1 rounded-full">
+              <FiDollarSign className="text-red-500 mr-1" />
+              <span className="font-semibold text-red-600">
+                ${totalExpenses.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
           <div className="space-y-4">
-            {transactions.map((transaction, index) => (
+            {recentExpenses.length > 0 ? (
+              recentExpenses.slice(0, 4).map(
+                (
+                  transaction,
+                  index // Added .slice(0, 4) here
+                ) => (
+                  <motion.div
+                    key={transaction.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {transaction.category}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {new Date(transaction.date).toLocaleDateString(
+                          "en-US",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        )}
+                      </p>
+                    </div>
+                    <p className="text-red-500 font-bold">
+                      -${transaction.amount.toLocaleString()}
+                    </p>
+                  </motion.div>
+                )
+              )
+            ) : (
               <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex justify-between items-center border-b pb-4 last:border-0">
-                <div>
-                  <p className="font-semibold text-gray-800">
-                    {transaction.category}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {transaction.date}
-                  </p>
-                </div>
-                <p className="text-red-500 font-bold">-${transaction.amount}</p>
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-8 text-red-500">
+                No expenses recorded in the last 30 days
               </motion.div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Right Column - Pillar Chart */}
+        {/* Right Column - Expense Chart */}
         <div>
           <h1 className="text-2xl font-bold text-gray-800 mb-6">
-            Last 30 Days Expenses
+            Expense Breakdown
           </h1>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="h-64" // Fixed height for consistency
-          >
+            className="h-64">
             <Bar
-              data={chartData}
+              data={expenseData}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
@@ -111,6 +184,9 @@ export const ExpenseTracker = () => {
                       label: (context) => {
                         return `Amount: $${context.raw}`
                       },
+                      title: (context) => {
+                        return context[0].label
+                      },
                     },
                   },
                 },
@@ -122,23 +198,23 @@ export const ExpenseTracker = () => {
           </motion.div>
 
           {/* Color Legend */}
-          <div className="mt-6 flex flex-wrap gap-3">
-            {transactions.map((transaction, index) => (
-              <div key={index} className="flex items-center">
-                <div
-                  className="w-3 h-3 rounded-full mr-2"
-                  style={{
-                    backgroundColor:
-                      chartData.datasets[0].backgroundColor[index],
-                  }}></div>
-                <span className="text-sm text-gray-600">
-                  {transaction.category}
-                </span>
-              </div>
-            ))}
-          </div>
+          {expenseData.labels.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-3">
+              {expenseData.labels.map((label, index) => (
+                <div key={label} className="flex items-center">
+                  <div
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{
+                      backgroundColor:
+                        expenseData.datasets[0].backgroundColor[index],
+                    }}></div>
+                  <span className="text-sm text-gray-600">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

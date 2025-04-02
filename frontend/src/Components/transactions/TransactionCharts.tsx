@@ -1,4 +1,5 @@
 /** @format */
+
 import {
   LineChart,
   Line,
@@ -14,18 +15,27 @@ import {
   Tooltip,
   Legend,
   Sector,
+  AreaChart,
+  Area,
 } from "recharts"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card"
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import {
+  FiTrendingUp,
+  FiTrendingDown,
+  FiPieChart,
+  FiDollarSign,
+} from "react-icons/fi"
+import { motion } from "framer-motion"
 
 const COLORS = [
-  "#10B981",
-  "#EF4444",
-  "#8B5CF6",
-  "#3B82F6",
-  "#F59E0B",
-  "#6B7280",
+  "#10B981", // Emerald
+  "#EF4444", // Red
+  "#8B5CF6", // Violet
+  "#3B82F6", // Blue
+  "#F59E0B", // Amber
+  "#6B7280", // Gray
 ]
 
 const renderActiveShape = (props: any) => {
@@ -50,11 +60,11 @@ const renderActiveShape = (props: any) => {
         dy={8}
         textAnchor="middle"
         fill={fill}
-        className="font-bold">
+        className="font-bold text-lg">
         {payload.name}
       </text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fill="#999">
-        {`${(percent * 100).toFixed(0)}% ($${value.toFixed(2)})`}
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="#64748B">
+        {`${(percent * 100).toFixed(0)}% ($${value.toLocaleString()})`}
       </text>
       <Sector
         cx={cx}
@@ -70,226 +80,313 @@ const renderActiveShape = (props: any) => {
 }
 
 export default function TransactionCharts() {
-  const {
-    totals,
-    incomeTransactions = [],
-    expenseTransactions = [],
-    counts,
-  } = useAppSelector((state) => state.transactions) ?? {
-    totals: { income: 0, expense: 0, investment: 0 },
-    incomeTransactions: [],
-    expenseTransactions: [],
-    counts: { income: 0, expense: 0, investment: 0 },
-  }
-
+  const { transactions } = useAppSelector((state) => state.transactions)
   const [activeIndex, setActiveIndex] = useState(0)
   const [hoveredBar, setHoveredBar] = useState<string | null>(null)
 
-  // Pie Chart Data
+  // Calculate all chart data
+  const { totals, counts, monthlyData, categoryData, cashFlowData } =
+    useMemo(() => {
+      const now = new Date()
+      const sixMonthsAgo = new Date(now)
+      sixMonthsAgo.setMonth(now.getMonth() - 5)
+
+      // Initialize monthly data structure
+      const months = Array.from({ length: 6 }, (_, i) => {
+        const date = new Date(now)
+        date.setMonth(now.getMonth() - (5 - i))
+        return {
+          month: date.toLocaleString("default", { month: "short" }),
+          income: 0,
+          expenses: 0,
+        }
+      })
+
+      const calculatedTotals = { income: 0, expense: 0, investment: 0 }
+      const calculatedCounts = { income: 0, expense: 0, investment: 0 }
+      const categoryMap: Record<string, number> = {}
+
+      // Process transactions
+      transactions.forEach((transaction) => {
+        const amount = Math.abs(transaction.amount)
+        const date = new Date(transaction.date)
+        const monthIndex = months.findIndex(
+          (m) => m.month === date.toLocaleString("default", { month: "short" })
+        )
+
+        if (transaction.type === "INCOME" || transaction.type === "CREDIT") {
+          calculatedTotals.income += amount
+          calculatedCounts.income++
+          if (monthIndex >= 0) months[monthIndex].income += amount
+        } else if (
+          transaction.type === "EXPENSE" ||
+          transaction.type === "DEBIT"
+           || transaction.type === "TRANSFER" || transaction.type === "CASH" 
+        ) {
+          calculatedTotals.expense += amount
+          calculatedCounts.expense++
+          if (monthIndex >= 0) months[monthIndex].expenses += amount
+
+          // Category breakdown
+          categoryMap[transaction.category] =
+            (categoryMap[transaction.category] || 0) + amount
+        } else if (transaction.type === "INVESTMENT") {
+          calculatedTotals.investment += amount
+          calculatedCounts.investment++
+        }
+      })
+
+      // Prepare category data (top 6 categories)
+      const categoryData = Object.entries(categoryMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6)
+
+      // Calculate net cash flow
+      const cashFlowData = months.map((month) => ({
+        ...month,
+        net: month.income - month.expenses,
+      }))
+
+      return {
+        totals: calculatedTotals,
+        counts: calculatedCounts,
+        monthlyData: months,
+        categoryData,
+        cashFlowData,
+      }
+    }, [transactions])
+
+  // Pie Chart Data (only show non-zero values)
   const pieData = [
-    { name: "Income", value: totals?.income ?? 0, count: counts?.income ?? 0 },
-    {
-      name: "Expenses",
-      value: totals?.expense ?? 0,
-      count: counts?.expense ?? 0,
-    },
-    {
-      name: "Investments",
-      value: totals?.investment ?? 0,
-      count: counts?.investment ?? 0,
-    },
-  ]
-
-  // Monthly trend data (would ideally come from your backend)
-  const monthlyData = [
-    { month: "Jan", income: 4000, expenses: 2400 },
-    { month: "Feb", income: 3000, expenses: 1398 },
-    { month: "Mar", income: 9800, expenses: 2000 },
-    { month: "Apr", income: 3908, expenses: 2780 },
-    { month: "May", income: 4800, expenses: 1890 },
-    { month: "Jun", income: 3800, expenses: 2390 },
-  ]
-
-  // Category breakdown
-  const categoryData = [
-    {
-      name: "Food",
-      value: expenseTransactions
-        .filter((t) => t.category === "Food")
-        .reduce((sum, t) => sum + t.amount, 0),
-    },
-    {
-      name: "Transport",
-      value: expenseTransactions
-        .filter((t) => t.category === "Transport")
-        .reduce((sum, t) => sum + t.amount, 0),
-    },
-    {
-      name: "Entertainment",
-      value: expenseTransactions
-        .filter((t) => t.category === "Entertainment")
-        .reduce((sum, t) => sum + t.amount, 0),
-    },
-    {
-      name: "Utilities",
-      value: expenseTransactions
-        .filter((t) => t.category === "Utilities")
-        .reduce((sum, t) => sum + t.amount, 0),
-    },
+    { name: "Income", value: totals.income, count: counts.income },
+    { name: "Expenses", value: totals.expense, count: counts.expense },
+    { name: "Investments", value: totals.investment, count: counts.investment },
   ].filter((item) => item.value > 0)
 
-  const onPieEnter = (_: any, index: number) => {
-    setActiveIndex(index)
-  }
+  const onPieEnter = (_: any, index: number) => setActiveIndex(index)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Monthly Trend Card */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">
-            Monthly Cash Flow
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={monthlyData}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgba(255, 255, 255, 0.9)",
-                    borderRadius: "0.5rem",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="income"
-                  stroke="#10B981"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                  name="Income"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="expenses"
-                  stroke="#EF4444"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                  name="Expenses"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Monthly Cash Flow Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FiTrendingUp className="text-emerald-500" />
+                Monthly Cash Flow
+              </CardTitle>
+              <div className="flex gap-2">
+                <span className="text-sm px-2 py-1 bg-emerald-100 text-emerald-800 rounded-full">
+                  Income: ${totals.income.toLocaleString()}
+                </span>
+                <span className="text-sm px-2 py-1 bg-red-100 text-red-800 rounded-full">
+                  Expenses: ${totals.expense.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={cashFlowData}>
+                  <defs>
+                    <linearGradient
+                      id="colorIncome"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient
+                      id="colorExpenses"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value: number) => `$${value.toLocaleString()}`}
+                    contentStyle={{
+                      background: "rgba(255, 255, 255, 0.95)",
+                      borderRadius: "0.5rem",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="income"
+                    stroke="#10B981"
+                    fill="url(#colorIncome)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="expenses"
+                    stroke="#EF4444"
+                    fill="url(#colorExpenses)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="net"
+                    stroke="#3B82F6"
+                    fill="url(#colorNet)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Transaction Distribution Card */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">
-            Transaction Distribution
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  activeIndex={activeIndex}
-                  activeShape={renderActiveShape}
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  onMouseEnter={onPieEnter}>
-                  {pieData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number, name: string) => [
-                    `$${value.toFixed(2)}`,
-                    `${name} (${
-                      pieData.find((d) => d.name === name)?.count
-                    } transactions)`,
-                  ]}
-                  contentStyle={{
-                    background: "rgba(255, 255, 255, 0.9)",
-                    borderRadius: "0.5rem",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FiPieChart className="text-violet-500" />
+                Transaction Distribution
+              </CardTitle>
+              <div className="text-sm text-gray-500">
+                {transactions.length} transactions
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    activeIndex={activeIndex}
+                    activeShape={renderActiveShape}
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={100}
+                    dataKey="value"
+                    onMouseEnter={onPieEnter}>
+                    {pieData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      `$${value.toLocaleString()}`,
+                      `${name} (${
+                        pieData.find((d) => d.name === name)?.count || 0
+                      } transactions)`,
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Expense Categories Card */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 lg:col-span-2">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">
-            Expense Categories
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={categoryData}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                onMouseEnter={(data) =>
-                  setHoveredBar(data?.activeLabel || null)
-                }
-                onMouseLeave={() => setHoveredBar(null)}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgba(255, 255, 255, 0.9)",
-                    borderRadius: "0.5rem",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-                <Bar
-                  dataKey="value"
-                  name="Amount"
-                  fill="#EF4444"
-                  radius={[4, 4, 0, 0]}
-                  animationDuration={1500}>
-                  {categoryData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={hoveredBar === entry.name ? "#F87171" : "#EF4444"}
-                      strokeWidth={hoveredBar === entry.name ? 2 : 0}
-                      stroke="#fff"
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="lg:col-span-2">
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FiTrendingDown className="text-red-500" />
+                Expense Categories
+              </CardTitle>
+              <div className="text-sm text-gray-500">
+                {counts.expense} expense transactions
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={categoryData}
+                  onMouseEnter={(data) =>
+                    setHoveredBar(data?.activeLabel || null)
+                  }
+                  onMouseLeave={() => setHoveredBar(null)}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value: number) => [
+                      `$${value.toLocaleString()}`,
+                      "Amount",
+                    ]}
+                  />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    {categoryData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          hoveredBar === entry.name
+                            ? COLORS[index % COLORS.length]
+                            : `${COLORS[index % COLORS.length]}80`
+                        }
+                        strokeWidth={hoveredBar === entry.name ? 2 : 0}
+                        stroke="#fff"
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3 justify-center">
+              {categoryData.map((entry, index) => (
+                <motion.div
+                  key={entry.name}
+                  whileHover={{ scale: 1.05 }}
+                  className="flex items-center px-3 py-1 rounded-full shadow-sm"
+                  style={{
+                    backgroundColor: `${COLORS[index % COLORS.length]}20`,
+                    border: `1px solid ${COLORS[index % COLORS.length]}`,
+                  }}>
+                  <div
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    {entry.name}: ${entry.value.toLocaleString()}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   )
 }

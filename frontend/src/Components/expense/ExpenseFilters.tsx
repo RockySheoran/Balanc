@@ -155,7 +155,7 @@ const ExpenseFilters: React.FC = () => {
         <div className="flex items-end">
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full cursor-pointer"
             onClick={() => dispatch(resetFilters())}>
             Reset Filters
           </Button>

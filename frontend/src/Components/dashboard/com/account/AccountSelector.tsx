@@ -63,6 +63,7 @@ export function AccountSelector() {
     errors: {},
     data: null,
   }
+  const { selectedAccount: currentSelectedAccount } = useAppSelector((store) => store.account)
 
   const [state, formAction] = useActionState(CreateAccountAction, initialState)
 
@@ -76,7 +77,10 @@ export function AccountSelector() {
         }
         dispatch(setAccounts(response.data))
         if (response.data.length > 0) {
-          dispatch(selectAccount(response.data[0].id))
+         if (selectedAccount == null) {
+          console.log("asddwfwfwsefsdwdfwsdfdfd")
+           dispatch(selectAccount(response.data[0].id))
+         }
         }
       } catch (err) {
         toast.error(
@@ -86,7 +90,7 @@ export function AccountSelector() {
     }
 
     fetchAccounts()
-  }, [dispatch])
+  }, [])
 
   // Handle form state changes
   useEffect(() => {
@@ -96,6 +100,7 @@ export function AccountSelector() {
       toast.success(state.message)
       if (state.data) {
         dispatch(addAccount(state.data))
+        
         dispatch(selectAccount(state.data.id))
       }
     }
@@ -157,14 +162,14 @@ export function AccountSelector() {
             <DialogTrigger asChild>
               <Button
                 variant="default"
-                className="w-full sm:w-auto shadow-md hover:shadow-lg transition-shadow">
+                className="w-full cursor-pointer sm:w-auto shadow-md hover:shadow-lg transition-shadow">
                 <PlusIcon className="mr-2 h-4 w-4" />
                 <span>New Account</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] rounded-lg">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-primary">
+                <DialogTitle className="text-2xl font-bold text-primary cursor-pointer">
                   Create New Account
                 </DialogTitle>
               </DialogHeader>
@@ -230,7 +235,9 @@ export function AccountSelector() {
                     id="income"
                     min="0"
                     step="0.01"
-                    className="focus:ring-2 focus:ring-primary/50"
+                    value="0"
+                    readOnly
+                    className="focus:ring-2 focus:ring-primary/50 bg-gray-100"
                   />
                   {state.errors?.income && (
                     <p className="text-sm text-red-500 mt-1">
@@ -291,7 +298,7 @@ export function AccountSelector() {
                   variant="destructive"
                   onClick={() => setIsDeleteDialogOpen(true)}
                   disabled={allAccounts.length <= 1}
-                  className="w-full sm:w-auto shadow-md hover:shadow-lg transition-shadow">
+                  className="w-full sm:w-auto cursor-pointer shadow-md hover:shadow-lg transition-shadow">
                   <Trash2Icon className="mr-2 h-4 w-4" />
                   <span>Delete Account</span>
                 </Button>
