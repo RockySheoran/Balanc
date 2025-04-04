@@ -97,19 +97,19 @@ const expenseSlice = createSlice({
     addExpense: (state, action: PayloadAction<Omit<Expense, "id">>) => {
       const newExpense: Expense = {
         ...action.payload,
-      
+
         date: action.payload.date || new Date().toISOString(),
       }
       state.expenses.unshift(newExpense)
       state.needsRecalculation = true
       recalculateExpenses(state)
     },
-    clearExpense: (state) => {
-      state.expenses = []
-      state.filteredExpenses = []
-      state.totalExpense = 0
-      state.needsRecalculation = false
+    //
+    clearExpense: () => {
+      // Return a completely new state object
+      return { ...initialState }
     },
+
     updateExpense: (state, action: PayloadAction<Expense>) => {
       const index = state.expenses.findIndex((e) => e.id === action.payload.id)
       if (index !== -1) {

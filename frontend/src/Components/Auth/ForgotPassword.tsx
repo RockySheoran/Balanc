@@ -38,7 +38,7 @@ export default function ForgotPassword() {
         <span className="text-red-400">{state.errors?.email}</span>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 cursor-pointer">
         <SubmitButton />
       </div>
     </form>

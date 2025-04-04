@@ -78,9 +78,13 @@ const TransactionRow = ({ transaction }: { transaction: Transaction }) => {
       </td>
       <td
         className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-          transaction.amount > 0 ? "text-emerald-500" : "text-red-500"
+          transaction.type == "CREDIT" || transaction.type == "INCOME"
+            ? "text-emerald-500"
+            : "text-red-500"
         }`}>
-        {transaction.amount > 0 ? "+" : ""}
+        {transaction.type == "CREDIT" || transaction.type == "INCOME"
+          ? "+"
+          : "-"}
         {transaction.amount.toFixed(2)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">

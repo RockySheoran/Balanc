@@ -101,7 +101,7 @@ export default function Register() {
       </form>
       <div className="">
         <h1 className="text-center text-red-500">--OR--</h1>
-        <div onClick={googleSignIn} className="google">
+        <div onClick={googleSignIn} className="google cursor-pointer">
           <GoogleSubmitBtn pending={pending} setPending={setPending} />
         </div>
       </div>

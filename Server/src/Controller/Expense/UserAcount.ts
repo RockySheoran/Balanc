@@ -35,6 +35,7 @@ export const AccountController = {
       }
 
       const userId = req.user.id
+      console.log(userId+"sdff")
       const cacheKey = `accounts:${userId}`
 
       // Check Redis cache first
@@ -66,7 +67,7 @@ export const AccountController = {
       if (!accounts || accounts.length === 0) {
         return res.status(404).json({
           success: false,
-          message: "No accounts found",
+          message: "No accounts found. Please create account",
           data: null,
         })
       }

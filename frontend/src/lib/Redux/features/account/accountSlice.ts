@@ -70,6 +70,8 @@ export const accountSlice = createSlice({
     resetSelectedAccount: (state) => {
       state.selectedAccount = null
     },
+    clearAccount : () => initialState
+
   },
 })
 
@@ -78,6 +80,7 @@ export const {
   setAccounts,
   selectAccount,
   addAccount,
+  clearAccount,
   updateAccount,
   deleteAccount,
   setLoading,

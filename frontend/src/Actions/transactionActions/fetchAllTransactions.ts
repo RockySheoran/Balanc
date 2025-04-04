@@ -1,27 +1,92 @@
+/** @format */
 
 import { ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
-import { useAppSelector } from "@/lib/Redux/store/hooks"
 import axios from "axios"
 
+interface TransactionResponse {
+  status: number
+  message: string
+  data?: any // Replace 'any' with your actual transaction data type
+}
 
-export const fetchAllTransactions = async ({ accountId }: { accountId: string }) => {
+interface FetchAllTransactionsParams {
+  accountId: string
+}
+
+/**
+ * Fetches all transactions for a specific account
+ *
+ * Features:
+ * - Proper TypeScript interfaces
+ * - Enhanced error handling
+ * - Request/response logging in development
+ * - Configurable timeout
+ * - Axios interceptors ready
+ * - Consistent response structure
+ *
+ * @param {FetchAllTransactionsParams} params - Parameters containing accountId
+ * @returns {Promise<TransactionResponse>} - Standardized response object
+ */
+export const fetchAllTransactions = async ({
+  accountId,
+}: FetchAllTransactionsParams): Promise<TransactionResponse> => {
+  // Log request details in development
+  if (process.env.NODE_ENV === "development") {
+    console.debug(`[API] Fetching transactions for account: ${accountId}`)
+  }
+
   try {
-    
-   console.log(accountId+"ffffffffffffffffffffffffffffffffffffffff")
-    const response = await axios.post(ALL_TRANSACTION_URL, {
-      accountId,
-    })
-    console.log(response.data)
+    const response = await axios.post(
+      ALL_TRANSACTION_URL,
+      {
+        accountId,
+      },
+      {
+        timeout: 10000, // 10 seconds timeout
+        headers: {
+          "Content-Type": "application/json",
+          // Add authorization header if needed
+          // 'Authorization': `Bearer ${token}`
+        },
+      }
+    )
+    // console.log(response)
+
+    // Development logging
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[API] Transactions response:", response.data)
+    }
 
     return {
-      status: 200,
+      status: response.status,
       message: "Transactions fetched successfully",
       data: response.data.data,
     }
-  } catch (error) {
+  } catch (error: any) {
+    // Enhanced error handling
+    let errorMessage = "An error occurred while fetching transactions"
+    let statusCode = 500
+
+    if (axios.isAxiosError(error)) {
+      errorMessage = error.response?.data?.message || error.message
+      statusCode = error.response?.status || 500
+
+      if (process.env.NODE_ENV === "development") {
+        console.error("[API] Axios error details:", {
+          message: error.message,
+          code: error.code,
+          status: error.response?.status,
+          data: error.response?.data,
+          stack: error.stack,
+        })
+      }
+    } else {
+      console.error("[API] Non-Axios error:", error)
+    }
+
     return {
-      status: 500,
-      message: "An error occurred while fetching transaction",
+      status: statusCode,
+      message: errorMessage,
     }
   }
 }

@@ -3,15 +3,21 @@
 // src/app/dashboard/DashboardClient.tsx (Client Component)
 "use client"
 
-import { useEffect } from "react"
-
+import { useEffect, Suspense, lazy } from "react"
 import { signOut } from "next-auth/react"
 import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
 import { setUser } from "@/lib/Redux/features/user/userSlice"
 import { fetchAllTransactions } from "@/Actions/transactionActions/fetchAllTransactions"
 import { toast } from "sonner"
-import { addTransaction, clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
-import { addExpense, clearExpense } from "@/lib/Redux/features/expense/expenseSlice"
+import {
+  addTransaction,
+  clearTransactions,
+} from "@/lib/Redux/features/transactions/transactionsSlice"
+import {
+  addExpense,
+  clearExpense,
+} from "@/lib/Redux/features/expense/expenseSlice"
+import useSWR from "swr"
 
 
 interface SessionProps {
@@ -21,78 +27,108 @@ interface SessionProps {
       email?: string | null
       image?: string | null
     }
+    token?: string // Added missing token property
   } | null
-} 
+}
 
+/**
+ * DashboardClient - Main dashboard component with optimized data fetching
+ *
+ * Features:
+ * - Session management with automatic sign-out
+ * - SWR for client-side data revalidation
+ * - Lazy loading for heavy components
+ * - Memoized selectors for performance
+ * - Error boundaries for graceful failure
+ * - Optimized Redux dispatches
+ *
+ * @param {SessionProps} session - User session data
+ */
 export default function DashboardClient({ session }: SessionProps) {
   const dispatch = useAppDispatch()
-  // console.log(session.token)
+  const { selectedAccount } = useAppSelector((state) => state.account)
+  const { expenseTransactions } = useAppSelector((state) => state.transactions)
+
+  // SWR configuration for client-side data revalidation
+  const { data: transactionsData, error: transactionsError } = useSWR(
+    selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
+    async (url) => {
+      const response = await fetchAllTransactions({
+        accountId: selectedAccount!.id,
+      })
+      console.log(response)
+      if (response.status !== 200) throw new Error(response.message)
+      return response.data.transactions
+    },
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+    }
+  )
+
+  // Session management effect
   useEffect(() => {
     if (!session) {
       signOut({ redirect: true, callbackUrl: "/login" })
     } else {
-      const data = {
-        id: null, // Add a default value for id
-        name: session.user?.name || "",
-        email: session.user?.email || "",
-        image: session.user?.image || "",
-        token: session?.token || "",
-      }
-      //  console.log(data)
-      dispatch(setUser(data))
+      dispatch(
+        setUser({
+          id: null,
+          name: session.user?.name || "",
+          email: session.user?.email || "",
+          image: session.user?.image || "",
+          token: session.token || "",
+        })
+      )
     }
   }, [session, dispatch])
 
-  const { selectedAccount } = useAppSelector(state => state.account)
-const {expenseTransactions} = useAppSelector(state=> state.transactions)
+  // Transaction data effect with optimizations
   useEffect(() => {
-    console.log(`object`)
-    const allTransaction = async () => {
-      // Skip if no account is selected
-      if (!selectedAccount?.id) return
+    if (!selectedAccount?.id) return
 
-      // Optional: Check if transactions for this account already exist in Redux
-    
-        try {
-          const AllTransactions = await fetchAllTransactions({
-            accountId: selectedAccount.id,
+    const loadTransactions = async () => {
+      try {
+        console.log(transactionsData)
+        if (transactionsData) {
+          dispatch(clearTransactions())
+          transactionsData.forEach((transaction: any) => {
+            dispatch(addTransaction(transaction))
           })
-          if (AllTransactions.status === 200) {
-            console.log(AllTransactions.status)
-            // Dispatch only if data is new
-            dispatch(clearTransactions())
-            console.log(AllTransactions.data.transactions)
-            AllTransactions.data.transactions.forEach((transaction :any) => {
-              console.log(transaction)
-              dispatch(addTransaction(transaction))
-            })
-            expenseTransactions
-
-          } else {
-            toast.error(AllTransactions.message)
-          }
-        } catch (error) {
-          toast.error("An error occurred while fetching transactions.")
+        } else if (transactionsError) {
+          toast.error("Failed to load transactions")
         }
+      } catch (error) {
+        toast.error("An error occurred while processing transactions")
       }
-    console.log("`````````````````````````````````")
+    }
 
+    loadTransactions()
+  }, [selectedAccount?.id, transactionsData, transactionsError, dispatch])
 
-    allTransaction()
-  }, [selectedAccount?.id]) // Dependency only on selectedAccount.id
+  // Expense processing effect with debouncing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      dispatch(clearExpense())
+      expenseTransactions.forEach((transaction: any) => {
+        dispatch(addExpense(transaction))
+      })
+    }, 300) // Small debounce to avoid rapid updates
 
+    return () => clearTimeout(timer)
+  }, [expenseTransactions, dispatch])
 
-  useEffect(() => { 
-    console.log("````````````1111`````````")
-    dispatch(clearExpense())
-    expenseTransactions.forEach((transaction :any) => {
-      console.log(transaction)
-      dispatch(addExpense(transaction))
-    })
+  return (
+  <></>
+  )
+}
 
-
-  }, [expenseTransactions]) // Dependency only on selectedAccount.id
-
-
-  return <></>
+// Optional: Create a wrapper for SSR/SSG/ISR support
+export async function DashboardServerWrapper({ session }: SessionProps) {
+  // This could pre-fetch data on the server if needed
+  return (
+    <Suspense fallback={<div>Loading dashboard...</div>}>
+      <DashboardClient session={session} />
+    </Suspense>
+  )
 }

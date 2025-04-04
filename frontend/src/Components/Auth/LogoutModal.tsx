@@ -16,6 +16,10 @@ import { signOut } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAppDispatch } from "@/lib/Redux/store/hooks"
 import { clearUser, setUser } from "@/lib/Redux/features/user/userSlice"
+import { clearIncome } from "@/lib/Redux/features/income/incomeSlices"
+import { clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
+import { clearExpense } from "@/lib/Redux/features/expense/expenseSlice"
+import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
 
 export default function LogoutModal({
   open,
@@ -29,6 +33,11 @@ export default function LogoutModal({
     signOut({ redirect: true, callbackUrl: "/login" })
   
     dispatch(clearUser())
+    dispatch(clearIncome())
+    dispatch(clearTransactions())
+    dispatch(clearExpense())
+    dispatch(clearAccount())
+
   }
 
   const handleCancel = () => {
@@ -86,7 +95,7 @@ export default function LogoutModal({
                       onClick={handleCancel}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
-                      className="px-6 py-2 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
+                      className="px-6 py-2 border cursor-pointer border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
                       Stay Signed In
                     </motion.button>
                   </AlertDialogCancel>
@@ -95,7 +104,7 @@ export default function LogoutModal({
                       onClick={handleLogout}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
-                      className="px-6 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-red-100 hover:from-red-600 hover:to-rose-700">
+                      className="px-6 py-2 cursor-pointer bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-red-100 hover:from-red-600 hover:to-rose-700">
                       Yes, Sign Me Out
                     </motion.button>
                   </AlertDialogAction>

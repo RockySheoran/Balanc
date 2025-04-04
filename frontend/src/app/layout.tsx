@@ -37,9 +37,16 @@ export default async function RootLayout({
         <ReduxProvider>
           <ClientSessionProvider>
             <div className="md:flex ">
-              <SideBarWrapper />
+              {
+                session?.token? (
+                  <SideBarWrapper />
+                ) : (
+                 <></>
+                )
+              }
+              {/* <SideBarWrapper /> */}
               <div
-                className={`overflow-x-hidden mt-10 md:mt-5 md:mx-auto md:flex-2/12`}>
+                className={`overflow-x-hidden  md:mx-auto md:flex-2/12`}>
                 {children}
               </div>
             </div>

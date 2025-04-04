@@ -83,6 +83,7 @@ const incomeSlice = createSlice({
       state.filteredIncomes = state.incomes
       state.currentPage = 1
     },
+    clearIncome: () => initialState,
   },
 })
 
@@ -240,6 +241,6 @@ export const selectMonthlyIncomeData = (state: { income: IncomeState }) => {
   }));
 };
 
-export const { addIncome, deleteIncome, setFilter, setPage, resetFilters } =
+export const { addIncome, deleteIncome,clearIncome, setFilter, setPage, resetFilters } =
   incomeSlice.actions
 export default incomeSlice.reducer

@@ -1,21 +1,46 @@
+
 /** @format */
+"use client"
 
-// import Login from "@/components/auth/Login";
-import React from "react"
+import dynamic from "next/dynamic"
+import { Suspense } from "react"
 import Link from "next/link"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/options"
-import { redirect } from "next/navigation"
-import Login from "@/Components/Auth/Login"
-import { GoogleSubmitBtn } from "@/Components/common/GoogleSubmitBtn"
-import { signIn } from "next-auth/react"
+import { useSearchParams } from "next/navigation"
 
-export default async function login() {
-  const session = await getServerSession(authOptions)
-  if (session !== null) {
-    redirect("/dashboard")
+// Direct dynamic imports with proper error handling
+const LoginForm = dynamic(
+  () =>
+    import("@/Components/Auth/Login")
+      .then((mod) => {
+        if (!("default" in mod)) {
+          throw new Error("Login component has no default export")
+        }
+        return mod.default
+      })
+      .catch((err) => {
+        console.error("Login component load error:", err)
+        return {
+          default: () => (
+            <div className="text-red-500">Error loading login form</div>
+          ),
+        }
+      }),
+  {
+    loading: () => (
+      <div className="space-y-4">
+        <div className="h-12 bg-gray-200 rounded animate-pulse" />
+        <div className="h-12 bg-gray-200 rounded animate-pulse" />
+      </div>
+    ),
+    ssr: false,
   }
-  
+)
+
+
+
+export default function LoginPage() {
+  const searchParams = useSearchParams()
+  const error = searchParams.get("error")
 
   return (
     <div className="flex justify-center items-center h-screen ">
@@ -27,8 +52,10 @@ export default async function login() {
           <h1 className="text-3xl font-bold">Login</h1>
           <p>Welcome back</p>
         </div>
-        <Login />
-       
+        <Suspense fallback={<div>Loading login form...</div>}>
+          <LoginForm />
+        </Suspense>
+
         <p className="text-center mt-2">
           Don't have an account ?{" "}
           <strong>

@@ -44,7 +44,9 @@ export default function ResetPassword() {
     <form action={formAction}>
       <input type="hidden" name="token" value={sParams.get("token") ?? ""} />
       <div className="mt-4">
-        <Label className="my-2" htmlFor="email">Email</Label>
+        <Label className="my-2" htmlFor="email">
+          Email
+        </Label>
         <Input
           placeholder="Type your email"
           name="email"
@@ -54,7 +56,9 @@ export default function ResetPassword() {
         <span className="text-red-400">{state.errors?.email}</span>
       </div>
       <div className="mt-4">
-        <Label className="my-2" htmlFor="password">Password</Label>
+        <Label className="my-2" htmlFor="password">
+          Password
+        </Label>
         <div className="di relative">
           <Input
             type={eyeOpen ? "text" : "password"}
@@ -70,7 +74,9 @@ export default function ResetPassword() {
         <span className="text-red-400">{state.errors?.password}</span>
       </div>
       <div className="mt-4">
-        <Label className="my-2" htmlFor="confirm_password">Confirm Password</Label>
+        <Label className="my-2" htmlFor="confirm_password">
+          Confirm Password
+        </Label>
         <div className="di relative">
           <Input
             type={eyeOpen ? "text" : "password"}
@@ -85,7 +91,7 @@ export default function ResetPassword() {
         </div>
         <span className="text-red-400">{state.errors?.confirm_password}</span>
       </div>
-      <div className="mt-4">
+      <div className="mt-4 cursor-pointer">
         <SubmitButton />
       </div>
     </form>
