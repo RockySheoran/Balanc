@@ -27,6 +27,7 @@ import { SubmitButton } from "../common/SubmitButton"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import { addTransaction } from "@/lib/Redux/features/transactions/transactionsSlice"
 
+
 const categories = [
   "Food",
   "Utilities",
@@ -91,11 +92,24 @@ const AddExpenseButton = () => {
             value={selectedAccount?.id || ""}
           />
 
+          {/* Name Field with Error Handling */}
           <div>
             <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" required className="mt-2 w-full" />
+            <Input
+              id="name"
+              name="name"
+              required
+              className="mt-2 w-full"
+              aria-invalid={formState.errors?.name ? "true" : "false"}
+            />
+            {formState.errors?.name && (
+              <p className="mt-1 text-sm text-red-500">
+                {formState.errors.name}
+              </p>
+            )}
           </div>
 
+          {/* Amount Field with Error Handling */}
           <div>
             <Label htmlFor="amount">Amount</Label>
             <Input
@@ -106,15 +120,27 @@ const AddExpenseButton = () => {
               step="1"
               required
               className="mt-2 w-full"
+              aria-invalid={formState.errors?.amount ? "true" : "false"}
             />
+            {formState.errors?.amount && (
+              <p className="mt-1 text-sm text-red-500">
+                {formState.errors.amount}
+              </p>
+            )}
           </div>
 
+          {/* Type Field with Error Handling */}
           <div>
             <Label className="mb-2" htmlFor="type">
               Type
             </Label>
-            <Select name="type" required>
-              <SelectTrigger id="type">
+            <Select
+              name="type"
+              required
+              aria-invalid={formState.errors?.type ? "true" : "false"}>
+              <SelectTrigger
+                id="type"
+                className={formState.errors?.type ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select transaction type" />
               </SelectTrigger>
               <SelectContent>
@@ -125,14 +151,25 @@ const AddExpenseButton = () => {
                 ))}
               </SelectContent>
             </Select>
+            {formState.errors?.type && (
+              <p className="mt-1 text-sm text-red-500">
+                {formState.errors.type}
+              </p>
+            )}
           </div>
 
+          {/* Category Field with Error Handling */}
           <div>
             <Label className="mb-2" htmlFor="category">
               Category
             </Label>
-            <Select name="category" required>
-              <SelectTrigger id="category">
+            <Select
+              name="category"
+              required
+              aria-invalid={formState.errors?.category ? "true" : "false"}>
+              <SelectTrigger
+                id="category"
+                className={formState.errors?.category ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
@@ -143,8 +180,14 @@ const AddExpenseButton = () => {
                 ))}
               </SelectContent>
             </Select>
+            {formState.errors?.category && (
+              <p className="mt-1 text-sm text-red-500">
+                {formState.errors.category}
+              </p>
+            )}
           </div>
 
+          {/* Description Field (Optional) */}
           <div>
             <Label htmlFor="description">Description (Optional)</Label>
             <Textarea
@@ -154,6 +197,7 @@ const AddExpenseButton = () => {
             />
           </div>
 
+          {/* Form Actions */}
           <div className="flex justify-end space-x-2">
             <Button
               className="cursor-pointer"
@@ -162,10 +206,13 @@ const AddExpenseButton = () => {
               onClick={handleClose}>
               Cancel
             </Button>
-            <div>
-              <SubmitButton />
-            </div>
+            <SubmitButton />
           </div>
+
+          {/* General Form Error */}
+          {formState.errors?.form && (
+            <p className="mt-2 text-sm text-red-500">{formState.errors.form}</p>
+          )}
         </form>
       </DialogContent>
     </Dialog>

@@ -17,6 +17,7 @@ import userSlice from "../features/user/userSlice"
 import accountReducer from "../features/account/accountSlice"
 import transactionSlice from "../features/transactions/transactionsSlice"
 import expenseReducer from "../features/expense/expenseSlice"
+import incomeReducer from "../features/income/incomeSlices"
 
 // 1. Define root reducer
 const rootReducer = combineReducers({
@@ -24,6 +25,7 @@ const rootReducer = combineReducers({
   account: accountReducer,
   transactions: transactionSlice,
   expenses: expenseReducer,
+  income: incomeReducer,
   // Add other reducers here
 })
 

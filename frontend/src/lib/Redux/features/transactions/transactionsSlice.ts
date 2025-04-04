@@ -211,7 +211,7 @@ const transactionSlice = createSlice({
   reducers: {
     addTransaction: (state, action: PayloadAction<Transaction>) => {
       const safeSortConfig = getSafeSortConfig(state)
-     const newTransactions = [action.payload, ...state.transactions]
+      const newTransactions = [action.payload, ...state.transactions]
       const metrics = calculateMetrics(newTransactions)
 
       return {
@@ -347,7 +347,7 @@ const transactionSlice = createSlice({
       }
     },
     clearTransactions: () => initialState,
-    
+
     resetState: () => {
       console.warn("Resetting transactions state to initial state")
       return initialState
