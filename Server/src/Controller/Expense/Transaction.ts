@@ -1,33 +1,48 @@
-/** @format */
-
-// src/controllers/transactionController.ts
+/**
+ * Transaction Controller
+ *
+ * Handles all transaction-related operations including:
+ * - Creating new transactions
+ * - Retrieving transaction history
+ * - Caching frequent queries with Redis
+ *
+ * @format
+ * @module TransactionController
+ */
 
 import { Request, Response } from "express"
 import { ZodError } from "zod"
-import { formatError } from "../../helper.js"
-import { transactionSchema } from "../../Validation/TransactionsValidation.js"
 import prisma from "../../Config/DataBase.js"
+import { transactionSchema } from "../../Validation/TransactionsValidation.js"
+import redisClient from "../../Config/redis/redis.js"
+import { formatError } from "../../helper.js"
 
 
-
-//! 🎯 Create a Transaction
+/**
+ * Creates a new transaction and updates account balance
+ * @param req - Express request containing transaction data
+ * @param res - Express response object
+ */
 export const createTransaction = async (
   req: Request,
   res: Response
-): Promise<any>=> {
+): Promise<Response> => {
   try {
+    // Authentication check
     if (!req.user) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.id
-    // console.log(userId)
+
+    const userId = req.user.id
     const data = req.body
-    // console.log(data)
+
+    // Validate input data
     const payload = await transactionSchema.parse(data)
-console.log(payload)
+
+    // Check if account exists
     const account = await prisma.account.findUnique({
       where: { id: payload.accountId },
     })
@@ -36,9 +51,10 @@ console.log(payload)
       return res.status(404).json({ message: "Account not found" })
     }
 
+    // Create new transaction
     const transaction = await prisma.transaction.create({
       data: {
-        name:payload.name,
+        name: payload.name,
         accountId: payload.accountId,
         userId,
         amount: payload.amount,
@@ -48,10 +64,9 @@ console.log(payload)
       },
     })
 
+    // Calculate new balance
     let updatedBalance = account.balance || 0
     let expense = account.totalExpense || 0
-
-    console.log(updatedBalance, expense)
 
     if (payload.type === "CREDIT" || payload.type === "INCOME") {
       updatedBalance += payload.amount
@@ -59,137 +74,91 @@ console.log(payload)
       updatedBalance -= payload.amount
       expense += payload.amount
     }
-    console.log(updatedBalance,expense)
 
-    const newaccount = await prisma.account.update({
+    // Update account balance
+    const updatedAccount = await prisma.account.update({
       where: { id: payload.accountId },
       data: {
         totalExpense: expense,
         balance: updatedBalance,
       },
     })
-    console.log(newaccount)
-console.log(transaction)
-    res.status(201).json({
+
+    // Invalidate Redis cache for this account's transactions
+    await redisClient.del(`transactions:${payload.accountId}`)
+
+    return res.status(201).json({
       message: "Transaction created successfully",
-      data: { transaction },
+      data: { transaction, balance: updatedAccount.balance },
     })
   } catch (error) {
     if (error instanceof ZodError) {
       const errors = await formatError(error)
       return res.status(422).json({ message: "Invalid Data", errors })
     }
-   return res.status(500).json({ error: (error as Error).message })
+    return res.status(500).json({ error: (error as Error).message })
   }
 }
 
-//! 🎯 Get All Transactions
-export const getAllTransactions = async (req: Request, res: Response) : Promise<any> => {
+/**
+ * Retrieves all transactions for a specific account with Redis caching
+ * @param req - Express request containing accountId
+ * @param res - Express response object
+ */
+export const getAllTransactions = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   try {
-
     const { accountId } = req.body
     console.log(accountId)
+
+    if (!accountId) {
+      return res.status(400).json({ message: "Account ID is required" })
+    }
+
+    const cacheKey = `transactions:${accountId}`
+
+    // Check Redis cache first
+    const cachedTransactions = await redisClient.get(cacheKey)
+
+    if (cachedTransactions) {
+      return res.status(200).json({
+        message: "Transactions retrieved from cache",
+        data: { transactions: JSON.parse(cachedTransactions) },
+      })
+    }
+
+    // If not in cache, query database
     const transactions = await prisma.transaction.findMany({
       where: { accountId },
       orderBy: {
-        createdAt: "desc", // Optional: sort by creation date
+        createdAt: "desc",
       },
     })
     console.log(transactions)
-    console.log("dddddddddddddd")
-    res.status(200).json({
+
+    // Cache the result for 1 hour
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(transactions))
+
+    return res.status(200).json({
       message: "Transactions retrieved successfully",
       data: { transactions },
     })
   } catch (error) {
-    console.log(error)
-    res.status(500).json({
+    console.error("Error retrieving transactions:", error)
+    return res.status(500).json({
       message: "Error retrieving transactions",
       error: (error as Error).message,
     })
   }
 }
 
-//! 🎯 Get Transactions by Date
-export const getTransactionsByDate = async (req: Request, res: Response) : Promise<any> => {
-  try {
-    const { date } = req.params
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: "Unauthorized" })
-    }
-
-    const userId = req.user?.id
-    const startDate = new Date(date)
-    startDate.setUTCHours(0, 0, 0, 0)
-    const endDate = new Date(date)
-    endDate.setUTCHours(23, 59, 59, 999)
-
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        userId,
-        createdAt: { gte: startDate, lte: endDate },
-      },
-    })
-
-    res.status(200).json({ message: "Data Found", transactions })
-  } catch (error) {
-    res.status(500).json({
-      message: "Error retrieving data",
-      error: (error as Error).message,
-    })
-  }
-}
-
-//! 🎯 Get Transactions by Month
-export const getTransactionsByMonth = async (req: Request, res: Response) : Promise<any> => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: "Unauthorized" })
-    }
-    const userId = req.user?.id
-    const { year, month } = req.params
-    const startDate = new Date(`${year}-${month}-01`)
-    const endDate = new Date(`${year}-${Number(month) + 1}-01`)
-
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        userId,
-        createdAt: { gte: startDate, lt: endDate },
-      },
-    })
-
-    res.status(200).json({ transactions })
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message })
-  }
-}
-
-//! 🎯 Get Transactions by Year
-export const getTransactionsByYear = async (req: Request, res: Response) : Promise<any> => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: "Unauthorized" })
-    }
-    const userId = req.user?.id
-    const { year } = req.params
-    const startDate = new Date(`${year}-01-01`)
-    const endDate = new Date(`${Number(year) + 1}-01-01`)
-
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        userId,
-        createdAt: { gte: startDate, lt: endDate },
-      },
-    })
-
-    res.status(200).json({ transactions })
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message })
-  }
-}
-
 //! ❌ Delete Transaction
-export const deleteTransaction = async (req: Request, res: Response) : Promise<any> => {
+export const deleteTransaction = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { id } = req.params
     if (!req.user) {
@@ -245,7 +214,10 @@ export const deleteTransaction = async (req: Request, res: Response) : Promise<a
 }
 
 //! ✏️ Update Transaction
-export const updateTransaction = async (req: Request, res: Response) : Promise<any> => {
+export const updateTransaction = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { id } = req.params
     if (!req.user) {

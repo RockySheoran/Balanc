@@ -22,7 +22,7 @@ interface SessionProps {
       image?: string | null
     }
   } | null
-}
+} 
 
 export default function DashboardClient({ session }: SessionProps) {
   const dispatch = useAppDispatch()
@@ -43,7 +43,7 @@ export default function DashboardClient({ session }: SessionProps) {
     }
   }, [session, dispatch])
 
-  const { selectedAccount } = useAppSelector((state: { account: { selectedAccount: { id: string } | null } }) => state.account)
+  const { selectedAccount } = useAppSelector(state => state.account)
 const {expenseTransactions} = useAppSelector(state=> state.transactions)
   useEffect(() => {
     console.log(`object`)

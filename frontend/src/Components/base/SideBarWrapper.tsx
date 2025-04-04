@@ -1,16 +1,35 @@
-/** @format */
+/**
+ * @format
+ * Server component that wraps client-side sidebar and dashboard components
+ * with session data from the server
+ */
 
-// app/components/SideBarWrapper.tsx
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/options"
+
+import DashboardClient from "./DashboardClient"
+import { redirect } from "next/navigation"
+import { Session } from "next-auth"
 import { ClientSideBar } from "./ClientSideBarProps"
-import DashboardClient from "../dashboard/DashboardClient";
 
+/**
+ * Wrapper component that provides session data to client components
+ */
 export default async function SideBarWrapper() {
-  const session = await getServerSession(authOptions)
+  // Fetch session data
+  const session = (await getServerSession(authOptions)) as Session | null
 
+  // Handle unauthenticated users
   if (!session) {
-    return null; // or handle the null case appropriately
+    redirect("/login") // Redirect to sign-in page
+    // Alternatively, you could return a loading state or null
+    // return null
+  }
+
+  // Validate session structure (optional)
+  if (!session.user?.email) {
+    // console.error("Invalid session structure:", session)
+    redirect("/login")
   }
 
   return (

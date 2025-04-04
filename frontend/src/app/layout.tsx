@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/Components/ui/sonner"
-import StoreProvider from "./providers/StoreProvider"
+
 
 import { getServerSession } from "next-auth"
 import { authOptions } from "./api/auth/[...nextauth]/options"

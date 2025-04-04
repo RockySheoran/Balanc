@@ -10,17 +10,31 @@ import route from "./Routes/mainRoutes.js"
 import cors from "cors"
 
 
+import "./Service/index.js"
+import { emailQueue, emailQueueName } from "./Service/emailJob.js"
+import { promises } from "dns"
+import asyncHandler from "./Config/asyncHandler.js"
+import prisma from "./Config/DataBase.js"
+import { limiter } from "./Config/rateLimit.js"
+import { dirname } from 'path';
+import { RedisStore } from "connect-redis"
+import redisClient from "./Config/redis/redis.js"
+import session from "express-session"
+import rateLimit from "./Middleware/rateLimit.js"
 //! Port
 
 const PORT = process.env.PORT || 7000
 const app: Application = express()
 
 // Define __dirname for ES modules
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Middleware to parse JSON and URL-encoded data
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
+// Apply rate limiting
+app.use(rateLimit())
 
 // Set view engine
 app.set("view engine", "ejs")
@@ -55,16 +69,27 @@ app.get(
   })
 )
 
-
-
-
 //Queue radis
-import "./Job/index.js"
-import { emailQueue, emailQueueName } from "./Job/emailJob.js"
-import { promises } from "dns"
-import asyncHandler from "./Config/asyncHandler.js"
-import prisma from "./Config/DataBase.js"
-import { limiter } from "./Config/rateLimit.js"
+
+
+
+app.use(
+  session({
+    store: new RedisStore({ client: redisClient }),
+    secret: process.env.SESSION_SECRET || "your_secret_key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 86400000, // 24 hours
+    },
+  })
+)
+
+process.on("SIGTERM", async () => {
+  await redisClient.disconnect()
+  process.exit(0)
+})
 
 
 //! Routes
@@ -78,7 +103,6 @@ app.use(cors(corsOption))
 app.use(route)
 // app limit
 app.use(limiter)
-
 
 // Start the server
 app.listen(PORT, () => {

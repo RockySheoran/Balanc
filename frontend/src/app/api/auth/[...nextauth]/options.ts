@@ -124,10 +124,12 @@ export const authOptions: NextAuthOptions = {
 
           const response = await axios.post(loginGoogleApi, {
             email: profile.email,
-            name: profile.name || profile.email.split("@")[0],
+            name: profile.name ,
             image: profile.image,
             googleId: profile.sub,
           })
+          console.log(response)
+          console.log(`wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`)
 
           if (!response.data?.success || !response.data.data?.token) {
             throw new Error(

@@ -16,7 +16,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "10d"
 export const handleGoogleAuth = async (
   req: Request,
   res: Response
-): Promise<Response> => {
+): Promise<any> => {
   try {
     const { email, name, image, googleId } = req.body
 
@@ -34,6 +34,7 @@ export const handleGoogleAuth = async (
         OR: [{ googleId }, { email }],
       },
     })
+    // console.log(user)
 
     // Handle new user registration
     if (!user) {
@@ -98,6 +99,7 @@ const sendAuthResponse = (
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   )
+  // console.log(token)
 
   return res.json({
     success: true,

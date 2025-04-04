@@ -70,7 +70,7 @@ export const CreateAccountAction = async (
       headers: {
         Authorization: `${session.token}`,
         "Content-Type": "application/json",
-        "X-Requested-With": "XMLHttpRequest", // Helps identify AJAX requests
+    
       },
       timeout: 5000, // 5-second timeout
     })

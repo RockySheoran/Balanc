@@ -4,7 +4,7 @@ import { useAppSelector } from "@/lib/Redux/store/hooks"
 import axios from "axios"
 
 
-export const fetchAllTransactions = async ({ accountId }) => {
+export const fetchAllTransactions = async ({ accountId }: { accountId: string }) => {
   try {
     
    console.log(accountId+"ffffffffffffffffffffffffffffffffffffffff")

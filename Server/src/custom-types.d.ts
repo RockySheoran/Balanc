@@ -1,5 +1,5 @@
 interface AuthUser {
-    Id:string,
+    id:string,
     name:string,
     email:string,
    

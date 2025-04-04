@@ -5,7 +5,7 @@ import { formatError, renderEmailEjs } from "../../helper.js";
 import prisma from "../../Config/DataBase.js";
 import bcrypt from "bcrypt";
 import { v4 as uuid } from "uuid";
-import { emailQueue, emailQueueName } from "../../Job/emailJob.js";
+import { emailQueue, emailQueueName } from "../../Service/emailJob.js";
 export const Registration = async (req, res) => {
     try {
         const body = req.body;
@@ -30,8 +30,15 @@ export const Registration = async (req, res) => {
         payload.password = await bcrypt.hash(payload.password, salt);
         const token = await bcrypt.hash(uuid(), salt);
         const url = `${process.env.APP_URL}/email-verify?email=${payload.email}&token=${token}`;
-        const bodyHtml = await renderEmailEjs("verify-email", { name: payload.name, url: url });
-        await emailQueue.add(emailQueueName, { to: payload.email, subject: "Email verify", html: bodyHtml });
+        const bodyHtml = await renderEmailEjs("verify-email", {
+            name: payload.name,
+            url: url,
+        });
+        await emailQueue.add(emailQueueName, {
+            to: payload.email,
+            subject: "Email verify",
+            html: bodyHtml,
+        });
         // Create the user in the database
         const a = await prisma.user.create({
             data: {
@@ -39,7 +46,7 @@ export const Registration = async (req, res) => {
                 email: payload.email,
                 password: payload.password,
                 email_verify_token: token,
-                provider: "email"
+                provider: "email",
             },
         });
         console.log(a);

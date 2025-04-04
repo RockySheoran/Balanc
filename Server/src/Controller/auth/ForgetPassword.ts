@@ -7,7 +7,7 @@ import { formatError, renderEmailEjs } from "../../helper.js"
 import prisma from "../../Config/DataBase.js"
 import bcrypt from "bcrypt"
 import { v4 as uuid4 } from "uuid"
-import { emailQueue, emailQueueName } from "../../Job/emailJob.js"
+import { emailQueue, emailQueueName } from "../../Service/emailJob.js"
 
 export const forgetPassword = async (
   req: Request,
@@ -44,15 +44,21 @@ export const forgetPassword = async (
       },
     })
 
-    const url = `${process.env.CLIENT_APP_URL}/reset-password?email=${payload.email}&token=${token}`;
-   const bodyHtml = await renderEmailEjs("forget-password", { name: user.name, url: url });
+    const url = `${process.env.CLIENT_APP_URL}/reset-password?email=${payload.email}&token=${token}`
+    const bodyHtml = await renderEmailEjs("forget-password", {
+      name: user.name,
+      url: url,
+    })
 
-   await emailQueue.add(emailQueueName, { to: payload.email, subject: "Password Reset", html: bodyHtml });
+    await emailQueue.add(emailQueueName, {
+      to: payload.email,
+      subject: "Password Reset",
+      html: bodyHtml,
+    })
 
     return res.status(200).json({
       message: "Email sent successfully,Please check your email",
     })
-
   } catch (error) {
     if (error instanceof ZodError) {
       const errors = formatError(error)
