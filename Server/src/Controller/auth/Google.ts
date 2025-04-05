@@ -10,7 +10,7 @@ import bcrypt from "bcrypt"
 import { ZodError } from "zod"
 import { formatError } from "../../helper.js"
 import jwt from "jsonwebtoken"
-const JWT_SECRET = process.env.JWT_SECRET_KEY as string
+const JWT_SECRET = process.env.JWT_SECRET_KEY as string || ""
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "10d"
 
 export const handleGoogleAuth = async (

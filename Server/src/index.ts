@@ -17,10 +17,7 @@ import asyncHandler from "./Config/asyncHandler.js"
 import prisma from "./Config/DataBase.js"
 import { limiter } from "./Config/rateLimit.js"
 import { dirname } from 'path';
-import { RedisStore } from "connect-redis"
-import redisClient from "./Config/redis/redis.js"
-import session from "express-session"
-import rateLimit from "./Middleware/rateLimit.js"
+
 //! Port
 
 const PORT = process.env.PORT || 7000
@@ -34,7 +31,7 @@ const __dirname = dirname(__filename);
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 // Apply rate limiting
-app.use(rateLimit())
+// app.use(rateLimit())
 
 // Set view engine
 app.set("view engine", "ejs")
@@ -73,23 +70,10 @@ app.get(
 
 
 
-app.use(
-  session({
-    store: new RedisStore({ client: redisClient }),
-    secret: process.env.SESSION_SECRET || "your_secret_key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 86400000, // 24 hours
-    },
-  })
-)
 
-process.on("SIGTERM", async () => {
-  await redisClient.disconnect()
-  process.exit(0)
-})
+
+
+
 
 
 //! Routes
@@ -104,6 +88,18 @@ app.use(route)
 // app limit
 app.use(limiter)
 
+
+
+
+
+
+
+
+
+
+// redis
+// 
+import "./Config/redis/redis.js"
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server started on port ${PORT}`)

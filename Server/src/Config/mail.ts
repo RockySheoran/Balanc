@@ -27,7 +27,7 @@ export const sendMail = async (to: string, subject: string, html: string) => {
     })
   } catch (error) {
     logger.error({ type: "Email Error", error })
-    // console.log("dsf")
+    console.log("dsf")
     console.log(error)
     // console.log(process.env.SMTP_HOST)
   }

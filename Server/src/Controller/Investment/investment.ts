@@ -21,7 +21,7 @@ export const createInvestment = async (
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
     const data = req.body
     const payload = await investmentSchema.parse(data)
     const investment = await prisma.investment.create({
@@ -61,7 +61,7 @@ export const getAllInvestments = async (
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
     const investments = await prisma.investment.findMany({
       where: { userId },
     })
@@ -86,7 +86,7 @@ export const getInvestmentsByDate = async (
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
     const investments = await prisma.investment.findMany({
       where: {
         userId,
@@ -117,7 +117,7 @@ export const getInvestmentsByMonth = async (
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
     const startDate = new Date(`${year}-${month}-01`)
     const endDate = new Date(startDate)
     endDate.setMonth(endDate.getMonth() + 1)
@@ -152,7 +152,7 @@ export const getInvestmentsByYear = async (
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
     const startDate = new Date(`${year}-01-01`)
     const endDate = new Date(`${year}-12-31`)
 
@@ -184,7 +184,7 @@ export const deleteInvestment = async (req: Request, res: Response) :Promise<any
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
 
     const investment = await prisma.investment.findUnique({
       where: { id },
@@ -223,7 +223,7 @@ export const updateInvestment = async (req: Request, res: Response) => {
         message: "Unauthorized",
       })
     }
-    const userId = req.user?.Id
+    const userId = req.user?.id
     const data = req.body
 
     const payload = await investmentSchema.parse(data)

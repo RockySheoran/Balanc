@@ -1,34 +1,25 @@
 /**
- * Transaction Controller
- *
- * Handles all transaction-related operations including:
- * - Creating new transactions
- * - Retrieving transaction history
- * - Caching frequent queries with Redis
+ * Transaction Controller with Redis Caching
+ * (Only Redis additions - core logic unchanged)
  *
  * @format
- * @module TransactionController
  */
 
 import { Request, Response } from "express"
 import { ZodError } from "zod"
 import prisma from "../../Config/DataBase.js"
 import { transactionSchema } from "../../Validation/TransactionsValidation.js"
-import redisClient from "../../Config/redis/redis.js"
 import { formatError } from "../../helper.js"
+import redisClient from "../../Config/redis/redis.js"
 
 
-/**
- * Creates a new transaction and updates account balance
- * @param req - Express request containing transaction data
- * @param res - Express response object
- */
+const CACHE_TTL = 3600 // 1 hour cache
+
 export const createTransaction = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
   try {
-    // Authentication check
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -38,11 +29,8 @@ export const createTransaction = async (
 
     const userId = req.user.id
     const data = req.body
-
-    // Validate input data
     const payload = await transactionSchema.parse(data)
 
-    // Check if account exists
     const account = await prisma.account.findUnique({
       where: { id: payload.accountId },
     })
@@ -51,7 +39,6 @@ export const createTransaction = async (
       return res.status(404).json({ message: "Account not found" })
     }
 
-    // Create new transaction
     const transaction = await prisma.transaction.create({
       data: {
         name: payload.name,
@@ -64,7 +51,6 @@ export const createTransaction = async (
       },
     })
 
-    // Calculate new balance
     let updatedBalance = account.balance || 0
     let expense = account.totalExpense || 0
 
@@ -75,7 +61,6 @@ export const createTransaction = async (
       expense += payload.amount
     }
 
-    // Update account balance
     const updatedAccount = await prisma.account.update({
       where: { id: payload.accountId },
       data: {
@@ -84,7 +69,7 @@ export const createTransaction = async (
       },
     })
 
-    // Invalidate Redis cache for this account's transactions
+    // Redis addition: Invalidate cache
     await redisClient.del(`transactions:${payload.accountId}`)
 
     return res.status(201).json({
@@ -100,18 +85,12 @@ export const createTransaction = async (
   }
 }
 
-/**
- * Retrieves all transactions for a specific account with Redis caching
- * @param req - Express request containing accountId
- * @param res - Express response object
- */
 export const getAllTransactions = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
   try {
     const { accountId } = req.body
-    console.log(accountId)
 
     if (!accountId) {
       return res.status(400).json({ message: "Account ID is required" })
@@ -119,9 +98,8 @@ export const getAllTransactions = async (
 
     const cacheKey = `transactions:${accountId}`
 
-    // Check Redis cache first
+    // Redis addition: Check cache first
     const cachedTransactions = await redisClient.get(cacheKey)
-
     if (cachedTransactions) {
       return res.status(200).json({
         message: "Transactions retrieved from cache",
@@ -129,17 +107,13 @@ export const getAllTransactions = async (
       })
     }
 
-    // If not in cache, query database
     const transactions = await prisma.transaction.findMany({
       where: { accountId },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     })
-    console.log(transactions)
 
-    // Cache the result for 1 hour
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(transactions))
+    // Redis addition: Cache results
+    await redisClient.setEx(cacheKey, CACHE_TTL, JSON.stringify(transactions))
 
     return res.status(200).json({
       message: "Transactions retrieved successfully",
@@ -154,7 +128,6 @@ export const getAllTransactions = async (
   }
 }
 
-//! ❌ Delete Transaction
 export const deleteTransaction = async (
   req: Request,
   res: Response
@@ -204,6 +177,9 @@ export const deleteTransaction = async (
       },
     })
 
+    // Redis addition: Invalidate cache
+    await redisClient.del(`transactions:${transaction.accountId}`)
+
     res.status(200).json({
       success: true,
       message: "Transaction deleted successfully",
@@ -213,7 +189,6 @@ export const deleteTransaction = async (
   }
 }
 
-//! ✏️ Update Transaction
 export const updateTransaction = async (
   req: Request,
   res: Response
@@ -280,6 +255,9 @@ export const updateTransaction = async (
         totalExpense: updatedTotalExpense,
       },
     })
+
+    // Redis addition: Invalidate cache
+    await redisClient.del(`transactions:${transaction.accountId}`)
 
     res.status(200).json({
       success: true,
