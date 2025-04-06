@@ -18,6 +18,8 @@ import {
   clearExpense,
 } from "@/lib/Redux/features/expense/expenseSlice"
 import useSWR from "swr"
+import { fetchAllInvestment } from "@/Actions/investmentApi/fetchAllInvestment"
+import { addBackendInvestment, clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
 
 
 interface SessionProps {
@@ -105,7 +107,7 @@ export default function DashboardClient({ session }: SessionProps) {
 
     loadTransactions()
   }, [selectedAccount?.id, transactionsData, transactionsError, dispatch])
-
+  
   // Expense processing effect with debouncing
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -114,9 +116,46 @@ export default function DashboardClient({ session }: SessionProps) {
         dispatch(addExpense(transaction))
       })
     }, 300) // Small debounce to avoid rapid updates
-
+    
     return () => clearTimeout(timer)
   }, [expenseTransactions, dispatch])
+  const { data: investmentData, error: investmentError } = useSWR(
+    selectedAccount?.id ? `/api/investment/${selectedAccount.id}` : null,
+    async (url) => {
+      const response = await fetchAllInvestment({
+        accountId: selectedAccount!.id,
+      })
+      console.log(response)
+      if (response.status !== 200) throw new Error(response.message)
+        return response.data.investments
+    },
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+    }
+  )
+  
+  useEffect(() => {
+    if (!selectedAccount?.id) return
+
+    const loadInvestment = async () => {
+      try {
+        console.log(investmentData)
+        if (investmentData) {
+          dispatch(clearInvestments())
+          investmentData.forEach((transaction: any) => {
+            dispatch(addBackendInvestment(transaction))
+          })
+        } else if (investmentError) {
+          toast.error("Failed to load investments ")
+        }
+      } catch (error) {
+        toast.error("An error occurred while processing transactions")
+      }
+    }
+
+    loadInvestment()
+  }, [selectedAccount?.id, investmentData, investmentError, dispatch])
 
   return (
   <></>

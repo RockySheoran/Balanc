@@ -18,7 +18,7 @@ const CACHE_TTL = 3600 // 1 hour cache
 export const createTransaction = async (
   req: Request,
   res: Response
-): Promise<Response> => {
+): Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -88,7 +88,7 @@ export const createTransaction = async (
 export const getAllTransactions = async (
   req: Request,
   res: Response
-): Promise<Response> => {
+): Promise<any> => {
   try {
     const { accountId } = req.body
 

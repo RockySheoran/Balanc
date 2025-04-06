@@ -31,8 +31,12 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/",
-    "/dashboard/:path*",
-    "/profile",
+    "/dashboard",
+    "/investment",
+    "/expense",
+    "/transaction",
+    "/income",
+
     /*
      * Match all request paths except for:
      * - _next/static (static files)
@@ -40,6 +44,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - images - .svg, .png, .jpg, etc.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
-};
+}

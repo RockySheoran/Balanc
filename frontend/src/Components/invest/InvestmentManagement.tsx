@@ -1,156 +1,306 @@
 /** @format */
 "use client"
-import { addInvestment, fetchStockPrice, selectInvestment, setFilter } from "@/lib/Redux/features/investmentSlice/investmentSlice"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+  addInvestment,
+  fetchStockPrice,
+  selectInvestment,
+  setFilter,
+} from "@/lib/Redux/features/investmentSlice/investmentSlice"
 import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
-import React, { useEffect, useState } from "react"
+import { Investment } from "./investment"
+import dynamic from "next/dynamic"
+import { debounce } from "lodash"
+import {
+  FiPlus,
+  FiSearch,
+  FiTrendingUp,
+  FiAward,
+  FiPieChart,
+} from "react-icons/fi"
+import { RiArrowUpDownLine } from "react-icons/ri"
+import SkeletonLoader from "./SkeletonLoader"
 
-// Define the Filters type if not already defined elsewhere
+// Components
+const SummaryCards = dynamic(() => import("./SummaryCards"), {
+  loading: () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {[...Array(4)].map((_, i) => (
+        <SkeletonLoader key={i} className="h-32 rounded-xl" />
+      ))}
+    </div>
+  ),
+})
+
+const PerformanceChart = dynamic(() => import("./PerformanceChart"), {
+  ssr: false,
+  loading: () => <SkeletonLoader className="h-80 w-full rounded-xl" />,
+})
+
+const TopPerformers = dynamic(() => import("./TopPerformers"), {
+  ssr: false,
+  loading: () => <SkeletonLoader className="h-80 w-full rounded-xl" />,
+})
+
+const InvestmentTable = dynamic(() => import("./InvestmentTable"), {
+  loading: () => <SkeletonLoader className="h-64 w-full rounded-xl" />,
+})
+
+const InvestmentForm = dynamic(() => import("./InvestmentForm"))
+
+// Types
 type Filters = {
+  searchTerm: string
   dateRange: "all" | "1m" | "3m" | "6m" | "1y"
   performanceFilter: "all" | "profit" | "loss" | "best"
-  searchTerm: string
 }
-import { Investment } from "./investment"
-import SummaryCards from "./SummaryCards"
-import PerformanceChart from "./PerformanceChart"
-import InvestmentTable from "./InvestmentTable"
-import InvestmentForm from "./InvestmentForm"
+interface PerformanceChartProps {
+  investments: Investment[]
+}
 
-
-
-const InvestmentManagement: React.FC = () => {
+const InvestmentManagement = () => {
   const dispatch = useAppDispatch()
   const { investments, status, filters } = useAppSelector(
-    (state) => state.investments
+    (state) => state.investment
   )
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState(filters.searchTerm)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+
+  // Memoized filtered investments
+  const filteredInvestments = useMemo(() => {
+    if (!investments) return []
+
+    return investments.filter((inv) => {
+      const matchesSearch =
+        inv.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        inv.symbol.toLowerCase().includes(filters.searchTerm.toLowerCase())
+
+      switch (filters.performanceFilter) {
+        case "profit":
+          return (
+            matchesSearch &&
+            (inv.currentValue ? inv.currentValue > inv.buyPrice : false)
+          )
+        case "loss":
+          return (
+            matchesSearch &&
+            (inv.currentValue ? inv.currentValue < inv.buyPrice : false)
+          )
+        case "best":
+          const sorted = [...investments].sort((a, b) => {
+            const aROI = a.currentValue
+              ? (a.currentValue - a.buyPrice) / a.buyPrice
+              : 0
+            const bROI = b.currentValue
+              ? (b.currentValue - b.buyPrice) / b.buyPrice
+              : 0
+            return bROI - aROI
+          })
+          const top25 = sorted.slice(0, Math.ceil(sorted.length * 0.25))
+          return matchesSearch && top25.some((topInv) => topInv.id === inv.id)
+        default:
+          return matchesSearch
+      }
+    })
+  }, [investments, filters])
+
+  // Debounced search
+  const debouncedSearch = useCallback(
+    debounce((term: string) => dispatch(setFilter({ searchTerm: term })), 300),
+    []
+  )
 
   useEffect(() => {
-    // Fetch current prices for all investments periodically
+    debouncedSearch(searchTerm)
+    return () => debouncedSearch.cancel()
+  }, [searchTerm, debouncedSearch])
+
+  // Fetch prices
+  useEffect(() => {
+    if (investments?.length === 0) return
+
+    investments?.forEach((inv) => dispatch(fetchStockPrice(inv.symbol)))
     const interval = setInterval(() => {
-      investments.forEach((inv) => {
-        dispatch(fetchStockPrice(inv.symbol))
-      })
-    }, 60000) // Update every minute
+      investments?.forEach((inv) => dispatch(fetchStockPrice(inv.symbol)))
+    }, 60000)
 
     return () => clearInterval(interval)
   }, [investments, dispatch])
 
-  const filteredInvestments = investments?.filter((inv) => {
-    // Apply filters
-    const matchesSearch =
-      inv.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-      inv.symbol.toLowerCase().includes(filters.searchTerm.toLowerCase())
+  // const handleAddInvestment = useCallback(
+  //   (investment: Omit<Investment, "id" | "currentPrice">) => {
+  //     dispatch(addInvestment(investment))
+  //     setIsFormOpen(false)
+  //   },
+  //   [dispatch]
+  // )
 
-    let matchesPerformance = true
-    if (filters.performanceFilter === "profit") {
-      matchesPerformance = inv.currentPrice
-        ? inv.currentPrice > inv.buyPrice
-        : false
-    } else if (filters.performanceFilter === "loss") {
-      matchesPerformance = inv.currentPrice
-        ? inv.currentPrice < inv.buyPrice
-        
-        : false
-    } else if (filters.performanceFilter === "best") {
-      // Sort by ROI and take top 25%
-      const sorted = [...investments].sort((a, b) => {
-        const aROI = a.currentPrice
-          ? (a.currentPrice - a.buyPrice) / a.buyPrice
-          : 0
-        const bROI = b.currentPrice
-          ? (b.currentPrice - b.buyPrice) / b.buyPrice
-          : 0
-        return bROI - aROI
-      })
-      const top25 = sorted.slice(0, Math.ceil(sorted.length * 0.25))
-      matchesPerformance = top25.some((topInv) => topInv.id === inv.id)
-    }
+  const handleFilterChange = (key: keyof Filters, value: string) => {
+    dispatch(setFilter({ [key]: value }))
+  }
 
-    return matchesSearch && matchesPerformance
-  })
-
-  const handleAddInvestment = (
-    investment: Omit<Investment, "id" | "currentPrice">
-  ) => {
-    dispatch(addInvestment(investment))
-    setIsFormOpen(false)
+  if (status === "loading" && investments.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <SkeletonLoader className="h-12 w-64 mb-6 rounded-lg" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[...Array(4)].map((_, i) => (
+            <SkeletonLoader key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <SkeletonLoader className="lg:col-span-2 h-80 rounded-xl" />
+          <SkeletonLoader className="h-80 rounded-xl" />
+        </div>
+        <SkeletonLoader className="h-96 rounded-xl" />
+      </div>
+    )
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        Investment Portfolio
-      </h1>
+      {/* Header with animated gradient */}
+      <motion.header
+        className="mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}>
+        <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent mb-2">
+          Investment Portfolio
+        </h1>
+        <p className="text-muted-foreground">
+          Track and analyze your investments with precision
+        </p>
+      </motion.header>
 
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex space-x-2">
-          <select
-            className="px-4 py-2 border rounded-lg bg-white"
-            value={filters.dateRange}
-            onChange={(e) =>
-              dispatch(
-                setFilter({ dateRange: e.target.value as Filters["dateRange"] })
-              )
-            }>
-            <option value="all">All Time</option>
-            <option value="1m">Last Month</option>
-            <option value="3m">Last 3 Months</option>
-            <option value="6m">Last 6 Months</option>
-            <option value="1y">Last Year</option>
-          </select>
+      {/* Search and Filter Section */}
+      <motion.div
+        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}>
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search investments..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 w-full rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            />
+          </div>
 
-          <select
-            className="px-4 py-2 border rounded-lg bg-white"
-            value={filters.performanceFilter}
-            onChange={(e) =>
-              dispatch(
-                setFilter({
-                  performanceFilter: e.target
-                    .value as Filters["performanceFilter"],
-                })
-              )
-            }>
-            <option value="all">All Investments</option>
-            <option value="profit">Profitable</option>
-            <option value="loss">Losing</option>
-            <option value="best">Top Performers</option>
-          </select>
+          {/* Filter Button (Mobile) */}
+          <button
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className="md:hidden flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-background">
+            <RiArrowUpDownLine />
+            <span>Filters</span>
+          </button>
+
+          {/* Filter Controls */}
+          <div className={`${isFilterOpen ? "flex" : "hidden"} md:flex gap-3`}>
+            <select
+              value={filters.dateRange}
+              onChange={(e) => handleFilterChange("dateRange", e.target.value)}
+              className="px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+              <option value="all">All Time</option>
+              <option value="1m">Last Month</option>
+              <option value="3m">Last 3 Months</option>
+              <option value="6m">Last 6 Months</option>
+              <option value="1y">Last Year</option>
+            </select>
+
+            <select
+              value={filters.performanceFilter}
+              onChange={(e) =>
+                handleFilterChange("performanceFilter", e.target.value)
+              }
+              className="px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+              <option value="all">All Investments</option>
+              <option value="profit">Profitable</option>
+              <option value="loss">Losing</option>
+              <option value="best">Top Performers</option>
+            </select>
+          </div>
         </div>
 
-        <button
+        {/* Add Investment Button */}
+        <motion.button
           onClick={() => setIsFormOpen(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          + Add Investment
-        </button>
-      </div>
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg shadow-lg hover:shadow-xl transition-all">
+          <FiPlus className="w-5 h-5" />
+          <span>Add Investment</span>
+        </motion.button>
+      </motion.div>
 
-      <SummaryCards investments={filteredInvestments} />
+      {/* Summary Cards */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mb-8">
+        <SummaryCards investments={filteredInvestments} />
+      </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow">
-          {/* <PerformanceChart investments={filteredInvestments} /> */}
+      {/* Chart and Top Performers */}
+      <motion.div
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}>
+        <div className="lg:col-span-2 bg-card p-6 rounded-xl shadow-sm border border-border transition-all hover:shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <FiTrendingUp className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold">Performance Overview</h2>
+          </div>
+          <PerformanceChart investments={filteredInvestments} />
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Top Performers</h2>
-          {/* Mini leaderboard component would go here */}
-        </div>
-      </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-card p-6 rounded-xl shadow-sm border border-border transition-all hover:shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <FiAward className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-semibold">Top Performers</h2>
+          </div>
+          <TopPerformers investments={filteredInvestments} />
+        </div>
+      </motion.div>
+
+      {/* Investment Table */}
+      <motion.div
+        className="bg-card rounded-xl shadow-sm border border-border overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}>
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <FiPieChart className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Your Investments</h2>
+          </div>
+        </div>
         <InvestmentTable
           investments={filteredInvestments}
           onSelect={(id) => dispatch(selectInvestment(id))}
         />
-      </div>
+      </motion.div>
 
-      {isFormOpen && (
-        <InvestmentForm
-          onClose={() => setIsFormOpen(false)}
-          onSubmit={handleAddInvestment}
-          isLoading={status === "loading"}
-        />
-      )}
+      {/* Investment Form Modal */}
+      <AnimatePresence>
+        {isFormOpen && (
+          <InvestmentForm
+          open={isFormOpen}
+            onClose={() => setIsFormOpen(false)}
+            // onSubmit={handleAddInvestment}
+           
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

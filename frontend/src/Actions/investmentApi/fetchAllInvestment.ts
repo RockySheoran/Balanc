@@ -1,9 +1,9 @@
 /** @format */
 
-import { ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
+import { ALL_INVEST_URL, ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
 import axios from "axios"
 
-interface TransactionResponse {
+interface TinvestmentResponse {
   status: number
   message: string
   data?: any // Replace 'any' with your actual transaction data type
@@ -25,16 +25,14 @@ interface FetchAllTransactionsParams {
  * - Consistent response structure
  *
  * @param {FetchAllTransactionsParams} params - Parameters containing accountId
- * @returns {Promise<TransactionResponse>} - Standardized response object
+ * @returns {Promise<TinvestmentResponse>} - Standardized response object
  */
-export const fetchAllTransactions = async ({
+export const fetchAllInvestment = async ({
   accountId,
-}: FetchAllTransactionsParams): Promise<TransactionResponse> => {
- 
-
+}: FetchAllTransactionsParams): Promise<TinvestmentResponse> => {
   try {
     const response = await axios.post(
-      ALL_TRANSACTION_URL,
+      ALL_INVEST_URL,
       {
         accountId,
       },
@@ -42,13 +40,10 @@ export const fetchAllTransactions = async ({
         timeout: 10000, // 10 seconds timeout
         headers: {
           "Content-Type": "application/json",
-        
         },
       }
     )
-    // console.log(response)
-
-    
+    console.log(response)
 
     return {
       status: response.status,

@@ -81,10 +81,13 @@ model Investment {
   userId       String         @db.ObjectId
   accountId    String         @db.ObjectId
   name         String
+symbol      String
   type         InvestmentType
   amount       Float
   quantity     Float?
   buyDate      DateTime       @map("buy_date")
+  buyPrice     Float         @map("buy_price")
+  sellPrice    Float?         @map("sell_price")
   sellDate     DateTime?      @map("sell_date")
   currentValue Float?         @map("current_value")
   createdAt    DateTime       @default(now()) @map("created_at")
