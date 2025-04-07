@@ -14,7 +14,6 @@ import {
   Filler,
   TimeScale,
 } from "chart.js"
-import { Investment } from "./investment"
 import zoomPlugin from "chartjs-plugin-zoom"
 import annotationPlugin from "chartjs-plugin-annotation"
 import axios from "axios"
@@ -23,7 +22,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/Components/ui/button"
 import { RefreshCw } from "lucide-react"
 import { toast } from "sonner"
+import { Investment } from "./investment"
 
+
+// Register ChartJS plugins
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -37,10 +39,6 @@ ChartJS.register(
   zoomPlugin,
   annotationPlugin
 )
-
-interface PerformanceChartProps {
-  investments: Investment[]
-}
 
 interface YahooChartResponse {
   chart: {
@@ -73,23 +71,41 @@ interface YahooChartResponse {
 }
 
 const COLOR_PALETTE = [
-  "#3e95cd",
-  "#8e5ea2",
-  "#3cba9f",
-  "#e8c3b9",
-  "#c45850",
-  "#4dc9f6",
-  "#f67019",
-  "#f53794",
-  "#537bc4",
-  "#acc236",
-  "#166a8f",
-  "#00a950",
-  "#58595b",
-  "#8549ba",
-]
+  "#3e95cd", "#8e5ea2", "#3cba9f", "#e8c3b9", 
+  "#c45850", "#4dc9f6", "#f67019", "#f53794",
+  "#537bc4", "#acc236", "#166a8f", "#00a950",
+  "#58595b", "#8549ba"
+] as const
+
+const RANGE_OPTIONS = [
+  { value: '1d', label: '1 Day' },
+  { value: '5d', label: '5 Days' },
+  { value: '1mo', label: '1 Month' },
+  { value: '3mo', label: '3 Months' },
+  { value: '6mo', label: '6 Months' },
+  { value: '1y', label: '1 Year' },
+  { value: '2y', label: '2 Years' },
+  { value: '5y', label: '5 Years' },
+  { value: '10y', label: '10 Years' },
+  { value: 'ytd', label: 'Year to Date' },
+  { value: 'max', label: 'Max' },
+] as const
+
+const INTERVAL_OPTIONS = [
+  { value: '1m', label: '1 Minute' },
+  { value: '5m', label: '5 Minutes' },
+  { value: '15m', label: '15 Minutes' },
+  { value: '1d', label: '1 Day' },
+  { value: '1wk', label: '1 Week' },
+  { value: '1mo', label: '1 Month' },
+] as const
+
+interface PerformanceChartProps {
+  investments: Investment[]
+}
 
 const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] }) => {
+  // State management
   const [chartData, setChartData] = useState<YahooChartResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -98,51 +114,31 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [fetchingStatus, setFetchingStatus] = useState<Record<string, boolean>>({})
 
-  const rangeOptions = useMemo(() => [
-    { value: '1d', label: '1 Day' },
-    { value: '5d', label: '5 Days' },
-    { value: '1mo', label: '1 Month' },
-    { value: '3mo', label: '3 Months' },
-    { value: '6mo', label: '6 Months' },
-    { value: '1y', label: '1 Year' },
-    { value: '2y', label: '2 Years' },
-    { value: '5y', label: '5 Years' },
-    { value: '10y', label: '10 Years' },
-    { value: 'ytd', label: 'Year to Date' },
-    { value: 'max', label: 'Max' },
-  ], [])
+  // API key configuration (consider moving to environment variables)
+  const API_CONFIG = useMemo(() => ({
+    method: "GET",
+    baseURL: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart",
+    headers: {
+      "x-rapidapi-key": "26c7895581msh780d3b1a5dc1a36p1019f0jsn4834cc6fc48c",
+      "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
+    }
+  }), [])
 
-  const intervalOptions = useMemo(() => [
-    { value: '1m', label: '1 Minute' },
-    { value: '5m', label: '5 Minutes' },
-    { value: '15m', label: '15 Minutes' },
-    { value: '1d', label: '1 Day' },
-    { value: '1wk', label: '1 Week' },
-    { value: '1mo', label: '1 Month' },
-  ], [])
-
+  // Memoized fetch function for individual stock data
   const fetchStockChartData = useCallback(async (symbol: string) => {
     try {
       setFetchingStatus(prev => ({ ...prev, [symbol]: true }))
       
-      const options = {
-        method: "GET",
-        url: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart",
+      const response = await axios({
+        ...API_CONFIG,
         params: {
           region: symbol.includes(".NS") ? "IN" : "US",
           symbol,
           range,
           interval,
-        },
-        headers: {
-          "x-rapidapi-key":"26c7895581msh780d3b1a5dc1a36p1019f0jsn4834cc6fc48c",
-          "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
-        },
-      }
+        }
+      })
 
-      const response = await axios.request(options)
-      console.log(response)
-      
       if (!response.data?.chart?.result?.[0]) {
         throw new Error(`No data received for ${symbol}`)
       }
@@ -155,8 +151,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     } finally {
       setFetchingStatus(prev => ({ ...prev, [symbol]: false }))
     }
-  }, [range, interval])
+  }, [API_CONFIG, range, interval])
 
+  // Fetch all investment data
   const fetchAllData = useCallback(async () => {
     if (investments.length === 0) return
 
@@ -165,18 +162,16 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       setError(null)
 
       const allData = await Promise.all(
-        investments.map(inv => fetchStockChartData(inv.symbol))
-      )
+        investments.map(inv => fetchStockChartData(inv.symbol)))
       
       const validData = allData.filter(Boolean) as YahooChartResponse[]
-
       if (validData.length === 0) {
-        throw new Error('No valid chart data received for any investments')
+        throw new Error('No valid chart data received')
       }
 
       setChartData(validData)
       setLastRefresh(new Date())
-      toast.success("Chart data updated successfully")
+      toast.success("Chart data updated")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load chart data'
       setError(errorMessage)
@@ -186,30 +181,27 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     }
   }, [investments, fetchStockChartData])
 
+  // Initial data fetch and refresh on range/interval change
   useEffect(() => {
     fetchAllData()
   }, [fetchAllData])
 
+  // Date formatting based on range
   const formatDate = useCallback((timestamp: number) => {
     const date = new Date(timestamp * 1000)
     switch (range) {
-      case '1d':
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      case '1d': return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       case '5d':
-      case '1mo':
-        return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      case '1mo': return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
       case '3mo':
-      case '6mo':
-        return date.toLocaleDateString([], { month: 'short' })
-      default:
-        return date.toLocaleDateString([], { year: 'numeric', month: 'short' })
+      case '6mo': return date.toLocaleDateString([], { month: 'short' })
+      default: return date.toLocaleDateString([], { year: 'numeric', month: 'short' })
     }
   }, [range])
 
-  const getChartData = useCallback(() => {
-    if (chartData.length === 0) {
-      return { labels: [], datasets: [] }
-    }
+  // Prepare chart data
+  const chartDataConfig = useMemo(() => {
+    if (chartData.length === 0) return { labels: [], datasets: [] }
 
     const referenceTimestamps = chartData[0]?.chart?.result?.[0]?.timestamp || []
     
@@ -239,7 +231,8 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     }
   }, [chartData, investments, formatDate, range])
 
-  const options = useMemo(() => ({
+  // Chart options
+  const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -249,46 +242,36 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
           boxWidth: 12,
           padding: 20,
           usePointStyle: true,
-          font: {
-            size: 12
-          }
+          font: { size: 12 }
         },
       },
       title: {
         display: true,
-        text: `Investment Performance (${rangeOptions.find(r => r.value === range)?.label})`,
-        font: {
-          size: 16,
-          weight: "bold",
-        },
+        text: `Investment Performance (${RANGE_OPTIONS.find(r => r.value === range)?.label})`,
+        font: { size: 16, weight: "bold" },
       },
       tooltip: {
         mode: "index" as const,
         intersect: false,
         callbacks: {
-          label: function (context: any) {
+          label: (context: any) => {
             const label = context.dataset.label || ""
             const value = context.parsed.y
             const currency = context.dataset.label.includes(".NS") ? "INR" : "USD"
             
-            if (value !== null) {
-              return `${label}: ${new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency,
-              }).format(value)}`
-            }
-            return label
+            return value !== null 
+              ? `${label}: ${new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency,
+                }).format(value)}`
+              : label
           },
         },
       },
       zoom: {
         zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true,
-          },
+          wheel: { enabled: true },
+          pinch: { enabled: true },
           mode: "xy" as const,
         },
         pan: {
@@ -304,9 +287,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     },
     scales: {
       x: {
-        grid: {
-          display: false,
-        },
+        grid: { display: false },
         ticks: {
           maxRotation: 45,
           autoSkip: true,
@@ -316,14 +297,12 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       y: {
         beginAtZero: false,
         ticks: {
-          callback: function (value: any) {
-            return new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 2,
-            }).format(value)
-          },
+          callback: (value: any) => new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+          }).format(value)
         },
       },
     },
@@ -332,24 +311,18 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         cubicInterpolationMode: "monotone" as const,
       },
     },
-  }), [range, rangeOptions])
+  }), [range])
 
-  const handleRefresh = useCallback(() => {
-    fetchAllData()
-  }, [fetchAllData])
+  // Handlers
+  const handleRefresh = useCallback(() => fetchAllData(), [fetchAllData])
 
   const handleRangeChange = useCallback((value: string) => {
     setRange(value)
     // Auto-adjust interval based on range
-    if (value === '1d') {
-      setInterval('5m')
-    } else if (value === '5d') {
-      setInterval('1d')
-    } else {
-      setInterval('1wk')
-    }
+    setInterval(value === '1d' ? '5m' : value === '5d' ? '1d' : '1wk')
   }, [])
 
+  // Loading and error states
   if (loading && chartData.length === 0) {
     return (
       <div className="w-full h-[500px] bg-white rounded-lg shadow-sm p-4 border border-gray-100">
@@ -388,7 +361,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
                 <SelectValue placeholder="Time Range" />
               </SelectTrigger>
               <SelectContent>
-                {rangeOptions.map(option => (
+                {RANGE_OPTIONS.map(option => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -401,7 +374,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
                 <SelectValue placeholder="Interval" />
               </SelectTrigger>
               <SelectContent>
-                {intervalOptions
+                {INTERVAL_OPTIONS
                   .filter(option => {
                     if (range === '1d') return ['1m', '5m', '15m'].includes(option.value)
                     if (range === '5d') return ['1h', '1d'].includes(option.value)
@@ -421,9 +394,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
             size="sm" 
             variant="ghost"
             className="h-8 w-8 p-0"
-            disabled={Object.values(fetchingStatus).some(status => status)}
+            disabled={Object.values(fetchingStatus).some(Boolean)}
           >
-            <RefreshCw className={`h-4 w-4 ${Object.values(fetchingStatus).some(status => status) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${Object.values(fetchingStatus).some(Boolean) ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -431,8 +404,8 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       <div className="h-[400px] relative">
         {chartData.length > 0 ? (
           <>
-            <Line options={options} data={getChartData()} />
-            {(loading || Object.values(fetchingStatus).some(status => status)) && (
+            <Line options={chartOptions} data={chartDataConfig} />
+            {(loading || Object.values(fetchingStatus).some(Boolean)) && (
               <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
                 <RefreshCw className="h-8 w-8 animate-spin" />
               </div>
