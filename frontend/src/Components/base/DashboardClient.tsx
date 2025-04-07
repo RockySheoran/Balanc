@@ -6,7 +6,7 @@
 import { useEffect, Suspense, lazy } from "react"
 import { signOut } from "next-auth/react"
 import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
-import { setUser } from "@/lib/Redux/features/user/userSlice"
+import { clearUser, setUser } from "@/lib/Redux/features/user/userSlice"
 import { fetchAllTransactions } from "@/Actions/transactionActions/fetchAllTransactions"
 import { toast } from "sonner"
 import {
@@ -20,6 +20,8 @@ import {
 import useSWR from "swr"
 import { fetchAllInvestment } from "@/Actions/investmentApi/fetchAllInvestment"
 import { addBackendInvestment, clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
+import { clearIncome } from "@/lib/Redux/features/income/incomeSlices"
+import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
 
 
 interface SessionProps {
@@ -50,7 +52,6 @@ export default function DashboardClient({ session }: SessionProps) {
   const dispatch = useAppDispatch()
   const { selectedAccount } = useAppSelector((state) => state.account)
   const { expenseTransactions } = useAppSelector((state) => state.transactions)
-
   // SWR configuration for client-side data revalidation
   const { data: transactionsData, error: transactionsError } = useSWR(
     selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
@@ -72,6 +73,12 @@ export default function DashboardClient({ session }: SessionProps) {
   useEffect(() => {
     if (!session) {
       signOut({ redirect: true, callbackUrl: "/login" })
+      
+          dispatch(clearUser())
+          dispatch(clearIncome())
+          dispatch(clearTransactions())
+          dispatch(clearExpense())
+          dispatch(clearAccount())
     } else {
       dispatch(
         setUser({
@@ -98,6 +105,7 @@ export default function DashboardClient({ session }: SessionProps) {
             dispatch(addTransaction(transaction))
           })
         } else if (transactionsError) {
+          console.log(transactionsError)
           toast.error("Failed to load transactions")
         }
       } catch (error) {

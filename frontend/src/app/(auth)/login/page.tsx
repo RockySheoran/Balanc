@@ -43,10 +43,10 @@ export default function LoginPage() {
   const error = searchParams.get("error")
 
   return (
-    <div className="flex justify-center items-center h-screen ">
-      <div className="w-full md:w-[550px] shadow-md rounded-xl py-5 px-10 bg-white">
-        <div>
-          <h1 className="text-4xl text-center font-extrabold bg-gradient-to-r from-pink-400 to-purple-500 text-transparent bg-clip-text">
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
+      <div className="w-full px-10 md:w-[550px] shadow-neutral-800 rounded-xl py-5 bg-white">
+        <div className="text-center">
+          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-pink-400 to-purple-500 text-transparent bg-clip-text">
             PFMA
           </h1>
           <h1 className="text-3xl font-bold">Login</h1>

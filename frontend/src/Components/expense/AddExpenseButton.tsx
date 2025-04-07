@@ -55,6 +55,7 @@ const AddExpenseButton = () => {
     initialState
   )
   const { selectedAccount } = useAppSelector((store) => store.account)
+  const { token } = useAppSelector((state) => state.user)
 
   useEffect(() => {
     if (formState.status === 500) {
@@ -85,7 +86,9 @@ const AddExpenseButton = () => {
             Add New Expense
           </DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form
+          action={(formData) => formAction({ formData, token: token || "" })}
+          className="space-y-4">
           <input
             type="hidden"
             name="accountId"

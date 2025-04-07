@@ -118,6 +118,13 @@ const initialState = {
 const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
   const { selectedAccount } = useAppSelector((state) => state.account)
   const [state, formAction] = useActionState(addInvestmentAction, initialState)
+  const { token } = useAppSelector((state) => state.user)
+
+  //  const submitWithToken = async (formData: FormData) => {
+    
+  //    formData.append("token", token || "") // Append to form data
+  //    return formAction(formData)
+  //  }
   const dispatch = useAppDispatch()
   useEffect(() => {
     if (state?.success) {
@@ -266,7 +273,9 @@ const handleStockSelect = async (symbol: string) => {
               </motion.div>
             )}
 
-            <form action={formAction} className="space-y-4 ">
+            <form
+              action={(formData) => formAction({ formData, token: token || "" })}
+              className="space-y-4 ">
               {/* Hidden inputs remain the same */}
               <input type="hidden" name="symbol" value={formData.symbol} />
               <input

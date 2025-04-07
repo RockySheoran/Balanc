@@ -37,13 +37,13 @@ export const fetchAllInvestment = async ({
         accountId,
       },
       {
-        timeout: 10000, // 10 seconds timeout
+      
         headers: {
           "Content-Type": "application/json",
         },
       }
     )
-    console.log(response)
+    console.log(response) 
 
     return {
       status: response.status,

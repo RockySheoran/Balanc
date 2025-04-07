@@ -1,16 +1,15 @@
+/** @format */
 
-
-import React from 'react'
-
-
-import DashboardWrapper from '@/Components/dashboard/DashboardWrapper'
-
-const page =async () => {
+import DashboardWrapperClient from "@/Components/dashboard/DashboardWrapperClient"
 
 
 
-  return <DashboardWrapper />;
-  
+const DashboardPage = async () => {
+  return <DashboardWrapperClient />
 }
 
-export default page
+export default DashboardPage
+export const metadata = {
+  title: "Dashboard",
+  description: "Your dashboard page",
+}

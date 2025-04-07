@@ -21,23 +21,25 @@ interface DeleteAccountResponse {
  */
 export const deleteAccountAction = async ({
   accountId,
+  token,
 }: {
   accountId: string
+  token: string
 }): Promise<DeleteAccountResponse> => {
   // Validate input
   if (!accountId || typeof accountId !== "string") {
     return {
-      status: 400,
-      message: "Invalid account ID provided",
+      status: 401,
+      message: "Unauthorized - Please login first",
     }
   }
 
   // Get and verify session
-  const session = (await getServerSession(authOptions)) as Session & {
-    token?: string
-  }
+  // const session = (await getServerSession(authOptions)) as Session & {
+  //   token?: string
+  // }
 
-  if (!session?.token) {
+  if (!token) {
     return {
       status: 401,
       message: "Unauthorized - Please login first",
@@ -45,13 +47,17 @@ export const deleteAccountAction = async ({
   }
 
   try {
-    const response = await axios.delete(`${DELETE_ACCOUNT_URL}/${accountId}`, {
-      headers: {
-        Authorization: `${session.token}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 5000, // 5-second timeout
-    })
+    const response = await axios.post(
+      DELETE_ACCOUNT_URL,
+      { accountId },
+      {
+        headers: {
+          Authorization: `${token}`,
+          "Content-Type": "application/json",
+        },
+      
+      }
+    )
 
     // Log successful deletion (consider adding more details)
     console.log(`Account deleted: ${accountId}`)

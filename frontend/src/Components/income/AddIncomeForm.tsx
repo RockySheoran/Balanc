@@ -46,6 +46,8 @@ const AddIncomeForm = () => {
     newTransactionAction,
     initialState
   )
+    const { token } = useAppSelector((state) => state.user)
+  
   const { selectedAccount } = useAppSelector((store) => store.account)
 
   useEffect(() => {
@@ -93,7 +95,10 @@ const AddIncomeForm = () => {
             </motion.div>
           </DialogHeader>
 
-          <form ref={formRef} action={formAction} className="space-y-4 mt-4">
+          <form
+            ref={formRef}
+            action={(formData) => formAction({ formData, token: token || "" })}
+            className="space-y-4 mt-4">
             <input
               type="hidden"
               name="accountId"

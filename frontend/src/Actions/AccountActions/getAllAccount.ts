@@ -1,19 +1,19 @@
 "use server"
-import { authOptions } from "@/app/api/auth/[...nextauth]/options"
-import { GetServerSession } from "@/Components/common/getSeverSesstion"
+// import { authOptions } from "@/app/api/auth/[...nextauth]/options"
+// import { GetServerSession } from "@/Components/common/getSeverSesstion"
 
 
 import { GET_ALL_ACCOUNT_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
-import { getServerSession ,Session} from "next-auth"
+// import { getServerSession ,Session} from "next-auth"
 
-export const getAllAccounts = async()=>{
+export const getAllAccounts = async({token}: { token: string })=>{
     try {
-        const session = (await getServerSession(authOptions)) as Session & {
-          token?: string
-        }
-console.log(session)
-          if (!session?.token) {
+//         const session = (await getServerSession(authOptions)) as Session & {
+//           token?: string
+//         }
+// console.log(session)
+          if (!token) {
             return {
               status: 401,
               message: "Unauthorized - Please login first",
@@ -22,7 +22,7 @@ console.log(session)
           }
         const response = await axios.get(GET_ALL_ACCOUNT_URL, {
           headers: {
-            Authorization: `${session?.token}`,
+            Authorization: `${token}`,
             "Content-Type": "application/json",
           },
         })
@@ -49,6 +49,6 @@ console.log(session)
             message: "An error occurred while fetching accounts",
             errors: {},
         }
-        
+      }
     }
 }

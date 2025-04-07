@@ -103,7 +103,7 @@ export const getStockPrice = async (
 // Updated investment action with better error handling
 export const addInvestmentAction = async (
   prevState: any,
-  formData: FormData
+  payload: { formData: FormData; token: string }
 ): Promise<{
   status?: number
   message?: string
@@ -112,15 +112,17 @@ export const addInvestmentAction = async (
   error?: string
   data?: any
 }> => {
-   const session = await getServerSession(authOptions)
-    if (!session?.token) {
-      return {
-        status: 401,
-        message: "Unauthorized - Please login first",
-        errors: {},
-      }
+   const { formData, token } = payload
+   console.log(token)
+  // const session = await getServerSession(authOptions)
+  if (!token) {
+    return {
+      status: 401,
+      message: "Unauthorized - Please login first",
+      errors: {},
     }
-  
+  }
+
   const symbol = formData.get("symbol") as string
   if (!symbol) return { error: "Symbol is required" }
 
@@ -154,14 +156,14 @@ export const addInvestmentAction = async (
     // await prisma.investment.create({ data: investmentData })
     console.log("Creating investment:", investmentData)
 
-  const response = await axios.post(CREATE_INVEST_URL, investmentData, {
-    headers: {
-      Authorization: `${session?.token}`,
-      "Content-Type": "application/json",
-    },
-  })
-  console.log(response.data)
-  
+    const response = await axios.post(CREATE_INVEST_URL, investmentData, {
+      headers: {
+        Authorization: `${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+    console.log(response.data)
+
     revalidatePath("/investments")
     return {
       success: true,
@@ -169,11 +171,11 @@ export const addInvestmentAction = async (
     }
   } catch (error) {
     console.error("Error in addInvestmentAction:", error)
- 
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to add investment",
-     
+      error:
+        error instanceof Error ? error.message : "Failed to add investment",
     }
   }
 }

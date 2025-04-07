@@ -11,6 +11,7 @@ import axios, { AxiosError } from "axios"
 import { headers } from "next/headers"
 import { getServerSession, Session } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/options"
+import { GetServerSession } from "@/Components/common/getSeverSesstion"
 
 
 interface AccountActionResponse {
@@ -34,14 +35,14 @@ interface AccountFormData {
  */
 export const CreateAccountAction = async (
   prevState: AccountActionResponse | null,
-  formData: FormData
+  payload: { formData: FormData; token: string }
 ): Promise<AccountActionResponse> => {
   // Get session and validate authentication
-  const session = (await getServerSession(authOptions)) as Session & {
-    token?: string
-  }
-
-  if (!session?.token) {
+  // const session = (await getServerSession(authOptions)) as Session & {
+  //   token?: string
+  // }
+    const { formData, token } = payload
+  if (!token) {
     return {
       status: 401,
       message: "Unauthorized - Please login first",
@@ -56,8 +57,6 @@ export const CreateAccountAction = async (
     income: formData.get("income")?.toString().trim(),
   }
 
-
-
   // Prepare data for API
   const data: AccountFormData = {
     name: rawData.name!,
@@ -68,11 +67,10 @@ export const CreateAccountAction = async (
   try {
     const response = await axios.post(CREATE_ACCOUNT_URL, data, {
       headers: {
-        Authorization: `${session.token}`,
+        Authorization: `${token}`,
         "Content-Type": "application/json",
-    
       },
-      timeout: 5000, // 5-second timeout
+   
     })
 
     // Log successful creation (consider adding more details)

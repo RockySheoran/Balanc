@@ -1,6 +1,8 @@
 /** @format */
 
+import { GetServerSession } from "@/Components/common/getSeverSesstion"
 import { ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
+import { useAppSelector } from "@/lib/Redux/store/hooks"
 import axios from "axios"
 
 interface TransactionResponse {
@@ -10,7 +12,8 @@ interface TransactionResponse {
 }
 
 interface FetchAllTransactionsParams {
-  accountId: string
+  accountId: string,
+ 
 }
 
 /**
@@ -29,8 +32,11 @@ interface FetchAllTransactionsParams {
  */
 export const fetchAllTransactions = async ({
   accountId,
+ 
 }: FetchAllTransactionsParams): Promise<TransactionResponse> => {
  
+
+  
 
   try {
     const response = await axios.post(
@@ -39,14 +45,14 @@ export const fetchAllTransactions = async ({
         accountId,
       },
       {
-        timeout: 10000, // 10 seconds timeout
+       
         headers: {
           "Content-Type": "application/json",
         
         },
       }
     )
-    // console.log(response)
+    console.log(response)
 
     
 

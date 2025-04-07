@@ -12,48 +12,67 @@ import {
 } from "chart.js"
 import { motion } from "framer-motion"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
-import { useMemo } from "react"
+import { useMemo, useCallback } from "react"
 import { FiDollarSign } from "react-icons/fi"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
+interface Transaction {
+  id: string
+  type: string
+  category: string
+  amount: number
+  date: string
+}
+
+interface ExpenseData {
+  labels: string[]
+  datasets: {
+    label: string
+    data: number[]
+    backgroundColor: string[]
+    borderRadius: number
+    borderSkipped: boolean
+  }[]
+}
+
+const CATEGORY_COLORS = [
+  "#FF6384", // Red
+  "#36A2EB", // Blue
+  "#FFCE56", // Yellow
+  "#4BC0C0", // Teal
+  "#9966FF", // Purple
+  "#FF9F40", // Orange
+  "#8AC24A", // Green
+]
+
+const DAYS_TO_FILTER = 30
+const MAX_RECENT_EXPENSES = 5
+
 export const ExpenseTracker = () => {
   const { transactions } = useAppSelector((state) => state.transactions)
 
-  // Filter and process expense transactions
   const { expenseData, recentExpenses } = useMemo(() => {
-    // Filter only DEBIT/EXPENSE transactions from last 30 days
+    const thirtyDaysAgo = new Date(
+      Date.now() - DAYS_TO_FILTER * 24 * 60 * 60 * 1000
+    )
+
     const expenseTransactions = transactions
       .filter(
         (t) =>
           (t.type === "DEBIT" || t.type === "EXPENSE") &&
-          new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          new Date(t.date) > thirtyDaysAgo
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-    // Group by category for chart
     const categoryMap = expenseTransactions.reduce((acc, transaction) => {
-      if (!acc[transaction.category]) {
-        acc[transaction.category] = 0
-      }
-      acc[transaction.category] += transaction.amount
+      acc[transaction.category] =
+        (acc[transaction.category] || 0) + transaction.amount
       return acc
     }, {} as Record<string, number>)
 
-    // Prepare chart data
     const categories = Object.keys(categoryMap)
     const amounts = Object.values(categoryMap)
-
-    // Generate distinct colors for each category
-    const colors = [
-      "#FF6384", // Red
-      "#36A2EB", // Blue
-      "#FFCE56", // Yellow
-      "#4BC0C0", // Teal
-      "#9966FF", // Purple
-      "#FF9F40", // Orange
-      "#8AC24A", // Green
-    ]
 
     return {
       expenseData: {
@@ -63,21 +82,37 @@ export const ExpenseTracker = () => {
             label: "Expense Amount",
             data: amounts,
             backgroundColor: categories.map(
-              (_, i) => colors[i % colors.length]
+              (_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]
             ),
             borderRadius: 6,
             borderSkipped: false,
           },
         ],
       },
-      recentExpenses: expenseTransactions.slice(0, 5),
+      recentExpenses: expenseTransactions.slice(0, MAX_RECENT_EXPENSES),
     }
   }, [transactions])
 
-  // Calculate total expenses
   const totalExpenses = useMemo(() => {
     return recentExpenses.reduce((sum, t) => sum + t.amount, 0)
   }, [recentExpenses])
+
+  const formatCurrency = useCallback((amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount)
+  }, [])
+
+  const formatTransactionDate = useCallback((dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })
+  }, [])
 
   return (
     <motion.div
@@ -94,50 +129,38 @@ export const ExpenseTracker = () => {
             <div className="flex items-center bg-red-50 px-3 py-1 rounded-full">
               <FiDollarSign className="text-red-500 mr-1" />
               <span className="font-semibold text-red-600">
-                ${totalExpenses.toLocaleString()}
+                {formatCurrency(totalExpenses)}
               </span>
             </div>
           </div>
 
           <div className="space-y-4">
             {recentExpenses.length > 0 ? (
-              recentExpenses.slice(0, 4).map(
-                (
-                  transaction,
-                  index // Added .slice(0, 4) here
-                ) => (
-                  <motion.div
-                    key={transaction.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div>
-                      <p className="font-semibold text-gray-800">
-                        {transaction.category}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {new Date(transaction.date).toLocaleDateString(
-                          "en-US",
-                          {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          }
-                        )}
-                      </p>
-                    </div>
-                    <p className="text-red-500 font-bold">
-                      -${transaction.amount.toLocaleString()}
+              recentExpenses.slice(0, 4).map((transaction, index) => (
+                <motion.div
+                  key={transaction.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                  <div>
+                    <p className="font-semibold text-gray-800">
+                      {transaction.category}
                     </p>
-                  </motion.div>
-                )
-              )
+                    <p className="text-sm text-gray-500 mt-1">
+                      {formatTransactionDate(transaction.date)}
+                    </p>
+                  </div>
+                  <p className="text-red-500 font-bold">
+                    -{formatCurrency(transaction.amount)}
+                  </p>
+                </motion.div>
+              ))
             ) : (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-8 text-red-500">
+                className="text-center py-8 text-gray-500">
                 No expenses recorded in the last 30 days
               </motion.div>
             )}
@@ -166,7 +189,7 @@ export const ExpenseTracker = () => {
                       borderWidth: 0,
                     },
                     ticks: {
-                      callback: (value) => "$" + value,
+                      callback: (value) => formatCurrency(Number(value)),
                     },
                   },
                   x: {
@@ -181,12 +204,9 @@ export const ExpenseTracker = () => {
                   },
                   tooltip: {
                     callbacks: {
-                      label: (context) => {
-                        return `Amount: $${context.raw}`
-                      },
-                      title: (context) => {
-                        return context[0].label
-                      },
+                      label: (context) =>
+                        `Amount: ${formatCurrency(context.raw as number)}`,
+                      title: (context) => context[0].label,
                     },
                   },
                 },
@@ -207,7 +227,8 @@ export const ExpenseTracker = () => {
                     style={{
                       backgroundColor:
                         expenseData.datasets[0].backgroundColor[index],
-                    }}></div>
+                    }}
+                  />
                   <span className="text-sm text-gray-600">{label}</span>
                 </div>
               ))}

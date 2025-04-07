@@ -20,12 +20,21 @@ interface CustomSession extends Session {
   user: CustomUser
 }
 
+// Environment variable validation
+const getEnvVar = (key: string): string => {
+  const value = process.env[key]
+  if (!value) {
+    throw new Error(`Missing environment variable: ${key}`)
+  }
+  return value
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     // Google OAuth Provider
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: getEnvVar("GOOGLE_CLIENT_ID"),
+      clientSecret: getEnvVar("GOOGLE_CLIENT_SECRET"),
       authorization: {
         params: {
           prompt: "consent",
@@ -53,20 +62,20 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Email and password are required")
           }
 
-          const response = await axios.post(loginApi, {
+          const { data } = await axios.post(loginApi, {
             email: credentials.email,
             password: credentials.password,
           })
 
-          if (!response.data?.success || !response.data.data) {
-            throw new Error(response.data?.error || "Authentication failed")
+          if (!data?.success || !data.data) {
+            throw new Error(data?.error || "Authentication failed")
           }
 
           return {
-            id: response.data.data.user.id,
-            name: response.data.data.user.name,
-            email: response.data.data.user.email,
-            token: response.data.data.token,
+            id: data.data.user.id,
+            name: data.data.user.name,
+            email: data.data.user.email,
+            token: data.data.token,
             provider: "credentials",
           } as CustomUser
         } catch (error) {
@@ -86,7 +95,6 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     // JWT callback - runs whenever a JWT is created or updated
     async jwt({ token, user, account }) {
-      // Initial sign in
       if (user) {
         token.user = {
           id: user.id,
@@ -107,7 +115,7 @@ export const authOptions: NextAuthOptions = {
       session.user = {
         ...session.user,
         ...token.user,
-        id: token?.user?.id as string,
+        id: token.user?.id as string,
         token: token.token as string,
       }
       return session
@@ -119,28 +127,26 @@ export const authOptions: NextAuthOptions = {
         // Handle Google OAuth flow
         if (account?.provider === "google") {
           if (!profile?.email || !profile?.sub) {
-            throw new Error("Google authentication incomplete")
+            throw new Error(
+              "Google authentication incomplete - missing profile data"
+            )
           }
 
-          const response = await axios.post(loginGoogleApi, {
+          const { data } = await axios.post(loginGoogleApi, {
             email: profile.email,
-            name: profile.name ,
-            image: profile.image,
+            name: profile.name || user.name || profile.email.split("@")[0],
+            image: profile.picture || user.image,
             googleId: profile.sub,
           })
-          console.log(response)
-          console.log(`wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`)
 
-          if (!response.data?.success || !response.data.data?.token) {
-            throw new Error(
-              response.data?.error || "Google authentication failed"
-            )
+          if (!data?.success || !data.data?.token) {
+            throw new Error(data?.error || "Google authentication failed")
           }
 
           // Augment the user object with additional data
           Object.assign(user, {
-            id: response.data.data.user.id,
-            token: response.data.data.token,
+            id: data.data.user.id,
+            token: data.data.token,
             googleId: profile.sub,
             provider: "google",
           })
@@ -182,10 +188,10 @@ export const authOptions: NextAuthOptions = {
   },
 
   // Security
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: getEnvVar("NEXTAUTH_SECRET"),
   useSecureCookies: process.env.NODE_ENV === "production",
 
-  // Debugging
+  // Debugging in development only
   debug: process.env.NODE_ENV === "development",
 }
 

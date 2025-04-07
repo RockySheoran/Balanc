@@ -17,7 +17,7 @@ export function GoogleSubmitBtn({ pending, setPending }: any) {
   }, [pending])
 
   return (
-    <Button className="w-full" disabled={pending}>
+    <span className=" text-center px-auto content-center" disabled={pending}>
       {pending ? (
         "Processing..."
       ) : (
@@ -30,6 +30,6 @@ export function GoogleSubmitBtn({ pending, setPending }: any) {
           <span>Sign in with Google</span>
         </div>
       )}
-    </Button>
+    </span>
   )
 }

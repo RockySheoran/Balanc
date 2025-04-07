@@ -17,11 +17,13 @@ interface ActionResponse {
 
 export const newTransactionAction = async (
   prevState: ActionResponse | null,
-  formData: FormData
+  payload: { formData: FormData; token: string }
 ): Promise<ActionResponse> => {
   // Authentication
-  const session = await getServerSession(authOptions)
-  if (!session?.token) {
+  const { formData, token } = payload
+
+  // const session = await getServerSession(authOptions)
+  if (!token) {
     return {
       status: 401,
       message: "Unauthorized - Please login first",
@@ -36,22 +38,21 @@ export const newTransactionAction = async (
     type: formData.get("type"),
     amount: formData.get("amount"),
     category: formData.get("category"),
-   
+
     description: formData.get("description"),
   }
 
   // Validate with Zod
-console.log("```````````````object`````````````````````````````````````")
+  
 
- 
   try {
     const response = await axios.post(CREATE_TRANSACTION_URL, rawData, {
       headers: {
-        Authorization: `${session?.token}`,
+        Authorization: `${token}`,
         "Content-Type": "application/json",
       },
     })
-console.log(response.data)
+    console.log(response.data)
     return {
       status: 200,
       message: "Transaction created successfully",
