@@ -388,7 +388,7 @@ const IncomeDashboard = () => {
         </div>
 
         <div className="divide-y divide-gray-100">
-          {recentTransactions.map((transaction, index) => (
+          {recentTransactions.slice(0,4).map((transaction, index) => (
             <motion.div
               key={`${transaction.id}-${index}`}
               initial={{ opacity: 0, x: -10 }}

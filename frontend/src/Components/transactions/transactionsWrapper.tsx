@@ -1,48 +1,40 @@
 /** @format */
 "use client"
-import { useEffect } from "react"
-import { useDispatch, useSelector } from "react-redux"
 
-
+import { Suspense, lazy, memo, useCallback, useEffect } from "react"
+import { useDispatch } from "react-redux"
 import { Button } from "@/Components/ui/button"
 import { DownloadIcon } from "./Icons"
-import TransactionStats from "./TransactionStats"
-import TransactionCharts from "./TransactionCharts"
+import { clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
+import LoadingSpinner from "./LoadingSpinner1"
 
-import TransactionTable from "./TransactionTable"
-import { clearTransactions, setTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
-import { useAppSelector } from "@/lib/Redux/store/hooks"
 
-// Mock data - replace with actual API call
-// const mockTransactions = [
-//   {
-//     id: "1",
-//     date: "2023-01-01",
-//     description: "Salary",
-//     amount: 3000,
-//     type: "CREDIT",
-//     category: "Income",
-//   },
-//   {
-//     id: "2",
-//     date: "2023-01-02",
-//     description: "Rent",
-//     amount: -1000,
-//     type: "EXPENSE",
-//     category: "Housing",
-//   },
-//   // Add more transactions as needed
-// ]
+// Lazy load components for better code splitting
+const TransactionStats = lazy(() => import("./TransactionStats"))
+const TransactionCharts = lazy(() => import("./TransactionCharts"))
+const TransactionTable = lazy(() => import("./TransactionTable"))
 
-export default function TransactionsPage() {
+const TransactionsPage = memo(() => {
   const dispatch = useDispatch()
-  const { transactions } = useAppSelector((state) => state.transactions)
+
+  const handleDownloadReport = useCallback(() => {
+    // Implement download report functionality
+    console.log("Downloading report...")
+    // In a real app:
+    // 1. Generate report data
+    // 2. Trigger download
+  }, [])
+
+  // Cleanup transactions when component unmounts
+  const cleanup = useCallback(() => {
+    dispatch(clearTransactions())
+  }, [dispatch])
 
   useEffect(() => {
-    // In a real app, you would fetch transactions from an API here
-    // dispatch(setTransactions(mockTransactions))
-  }, [dispatch])
-  // dispatch(clearTransactions()) 
+    return () => {
+      cleanup()
+    }
+  }, [cleanup])
 
   return (
     <div className="w-full p-4 md:p-6 space-y-6">
@@ -56,21 +48,32 @@ export default function TransactionsPage() {
             View and manage all your financial transactions
           </p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90 text-white">
+        <Button
+          className="bg-primary hover:bg-primary/90 text-white"
+          onClick={handleDownloadReport}
+          aria-label="Download transaction report">
           <DownloadIcon className="mr-2 h-4 w-4" />
           Download Report
         </Button>
       </div>
-   
-      {/* Stats Highlights */}
-      <TransactionStats />
 
-      {/* Charts Section */}
-      <TransactionCharts />
+      {/* Stats Highlights with Suspense */}
+      <Suspense fallback={<LoadingSpinner className="h-32" />}>
+        <TransactionStats />
+      </Suspense>
 
-   
-      {/* Transactions Table */}
-      <TransactionTable />
+      {/* Charts Section with Suspense */}
+      <Suspense fallback={<LoadingSpinner className="h-96" />}>
+        <TransactionCharts />
+      </Suspense>
+
+      {/* Transactions Table with Suspense */}
+      <Suspense fallback={<LoadingSpinner className="h-96" />}>
+        <TransactionTable />
+      </Suspense>
     </div>
   )
-}
+})
+
+TransactionsPage.displayName = "TransactionsPage"
+export default TransactionsPage

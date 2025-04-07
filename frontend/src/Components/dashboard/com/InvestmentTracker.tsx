@@ -1,6 +1,7 @@
 /** @format */
+"use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { Line, Pie } from "react-chartjs-2"
 import {
   Chart as ChartJS,
@@ -12,9 +13,10 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
+  TimeScale,
 } from "chart.js"
 import { motion } from "framer-motion"
-import axios from "axios"
 import {
   FiArrowUp,
   FiArrowDown,
@@ -24,6 +26,20 @@ import {
   FiRefreshCw,
   FiAlertTriangle,
 } from "react-icons/fi"
+import { Skeleton } from "@/Components/ui/skeleton"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/Components/ui/select"
+import { Button } from "@/Components/ui/button"
+import { toast } from "sonner"
+import { Investment } from "@/Components/invest/investment"
+import { useAppSelector } from "@/lib/Redux/store/hooks"
+import axios from "axios"
+import { Stock_API_URL, Stock_API_URL1 } from "@/lib/EndPointApi"
 
 ChartJS.register(
   CategoryScale,
@@ -33,86 +49,76 @@ ChartJS.register(
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler,
+  TimeScale
 )
-
-// Types
-interface Stock {
-  id: string
-  symbol: string
-  name: string
-  purchaseDate: string
-  purchasePrice: number
-  quantity: number
-  currentPrice?: number
-  historicalData?: { date: string; price: number }[]
-  error?: string
-}
 
 interface PortfolioSummary {
   totalInvested: number
   currentValue: number
   profitLoss: number
   profitLossPercentage: number
-  bestPerformer: Stock | null
-  worstPerformer: Stock | null
+  bestPerformer: Investment | null
+  worstPerformer: Investment | null
 }
 
-// API Configuration
-const API_CONFIG = {
-  alphaVantage: {
-    key: "OJ70GQQ5VNXD2WWW",
-    rateLimit: 5, // Requests per minute
-  },
-  yahooFinance: {
-    rateLimit: 100, // Requests per minute
-  },
-  iexCloud: {
-    key: "YOUR_IEX_KEY",
-    rateLimit: 100, // Requests per minute
-  },
-  twelveData: {
-    key: "OQa66tuHM_zaYvqjLRNjMSnePvIwsBOe",
-    rateLimit: 8, // Requests per minute
-  },
-}
+const COLOR_PALETTE = [
+  "#3e95cd",
+  "#8e5ea2",
+  "#3cba9f",
+  "#e8c3b9",
+  "#c45850",
+  "#4dc9f6",
+  "#f67019",
+  "#f53794",
+  "#537bc4",
+  "#acc236",
+  "#166a8f",
+  "#00a950",
+  "#58595b",
+  "#8549ba",
+]
 
 const InvestmentTracker = () => {
-  const [stocks, setStocks] = useState<Stock[]>([])
+  const investments = useAppSelector((state) => state.investment.investments)
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<PortfolioSummary | null>(null)
-  const [timeRange, setTimeRange] = useState<"1m" | "3m" | "6m" | "1y">("1m")
+  const [timeRange, setTimeRange] = useState<
+    "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y"
+  >("1mo")
+  const [interval, setInterval] = useState<"1d" | "1wk" | "1mo">("1d")
   const [apiError, setApiError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
-  const [apiUsage, setApiUsage] = useState<Record<string, number>>({})
+  const [chartData, setChartData] = useState<any[]>([])
 
-  // Sample portfolio data
-  const initialStocks: Stock[] = [
-    {
-      id: "1",
-      symbol: "AAPL",
-      name: "Apple Inc.",
-      purchaseDate: "2023-01-15",
-      purchasePrice: 150.25,
-      quantity: 10,
-    },
-    {
-      id: "2",
-      symbol: "MSFT",
-      name: "Microsoft Corporation",
-      purchaseDate: "2023-02-20",
-      purchasePrice: 250.5,
-      quantity: 5,
-    },
-    {
-      id: "3",
-      symbol: "GOOGL",
-      name: "Alphabet Inc.",
-      purchaseDate: "2023-03-10",
-      purchasePrice: 105.75,
-      quantity: 8,
-    },
-  ]
+  // Get top 5 investments by value (quantity * buy price)
+  const topInvestments = useMemo(() => {
+    return [...investments]
+      .sort((a, b) => b.buyPrice * b.quantity - a.buyPrice * a.quantity)
+      .slice(0, 5)
+  }, [investments])
+
+  const rangeOptions = useMemo(
+    () => [
+      { value: "1d", label: "1 Day" },
+      { value: "5d", label: "5 Days" },
+      { value: "1mo", label: "1 Month" },
+      { value: "3mo", label: "3 Months" },
+      { value: "6mo", label: "6 Months" },
+      { value: "1y", label: "1 Year" },
+    ],
+    []
+  )
+
+  const intervalOptions = useMemo(
+    () => [
+      { value: "1d", label: "1 Day" },
+      { value: "1wk", label: "1 Week" },
+      { value: "1mo", label: "1 Month" },
+    ],
+    []
+  )
 
   // Utility functions
   const formatCurrency = (amount: number) => {
@@ -143,214 +149,34 @@ const InvestmentTracker = () => {
     })
   }
 
-  // API Service with fallback mechanism
-  class StockDataService {
-    private static instance: StockDataService
-    private apiQueue: (() => Promise<void>)[] = []
-    private isProcessing = false
-
-    private constructor() {}
-
-    public static getInstance(): StockDataService {
-      if (!StockDataService.instance) {
-        StockDataService.instance = new StockDataService()
-      }
-      return StockDataService.instance
-    }
-
-    private async processQueue() {
-      if (this.isProcessing || this.apiQueue.length === 0) return
-
-      this.isProcessing = true
-      const task = this.apiQueue.shift()
-      if (task) {
-        await task()
-        setTimeout(() => {
-          this.isProcessing = false
-          this.processQueue()
-        }, (1000 / API_CONFIG.alphaVantage.rateLimit) * 60) // Rate limiting
-      }
-    }
-
-    public async fetchStockData(symbol: string): Promise<{
-      currentPrice: number | null
-      historicalData: { date: string; price: number }[] | null
-      error: string | null
-    }> {
-      return new Promise((resolve) => {
-        this.apiQueue.push(async () => {
-          try {
-            // Try Alpha Vantage first
-            let result = await this.fetchAlphaVantage(symbol)
-            if (!result.error) return resolve(result)
-
-            // Fallback to Yahoo Finance
-            result = await this.fetchYahooFinance(symbol)
-            if (!result.error) return resolve(result)
-
-            // Fallback to IEX Cloud
-            result = await this.fetchIEXCloud(symbol)
-            if (!result.error) return resolve(result)
-
-            // Fallback to Twelve Data
-            result = await this.fetchTwelveData(symbol)
-            if (!result.error) return resolve(result)
-
-            // All APIs failed
-            resolve({
-              currentPrice: null,
-              historicalData: null,
-              error: "All API attempts failed",
-            })
-          } catch (error) {
-            resolve({
-              currentPrice: null,
-              historicalData: null,
-              error: "Unexpected error occurred",
-            })
-          }
-        })
-        this.processQueue()
-      })
-    }
-
-    private async fetchAlphaVantage(symbol: string) {
-      try {
-        const [currentResponse, historicalResponse] = await Promise.all([
-          axios.get(
-            `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_CONFIG.alphaVantage.key}`
-          ),
-          axios.get(
-            `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact&apikey=${API_CONFIG.alphaVantage.key}`
-          ),
-        ])
-
-        // Handle rate limiting
-        if (currentResponse.data.Note || historicalResponse.data.Note) {
-          throw new Error("API rate limit reached")
-        }
-
-        // Process current price
-        const quoteData = currentResponse.data["Global Quote"] || {}
-        const currentPrice = parseFloat(quoteData["05. price"]) || null
-
-        // Process historical data
-        const timeSeriesKey = Object.keys(historicalResponse.data).find((key) =>
-          key.includes("Time Series")
-        )
-        const historicalData = timeSeriesKey
-          ? Object.entries(historicalResponse.data[timeSeriesKey])
-              .map(([date, values]: [string, any]) => ({
-                date,
-                price: parseFloat(values["4. close"]),
-              }))
-              .slice(0, 30)
-          : null
-
-        return {
-          currentPrice,
-          historicalData,
-          error: null,
-        }
-      } catch (error) {
-        return {
-          currentPrice: null,
-          historicalData: null,
-          error: "Alpha Vantage: " + (error as Error).message,
-        }
-      }
-    }
-
-    private async fetchYahooFinance(symbol: string) {
-      try {
-        const response = await axios.get(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`
-        )
-
-        const result = response.data.chart.result[0]
-        const currentPrice = result.meta.regularMarketPrice
-        const historicalData = result.timestamp.map((t: number, i: number) => ({
-          date: new Date(t * 1000).toISOString().split("T")[0],
-          price: result.indicators.quote[0].close[i],
-        }))
-
-        return {
-          currentPrice,
-          historicalData,
-          error: null,
-        }
-      } catch (error) {
-        return {
-          currentPrice: null,
-          historicalData: null,
-          error: "Yahoo Finance: " + (error as Error).message,
-        }
-      }
-    }
-
-    private async fetchIEXCloud(symbol: string) {
-      try {
-        const response = await axios.get(
-          `https://cloud.iexapis.com/stable/stock/${symbol}/quote?token=${API_CONFIG.iexCloud.key}`
-        )
-
-        return {
-          currentPrice: response.data.latestPrice,
-          historicalData: null, // IEX Cloud would need separate call for historical
-          error: null,
-        }
-      } catch (error) {
-        return {
-          currentPrice: null,
-          historicalData: null,
-          error: "IEX Cloud: " + (error as Error).message,
-        }
-      }
-    }
-
-    private async fetchTwelveData(symbol: string) {
-      try {
-        const response = await axios.get(
-          `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${API_CONFIG.twelveData.key}`
-        )
-
-        return {
-          currentPrice: parseFloat(response.data.price),
-          historicalData: null, // Twelve Data would need separate call for historical
-          error: null,
-        }
-      } catch (error) {
-        return {
-          currentPrice: null,
-          historicalData: null,
-          error: "Twelve Data: " + (error as Error).message,
-        }
-      }
-    }
-  }
-
   // Portfolio calculations
-  const calculateSummary = useCallback((stocksData: Stock[]) => {
-    const totalInvested = stocksData.reduce(
-      (sum, stock) => sum + stock.purchasePrice * stock.quantity,
+  const calculateSummary = useCallback((investments: Investment[]) => {
+    const topInvestments = [...investments]
+      .sort((a, b) => b.buyPrice * b.quantity - a.buyPrice * a.quantity)
+      .slice(0, 5)
+
+    const totalInvested = topInvestments.reduce(
+      (sum, investment) => sum + investment.buyPrice * investment.quantity,
       0
     )
 
-    const currentValue = stocksData.reduce(
-      (sum, stock) =>
-        sum + (stock.currentPrice || stock.purchasePrice) * stock.quantity,
+    const currentValue = topInvestments.reduce(
+      (sum, investment) =>
+        sum +
+        (investment.currentValue || investment.buyPrice) * investment.quantity,
       0
     )
 
     const profitLoss = currentValue - totalInvested
     const profitLossPercentage = (profitLoss / totalInvested) * 100
 
-    const performers = stocksData
-      .map((stock) => ({
-        ...stock,
+    const performers = topInvestments
+      .map((investment) => ({
+        ...investment,
         performance:
-          (((stock.currentPrice || stock.purchasePrice) - stock.purchasePrice) /
-            stock.purchasePrice) *
+          (((investment.currentValue || investment.buyPrice) -
+            investment.buyPrice) /
+            investment.buyPrice) *
           100,
       }))
       .sort((a, b) => b.performance - a.performance)
@@ -365,143 +191,235 @@ const InvestmentTracker = () => {
     })
   }, [])
 
-  // Data fetching with enhanced error handling
-  const fetchStockData = useCallback(async () => {
-    setLoading(true)
-    setApiError(null)
+  // Fetch stock data using Yahoo Finance API
+  const fetchStockChartData = useCallback(
+    async (symbol: string) => {
+      try {
+        console.log(process.env.X_RAPIDAPI1)
+        const options = {
+          method: "GET",
+          url: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart",
+          params: {
+            region: symbol.includes(".NS") ? "IN" : "US",
+            symbol,
+            range: timeRange,
+            interval,
+          },
+          headers: {
+            "x-rapidapi-key":
+              "26c7895581msh780d3b1a5dc1a36p1019f0jsn4834cc6fc48c",
+            "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
+          },
+        }
+
+        const response = await axios.request(options)
+
+        if (!response.data?.chart?.result?.[0]) {
+          throw new Error(`No data received for ${symbol}`)
+        }
+
+        return response.data
+      } catch (err) {
+        console.error(`Error fetching data for ${symbol}:`, err)
+        return null
+      }
+    },
+    [timeRange, interval]
+  )
+
+  // Fetch all data with error handling
+  const fetchAllData = useCallback(async () => {
+    if (topInvestments.length === 0) return
 
     try {
-      const stockService = StockDataService.getInstance()
-      const updatedStocks: Stock[] = []
-      const errors: Record<string, string> = {}
+      setLoading(true)
+      setApiError(null)
 
-      for (const stock of initialStocks) {
-        try {
-          const { currentPrice, historicalData, error } =
-            await stockService.fetchStockData(stock.symbol)
+      const allData = await Promise.all(
+        topInvestments.map((inv) => fetchStockChartData(inv.symbol))
+      )
 
-          updatedStocks.push({
-            ...stock,
-            currentPrice: currentPrice || stock.purchasePrice,
-            historicalData:
-              historicalData || generateHistoricalData(stock, timeRange),
-            error: error || undefined,
-          })
+      const validData = allData.filter(Boolean)
 
-          if (error) {
-            errors[stock.symbol] = error
-          }
-        } catch (error) {
-          updatedStocks.push({
-            ...stock,
-            currentPrice: stock.purchasePrice,
-            historicalData: generateHistoricalData(stock, timeRange),
-            error: `Failed to fetch data: ${(error as Error).message}`,
-          })
-          errors[stock.symbol] = (error as Error).message
-        }
+      if (validData.length === 0) {
+        throw new Error("No valid chart data received for any investments")
       }
 
-      setStocks(updatedStocks)
-      calculateSummary(updatedStocks)
+      setChartData(validData)
+      calculateSummary(investments)
       setLastUpdated(new Date().toISOString())
-
-      if (Object.keys(errors).length > 0) {
-        setApiError(
-          `Partial data loaded. ${
-            Object.keys(errors).length
-          } stocks have issues.`
-        )
-      }
-    } catch (error) {
-      setApiError(`Failed to fetch portfolio data: ${(error as Error).message}`)
-      // Set stocks with fallback data
-      const stocksWithFallback = initialStocks.map((stock) => ({
-        ...stock,
-        currentPrice: stock.purchasePrice,
-        historicalData: generateHistoricalData(stock, timeRange),
-        error: `Failed to fetch data: ${(error as Error).message}`,
-      }))
-      setStocks(stocksWithFallback)
-      calculateSummary(stocksWithFallback)
+      toast.success("Portfolio data updated successfully")
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to load portfolio data"
+      setApiError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
-  }, [timeRange, calculateSummary])
-
-  // Generate realistic historical data
-  const generateHistoricalData = (stock: Stock, range: string) => {
-    const days =
-      range === "1m" ? 30 : range === "3m" ? 90 : range === "6m" ? 180 : 365
-    const basePrice = stock.purchasePrice
-    const volatility = 0.02 // 2% daily volatility
-
-    return Array.from({ length: days }, (_, i) => {
-      const daysAgo = days - i - 1
-      const randomFactor = 1 + (Math.random() * 2 - 1) * volatility
-      const trend = 1 + i * 0.0005 // Slight upward trend over time
-
-      return {
-        date: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        price: basePrice * trend * randomFactor,
-      }
-    }).reverse()
-  }
+  }, [topInvestments, fetchStockChartData, calculateSummary, investments])
 
   // Initial data load
   useEffect(() => {
-    fetchStockData()
-  }, [fetchStockData])
+    fetchAllData()
+  }, [fetchAllData])
 
   // Chart data preparation
-  const lineChartData = {
-    labels: stocks[0]?.historicalData?.map((data) => data.date) || [],
-    datasets: stocks.map((stock) => ({
-      label: `${stock.symbol} - ${stock.name}`,
-      data: stock.historicalData?.map((data) => data.price) || [],
-      borderColor: `hsl(${Math.random() * 360}, 70%, 50%)`,
-      backgroundColor: "rgba(0, 0, 0, 0.1)",
-      tension: 0.3,
-      pointRadius: 0,
-    })),
-  }
+  const lineChartData = useMemo(() => {
+    if (chartData.length === 0) return { labels: [], datasets: [] }
 
-  const pieChartData = {
-    labels: stocks.map((stock) => stock.symbol),
-    datasets: [
-      {
-        data: stocks.map(
-          (stock) =>
-            (stock.currentPrice || stock.purchasePrice) * stock.quantity
-        ),
-        backgroundColor: stocks.map(
-          () => `hsl(${Math.random() * 360}, 70%, 50%)`
-        ),
-        borderWidth: 1,
-      },
-    ],
-  }
+    const referenceTimestamps =
+      chartData[0]?.chart?.result?.[0]?.timestamp || []
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "bottom" as const,
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            const label = context.dataset.label || ""
-            const value = context.raw || 0
-            return `${label}: ${formatCurrency(value)}`
+    const formatChartDate = (timestamp: number) => {
+      const date = new Date(timestamp * 1000)
+      switch (timeRange) {
+        case "1d":
+          return date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        case "5d":
+        case "1mo":
+          return date.toLocaleDateString([], { month: "short", day: "numeric" })
+        case "3mo":
+        case "6mo":
+          return date.toLocaleDateString([], { month: "short" })
+        default:
+          return date.toLocaleDateString([], {
+            year: "numeric",
+            month: "short",
+          })
+      }
+    }
+
+    return {
+      labels: referenceTimestamps.map(formatChartDate),
+      datasets: chartData.map((data, index) => {
+        const result = data.chart.result[0]
+        const meta = result.meta
+        const quotes = result.indicators.quote[0]
+        const inv =
+          topInvestments.find((i) => i.symbol === meta.symbol) ||
+          topInvestments[index]
+
+        return {
+          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${
+            meta.shortName.length > 15 ? "..." : ""
+          }`,
+          data: quotes.close,
+          borderColor: COLOR_PALETTE[index % COLOR_PALETTE.length],
+          backgroundColor: `${COLOR_PALETTE[index % COLOR_PALETTE.length]}20`,
+          borderWidth: 2,
+          pointRadius: timeRange === "1d" ? 3 : 0,
+          pointHoverRadius: 5,
+          tension: 0.1,
+          fill: {
+            target: "origin",
+            above: `${COLOR_PALETTE[index % COLOR_PALETTE.length]}10`,
+          },
+        }
+      }),
+    }
+  }, [chartData, topInvestments, timeRange])
+
+  const pieChartData = useMemo(
+    () => ({
+      labels: topInvestments.map((investment) => investment.symbol),
+      datasets: [
+        {
+          data: topInvestments.map(
+            (investment) =>
+              (investment.currentValue || investment.buyPrice) *
+              investment.quantity
+          ),
+          backgroundColor: topInvestments.map(
+            (_, index) => COLOR_PALETTE[index % COLOR_PALETTE.length]
+          ),
+          borderWidth: 1,
+        },
+      ],
+    }),
+    [topInvestments]
+  )
+
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom" as const,
+          labels: {
+            boxWidth: 12,
+            padding: 20,
+            usePointStyle: true,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context: any) => {
+              const label = context.dataset.label || ""
+              const value = context.raw || 0
+              return `${label}: ${formatCurrency(value)}`
+            },
           },
         },
       },
-    },
+      interaction: {
+        mode: "nearest" as const,
+        axis: "x" as const,
+        intersect: false,
+      },
+    }),
+    []
+  )
+
+  const handleRefresh = useCallback(() => {
+    fetchAllData()
+  }, [fetchAllData])
+
+  const handleRangeChange = useCallback((value: string) => {
+    setTimeRange(value as any)
+    // Auto-adjust interval based on range
+    if (value === "1d") {
+      setInterval("1d")
+    } else if (value === "5d") {
+      setInterval("1d")
+    } else {
+      setInterval("1wk")
+    }
+  }, [])
+
+  if (loading && topInvestments.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto p-4 md:p-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <Skeleton className="h-80 rounded-xl" />
+          <Skeleton className="h-80 rounded-xl" />
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    )
   }
+
+  if (topInvestments.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col items-center justify-center h-96">
+        <p className="text-gray-500 text-lg mb-4">No investments found</p>
+        <Button onClick={fetchAllData} variant="outline">
+          <FiRefreshCw className="mr-2" />
+          Refresh
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
       {/* Header and refresh button */}
@@ -515,26 +433,19 @@ const InvestmentTracker = () => {
               Last updated: {formatTime(lastUpdated)}
             </p>
           )}
-          <button
-            onClick={fetchStockData}
+          <Button
+            onClick={handleRefresh}
             disabled={loading}
-            className={`flex items-center px-4 py-2 rounded-md ${
-              loading
-                ? "bg-gray-200"
-                : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-            }`}>
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2">
             {loading ? (
-              <>
-                <FiRefreshCw className="animate-spin mr-2" />
-                Updating...
-              </>
+              <FiRefreshCw className="animate-spin" />
             ) : (
-              <>
-                <FiRefreshCw className="mr-2" />
-                Refresh Data
-              </>
+              <FiRefreshCw />
             )}
-          </button>
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -555,295 +466,282 @@ const InvestmentTracker = () => {
         </motion.div>
       )}
 
-      {/* Loading state */}
-      {loading && (
-        <div className="flex justify-center items-center h-64 mb-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      )}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Invested */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 font-medium">Total Invested</h3>
+            <div className="p-2 rounded-full bg-blue-50 text-blue-500">
+              <FiDollarSign size={20} />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 mt-2">
+            {summary ? formatCurrency(summary.totalInvested) : "--"}
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            Top 5 investments by value
+          </p>
+        </motion.div>
 
-      {/* Content when not loading */}
-      {!loading && (
-        <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Total Invested */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-gray-500 font-medium">Total Invested</h3>
-                <div className="p-2 rounded-full bg-blue-50 text-blue-500">
-                  <FiDollarSign size={20} />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {summary ? formatCurrency(summary.totalInvested) : "--"}
-              </p>
-            </motion.div>
+        {/* Current Value */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 font-medium">Current Value</h3>
+            <div className="p-2 rounded-full bg-green-50 text-green-500">
+              <FiTrendingUp size={20} />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 mt-2">
+            {summary ? formatCurrency(summary.currentValue) : "--"}
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            {summary ? formatPercentage(summary.profitLossPercentage) : "--"}{" "}
+            overall
+          </p>
+        </motion.div>
 
-            {/* Current Value */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-gray-500 font-medium">Current Value</h3>
-                <div className="p-2 rounded-full bg-green-50 text-green-500">
-                  <FiTrendingUp size={20} />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {summary ? formatCurrency(summary.currentValue) : "--"}
-              </p>
-            </motion.div>
-
-            {/* Profit/Loss */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-gray-500 font-medium">Profit/Loss</h3>
-                <div
-                  className={`p-2 rounded-full ${
-                    summary?.profitLoss && summary.profitLoss >= 0
-                      ? "bg-green-50 text-green-500"
-                      : "bg-red-50 text-red-500"
-                  }`}>
-                  {summary?.profitLoss && summary.profitLoss >= 0 ? (
-                    <FiTrendingUp size={20} />
-                  ) : (
-                    <FiTrendingDown size={20} />
-                  )}
-                </div>
-              </div>
-              <div className="flex items-end mt-2">
-                <p className="text-2xl font-bold text-gray-900">
-                  {summary ? formatCurrency(summary.profitLoss) : "--"}
-                </p>
-                <span
-                  className={`ml-2 text-sm font-medium ${
-                    summary?.profitLossPercentage &&
-                    summary.profitLossPercentage >= 0
-                      ? "text-green-500"
-                      : "text-red-500"
-                  }`}>
-                  {summary
-                    ? formatPercentage(summary.profitLossPercentage)
-                    : "--"}
-                </span>
-              </div>
-            </motion.div>
-
-            {/* Best Performer */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-              className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-gray-500 font-medium">Best Performer</h3>
-                <div className="p-2 rounded-full bg-purple-50 text-purple-500">
-                  <FiArrowUp size={20} />
-                </div>
-              </div>
-              {summary?.bestPerformer ? (
-                <div className="mt-2">
-                  <p className="text-xl font-bold text-gray-900">
-                    {summary.bestPerformer.symbol}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {summary.bestPerformer.name}
-                  </p>
-                  <p className="text-green-500 font-medium mt-1">
-                    +
-                    {(
-                      (((summary.bestPerformer.currentPrice ||
-                        summary.bestPerformer.purchasePrice) -
-                        summary.bestPerformer.purchasePrice) /
-                        summary.bestPerformer.purchasePrice) *
-                      100
-                    ).toFixed(2)}
-                    %
-                  </p>
-                  {summary.bestPerformer.error && (
-                    <p className="text-xs text-red-500 mt-1">
-                      <FiAlertTriangle className="inline mr-1" />
-                      {summary.bestPerformer.error}
-                    </p>
-                  )}
-                </div>
+        {/* Profit/Loss */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className={`bg-white rounded-xl shadow-md p-6 border ${
+            summary?.profitLoss && summary.profitLoss >= 0
+              ? "border-green-100"
+              : "border-red-100"
+          }`}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 font-medium">Profit/Loss</h3>
+            <div
+              className={`p-2 rounded-full ${
+                summary?.profitLoss && summary.profitLoss >= 0
+                  ? "bg-green-50 text-green-500"
+                  : "bg-red-50 text-red-500"
+              }`}>
+              {summary?.profitLoss && summary.profitLoss >= 0 ? (
+                <FiTrendingUp size={20} />
               ) : (
-                <p className="text-gray-500 mt-2">--</p>
+                <FiTrendingDown size={20} />
               )}
-            </motion.div>
+            </div>
           </div>
+          <div className="flex items-end mt-2">
+            <p className="text-2xl font-bold text-gray-900">
+              {summary ? formatCurrency(summary.profitLoss) : "--"}
+            </p>
+            <span
+              className={`ml-2 text-sm font-medium ${
+                summary?.profitLossPercentage &&
+                summary.profitLossPercentage >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
+              }`}>
+              {summary ? formatPercentage(summary.profitLossPercentage) : "--"}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">
+            {summary?.profitLoss && summary.profitLoss >= 0 ? "Profit" : "Loss"}
+          </p>
+        </motion.div>
 
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Performance Chart */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Portfolio Performance
-                </h3>
-                <div className="flex space-x-2 over">
-                  {["1m", "3m", "6m", "1y"].map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setTimeRange(range as any)}
-                      className={`px-3 py-1 text-sm rounded-md ${
-                        timeRange === range
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}>
-                      {range}
-                    </button>
+        {/* Best Performer */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-500 font-medium">Performance</h3>
+            <div className="p-2 rounded-full bg-purple-50 text-purple-500">
+              <FiArrowUp size={20} />
+            </div>
+          </div>
+          {summary?.bestPerformer ? (
+            <div className="mt-2">
+              <p className="text-xl font-bold">
+                {summary.bestPerformer.symbol}
+              </p>
+              <p className="text-sm text-gray-500">
+                {summary.bestPerformer.name.substring(0, 15)}
+                {summary.bestPerformer.name.length > 15 ? "..." : ""}
+              </p>
+              <p className="text-green-500 font-medium mt-1">
+                +
+                {(
+                  (((summary.bestPerformer.currentValue ||
+                    summary.bestPerformer.buyPrice) -
+                    summary.bestPerformer.buyPrice) /
+                    summary.bestPerformer.buyPrice) *
+                  100
+                ).toFixed(2)}
+                %
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-500 mt-2">--</p>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Performance Chart */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Top 5 Holdings Performance
+            </h3>
+            <div className="flex space-x-2">
+              <Select value={timeRange} onValueChange={handleRangeChange}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Time Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rangeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
                   ))}
-                </div>
-              </div>
-              <div className="h-80">
-                <Line data={lineChartData} options={chartOptions} />
-              </div>
-            </motion.div>
-
-            {/* Allocation Chart */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Portfolio Allocation
-              </h3>
-              <div className="h-80">
-                <Pie data={pieChartData} options={chartOptions} />
-              </div>
-            </motion.div>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <div className="h-80">
+            <Line data={lineChartData} options={chartOptions} />
+          </div>
+        </motion.div>
 
-          {/* Holdings Table */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-800">
-                Your Holdings
-              </h3>
-            </div>
+        {/* Allocation Chart */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Top 5 Holdings Allocation
+          </h3>
+          <div className="h-80">
+            <Pie data={pieChartData} options={chartOptions} />
+          </div>
+        </motion.div>
+      </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Symbol
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Purchase Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Purchase Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Current Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Invested
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Value
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P/L
-                    </th>
+      {/* Holdings Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-xl font-semibold text-gray-800">
+            Your Top 5 Holdings
+          </h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Symbol
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Purchase Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Purchase Price
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Current Price
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Quantity
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Invested
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Value
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  P/L
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {topInvestments.map((investment) => {
+                const invested = investment.buyPrice * investment.quantity
+                const currentValue =
+                  (investment.currentValue || investment.buyPrice) *
+                  investment.quantity
+                const profitLoss = currentValue - invested
+                const profitLossPercentage = (profitLoss / invested) * 100
+
+                return (
+                  <tr key={investment.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                      {investment.symbol}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                      {investment.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                      {formatDate(investment.buyDate)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                      {formatCurrency(investment.buyPrice)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap font-medium">
+                      {investment.currentValue
+                        ? formatCurrency(investment.currentValue)
+                        : "--"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                      {investment.quantity}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                      {formatCurrency(invested)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap font-medium">
+                      {formatCurrency(currentValue)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div
+                        className={`flex items-center ${
+                          profitLoss >= 0 ? "text-green-500" : "text-red-500"
+                        }`}>
+                        {profitLoss >= 0 ? (
+                          <FiArrowUp className="mr-1" />
+                        ) : (
+                          <FiArrowDown className="mr-1" />
+                        )}
+                        {formatCurrency(profitLoss)} (
+                        {formatPercentage(profitLossPercentage)})
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {stocks.map((stock) => {
-                    const invested = stock.purchasePrice * stock.quantity
-                    const currentValue =
-                      (stock.currentPrice || stock.purchasePrice) *
-                      stock.quantity
-                    const profitLoss = currentValue - invested
-                    const profitLossPercentage = (profitLoss / invested) * 100
-
-                    return (
-                      <tr key={stock.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                          {stock.symbol}
-                          {stock.error && (
-                            <div className="text-xs text-red-500 mt-1">
-                              <FiAlertTriangle className="inline mr-1" />
-                              {stock.error}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                          {stock.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                          {formatDate(stock.purchaseDate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                          {formatCurrency(stock.purchasePrice)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-medium">
-                          {stock.currentPrice
-                            ? formatCurrency(stock.currentPrice)
-                            : "--"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                          {stock.quantity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                          {formatCurrency(invested)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-medium">
-                          {formatCurrency(currentValue)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div
-                            className={`flex items-center ${
-                              profitLoss >= 0
-                                ? "text-green-500"
-                                : "text-red-500"
-                            }`}>
-                            {profitLoss >= 0 ? (
-                              <FiArrowUp className="mr-1" />
-                            ) : (
-                              <FiArrowDown className="mr-1" />
-                            )}
-                            {formatCurrency(profitLoss)} (
-                            {formatPercentage(profitLossPercentage)})
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </motion.div>
-        </>
-      )}
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
     </div>
   )
 }

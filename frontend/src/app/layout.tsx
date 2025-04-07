@@ -27,26 +27,16 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = (await getServerSession(authOptions)) as Session & {
-    token?: string
-  }
-
+  const session = (await getServerSession(authOptions)) 
   return (
     <html lang="en">
       <body className={`${inter.className} `}>
         <ReduxProvider>
           <ClientSessionProvider>
             <div className="md:flex ">
-              {
-                session?.token? (
-                  <SideBarWrapper />
-                ) : (
-                 <></>
-                )
-              }
+              {session ? <SideBarWrapper Session={session} /> : <></>}
               {/* <SideBarWrapper /> */}
-              <div
-                className={`overflow-x-hidden  md:mx-auto md:flex-2/12`}>
+              <div className={`overflow-x-hidden  md:mx-auto md:flex-2/12`}>
                 {children}
               </div>
             </div>

@@ -1,6 +1,7 @@
 /** @format */
 "use client"
-import React, { useActionState, useEffect, useState } from "react"
+
+import React, { useActionState, useEffect, useCallback, useMemo, useState } from "react"
 import { useDispatch } from "react-redux"
 import { Button } from "@/Components/ui/button"
 import {
@@ -28,7 +29,8 @@ import { useAppSelector } from "@/lib/Redux/store/hooks"
 import { addTransaction } from "@/lib/Redux/features/transactions/transactionsSlice"
 
 
-const categories = [
+// Constants moved outside component
+const CATEGORIES = [
   "Food",
   "Utilities",
   "Transportation",
@@ -36,27 +38,48 @@ const categories = [
   "Health",
   "Education",
   "Other",
-]
+] as const
 
-const transactionTypes = ["TRANSFER", "DEBIT", "INVESTMENT", "CASH", "EXPENSES"]
+const TRANSACTION_TYPES = [
+  "TRANSFER",
+  "DEBIT",
+  "INVESTMENT",
+  "CASH",
+  "EXPENSES",
+] as const
 
-const initialState = {
+const INITIAL_STATE = {
   message: "",
   status: 0,
   errors: {},
   data: null,
 }
 
-const AddExpenseButton = () => {
+export const AddExpenseButton = () => {
   const dispatch = useDispatch()
   const [isOpen, setIsOpen] = useState(false)
   const [formState, formAction] = useActionState(
     newTransactionAction,
-    initialState
+    INITIAL_STATE
   )
+
+  // Selectors
   const { selectedAccount } = useAppSelector((store) => store.account)
   const { token } = useAppSelector((state) => state.user)
 
+  // Memoized form submission handler
+  const handleFormAction = useCallback(
+    (formData: FormData) => {
+      if (!token) {
+        toast.error("Authentication required")
+        return
+      }
+      return formAction({ formData, token })
+    },
+    [formAction, token]
+  )
+
+  // Effect for handling form state changes
   useEffect(() => {
     if (formState.status === 500) {
       toast.error(formState.message)
@@ -64,16 +87,22 @@ const AddExpenseButton = () => {
       toast.success(formState.message)
       dispatch(addExpense(formState.data.data.transaction))
       dispatch(addTransaction(formState.data.data.transaction))
-
       setIsOpen(false)
     }
   }, [formState, dispatch])
 
-  const handleClose = () => {
+  // Reset form state when dialog closes
+  const handleClose = useCallback(() => {
     setIsOpen(false)
     formState.errors = {}
     formState.message = ""
-  }
+  }, [formState])
+
+  // Memoized account ID for hidden input
+  const accountId = useMemo(
+    () => selectedAccount?.id || "",
+    [selectedAccount?.id]
+  )
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -86,35 +115,30 @@ const AddExpenseButton = () => {
             Add New Expense
           </DialogTitle>
         </DialogHeader>
-        <form
-          action={(formData) => formAction({ formData, token: token || "" })}
-          className="space-y-4">
-          <input
-            type="hidden"
-            name="accountId"
-            value={selectedAccount?.id || ""}
-          />
+        <form action={handleFormAction} className="space-y-4">
+          <input type="hidden" name="accountId" value={accountId} />
 
-          {/* Name Field with Error Handling */}
-          <div>
-            <Label htmlFor="name">Name</Label>
+          <FormField
+            label="Name"
+            id="name"
+            name="name"
+            required
+            errors={formState.errors}>
             <Input
               id="name"
               name="name"
               required
               className="mt-2 w-full"
-              aria-invalid={formState.errors?.name ? "true" : "false"}
+              aria-invalid={!!formState.errors?.name}
             />
-            {formState.errors?.name && (
-              <p className="mt-1 text-sm text-red-500">
-                {formState.errors.name}
-              </p>
-            )}
-          </div>
+          </FormField>
 
-          {/* Amount Field with Error Handling */}
-          <div>
-            <Label htmlFor="amount">Amount</Label>
+          <FormField
+            label="Amount"
+            id="amount"
+            name="amount"
+            required
+            errors={formState.errors}>
             <Input
               id="amount"
               name="amount"
@@ -123,96 +147,49 @@ const AddExpenseButton = () => {
               step="1"
               required
               className="mt-2 w-full"
-              aria-invalid={formState.errors?.amount ? "true" : "false"}
+              aria-invalid={!!formState.errors?.amount}
             />
-            {formState.errors?.amount && (
-              <p className="mt-1 text-sm text-red-500">
-                {formState.errors.amount}
-              </p>
-            )}
-          </div>
+          </FormField>
 
-          {/* Type Field with Error Handling */}
-          <div>
-            <Label className="mb-2" htmlFor="type">
-              Type
-            </Label>
-            <Select
-              name="type"
-              required
-              aria-invalid={formState.errors?.type ? "true" : "false"}>
-              <SelectTrigger
-                id="type"
-                className={formState.errors?.type ? "border-red-500" : ""}>
-                <SelectValue placeholder="Select transaction type" />
-              </SelectTrigger>
-              <SelectContent>
-                {transactionTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {formState.errors?.type && (
-              <p className="mt-1 text-sm text-red-500">
-                {formState.errors.type}
-              </p>
-            )}
-          </div>
+          <SelectField
+            label="Type"
+            id="type"
+            name="type"
+            options={TRANSACTION_TYPES}
+            placeholder="Select transaction type"
+            required
+            errors={formState.errors}
+          />
 
-          {/* Category Field with Error Handling */}
-          <div>
-            <Label className="mb-2" htmlFor="category">
-              Category
-            </Label>
-            <Select
-              name="category"
-              required
-              aria-invalid={formState.errors?.category ? "true" : "false"}>
-              <SelectTrigger
-                id="category"
-                className={formState.errors?.category ? "border-red-500" : ""}>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {formState.errors?.category && (
-              <p className="mt-1 text-sm text-red-500">
-                {formState.errors.category}
-              </p>
-            )}
-          </div>
+          <SelectField
+            label="Category"
+            id="category"
+            name="category"
+            options={CATEGORIES}
+            placeholder="Select category"
+            required
+            errors={formState.errors}
+          />
 
-          {/* Description Field (Optional) */}
-          <div>
-            <Label htmlFor="description">Description (Optional)</Label>
+          <FormField
+            label="Description (Optional)"
+            id="description"
+            name="description"
+            errors={formState.errors}>
             <Textarea
               id="description"
               name="description"
               className="mt-2 w-full"
             />
-          </div>
+          </FormField>
 
-          {/* Form Actions */}
           <div className="flex justify-end space-x-2">
-            <Button
-              className="cursor-pointer"
-              type="button"
-              variant="outline"
-              onClick={handleClose}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <SubmitButton />
           </div>
 
-          {/* General Form Error */}
           {formState.errors?.form && (
             <p className="mt-2 text-sm text-red-500">{formState.errors.form}</p>
           )}
@@ -222,4 +199,68 @@ const AddExpenseButton = () => {
   )
 }
 
-export default AddExpenseButton
+// Extracted FormField component for better reusability
+const FormField = ({
+  label,
+  id,
+  name,
+  required = false,
+  errors,
+  children,
+}: {
+  label: string
+  id: string
+  name: string
+  required?: boolean
+  errors?: Record<string, string>
+  children: React.ReactNode
+}) => (
+  <div>
+    <Label htmlFor={id}>{label}</Label>
+    {children}
+    {errors?.[name] && (
+      <p className="mt-1 text-sm text-red-500">{errors[name]}</p>
+    )}
+  </div>
+)
+
+// Extracted SelectField component
+const SelectField = ({
+  label,
+  id,
+  name,
+  options,
+  placeholder,
+  required = false,
+  errors,
+}: {
+  label: string
+  id: string
+  name: string
+  options: readonly string[]
+  placeholder: string
+  required?: boolean
+  errors?: Record<string, string>
+}) => (
+  <FormField
+    label={label}
+    id={id}
+    name={name}
+    required={required}
+    errors={errors}>
+    <Select name={name} required={required} aria-invalid={!!errors?.[name]}>
+      <SelectTrigger id={id} className={errors?.[name] ? "border-red-500" : ""}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option} value={option}>
+            {option}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </FormField>
+)
+
+export default React.memo(AddExpenseButton)

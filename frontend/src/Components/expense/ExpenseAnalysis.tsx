@@ -1,9 +1,6 @@
 /** @format */
-
-import React from "react"
+import React, { useMemo, useCallback } from "react"
 import { useSelector, useDispatch } from "react-redux"
-
-
 import {
   BarChart,
   Bar,
@@ -19,8 +16,14 @@ import {
 } from "recharts"
 import { Button } from "@/Components/ui/button"
 import { RootState } from "@/lib/Redux/store/store"
-import { setActiveChart, setActiveIndex, setCategoryFilter, setDateRange } from "@/lib/Redux/features/expense/expenseSlice"
+import {
+  setActiveChart,
+  setActiveIndex,
+  setCategoryFilter,
+  setDateRange,
+} from "@/lib/Redux/features/expense/expenseSlice"
 
+// Constants
 const COLORS = [
   "#0088FE",
   "#00C49F",
@@ -28,7 +31,12 @@ const COLORS = [
   "#FF8042",
   "#8884D8",
   "#82CA9D",
-]
+] as const
+
+interface ChartData {
+  name: string
+  value: number
+}
 
 const ExpenseAnalysis: React.FC = () => {
   const dispatch = useDispatch()
@@ -37,66 +45,97 @@ const ExpenseAnalysis: React.FC = () => {
     expenses: state.expenses.expenses,
   }))
 
-  // Prepare data for charts
-  const categoryData = expenses.reduce((acc, expense) => {
-    const existingCategory = acc.find((item) => item.name === expense.category)
-    if (existingCategory) {
-      existingCategory.value += expense.amount
-    } else {
-      acc.push({ name: expense.category, value: expense.amount })
-    }
-    return acc
-  }, [] as { name: string; value: number }[])
+  // Memoized chart data calculations
+  const categoryData = useMemo(() => {
+    return expenses.reduce((acc: ChartData[], expense) => {
+      const existingCategory = acc.find(
+        (item) => item.name === expense.category
+      )
+      if (existingCategory) {
+        existingCategory.value += expense.amount
+      } else {
+        acc.push({ name: expense.category, value: expense.amount })
+      }
+      return acc
+    }, [])
+  }, [expenses])
 
-  const monthlyData = expenses.reduce((acc, expense) => {
-    const date = new Date(expense.date)
-    const monthYear = `${date.toLocaleString("default", {
-      month: "short",
-    })} ${date.getFullYear()}`
-    const existingMonth = acc.find((item) => item.name === monthYear)
-    if (existingMonth) {
-      existingMonth.value += expense.amount
-    } else {
-      acc.push({ name: monthYear, value: expense.amount })
-    }
-    return acc
-  }, [] as { name: string; value: number }[])
+  const monthlyData = useMemo(() => {
+    return expenses.reduce((acc: ChartData[], expense) => {
+      const date = new Date(expense.date)
+      const monthYear = `${date.toLocaleString("default", {
+        month: "short",
+      })} ${date.getFullYear()}`
+      const existingMonth = acc.find((item) => item.name === monthYear)
+      if (existingMonth) {
+        existingMonth.value += expense.amount
+      } else {
+        acc.push({ name: monthYear, value: expense.amount })
+      }
+      return acc
+    }, [])
+  }, [expenses])
 
-  const handlePieClick = (data: any, index: number) => {
-    dispatch(setActiveIndex(index))
-    dispatch(setCategoryFilter(data.name))
-  }
+  // Memoized event handlers
+  const handlePieClick = useCallback(
+    (data: ChartData, index: number) => {
+      dispatch(setActiveIndex(index))
+      dispatch(setCategoryFilter(data.name))
+    },
+    [dispatch]
+  )
 
-  const handleBarClick = (data: any) => {
-    const monthYear = data.activeLabel
-    if (monthYear) {
-      const [month, year] = monthYear.split(" ")
-      const monthNum = new Date(`${month} 1, ${year}`).getMonth() + 1
-      const start = new Date(`${year}-${monthNum}-01`)
-      const end = new Date(`${year}-${monthNum + 1}-01`)
-      end.setDate(end.getDate() - 1)
-      dispatch(setDateRange({ from: start, to: end }))
-      dispatch(setActiveIndex(null))
-    }
-  }
+  const handleBarClick = useCallback(
+    (data: { activeLabel?: string }) => {
+      const monthYear = data.activeLabel
+      if (monthYear) {
+        const [month, year] = monthYear.split(" ")
+        const monthNum = new Date(`${month} 1, ${year}`).getMonth() + 1
+        const start = new Date(`${year}-${monthNum}-01`)
+        const end = new Date(`${year}-${monthNum + 1}-01`)
+        end.setDate(end.getDate() - 1)
+        dispatch(setDateRange({ from: start, to: end }))
+        dispatch(setActiveIndex(null))
+      }
+    },
+    [dispatch]
+  )
+
+  const handleChartToggle = useCallback(
+    (chartType: "bar" | "pie") => () => {
+      dispatch(setActiveChart(chartType))
+    },
+    [dispatch]
+  )
+
+  // Custom tooltip formatter
+  const formatTooltip = useCallback(
+    (value: number) => [`$${value.toFixed(2)}`, "Amount"],
+    []
+  )
+
+  // Custom pie chart label formatter
+  const renderPieLabel = useCallback(
+    ({ name, percent }: { name: string; percent: number }) =>
+      `${name} ${(percent * 100).toFixed(0)}%`,
+    []
+  )
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 mb-8">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 transition-all">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-800">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
           Expense Analysis
         </h2>
         <div className="flex space-x-2">
           <Button
-            className="cursor-pointer"
             variant={activeChart === "bar" ? "default" : "outline"}
-            onClick={() => dispatch(setActiveChart("bar"))}>
+            onClick={handleChartToggle("bar")}>
             Monthly View
           </Button>
           <Button
-            className="cursor-pointer"
             variant={activeChart === "pie" ? "default" : "outline"}
-            onClick={() => dispatch(setActiveChart("pie"))}>
+            onClick={handleChartToggle("pie")}>
             Category View
           </Button>
         </div>
@@ -112,13 +151,9 @@ const ExpenseAnalysis: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} />
               <YAxis />
-              <Tooltip formatter={(value) => [`$${value}`, "Amount"]} />
+              <Tooltip formatter={formatTooltip} />
               <Legend />
-              <Bar
-                dataKey="value"
-                name="Expense Amount"
-                fill="#8884d8"
-                radius={[4, 4, 0, 0]}>
+              <Bar dataKey="value" name="Expense Amount" radius={[4, 4, 0, 0]}>
                 {monthlyData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
@@ -135,12 +170,9 @@ const ExpenseAnalysis: React.FC = () => {
                 cy="50%"
                 labelLine={false}
                 outerRadius={80}
-                fill="#8884d8"
                 dataKey="value"
                 nameKey="name"
-                label={({ name, percent }) =>
-                  `${name} ${(percent * 100).toFixed(0)}%`
-                }
+                label={renderPieLabel}
                 onClick={handlePieClick}>
                 {categoryData.map((entry, index) => (
                   <Cell
@@ -149,7 +181,7 @@ const ExpenseAnalysis: React.FC = () => {
                   />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => [`$${value}`, "Amount"]} />
+              <Tooltip formatter={formatTooltip} />
               <Legend />
             </PieChart>
           )}
@@ -159,4 +191,4 @@ const ExpenseAnalysis: React.FC = () => {
   )
 }
 
-export default ExpenseAnalysis
+export default React.memo(ExpenseAnalysis)

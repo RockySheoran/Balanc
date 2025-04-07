@@ -1,5 +1,4 @@
 /** @format */
-
 import {
   LineChart,
   Line,
@@ -20,15 +19,11 @@ import {
 } from "recharts"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card"
-import { useState, useMemo } from "react"
-import {
-  FiTrendingUp,
-  FiTrendingDown,
-  FiPieChart,
-  FiDollarSign,
-} from "react-icons/fi"
+import { useState, useMemo, useCallback, memo } from "react"
+import { FiTrendingUp, FiTrendingDown, FiPieChart } from "react-icons/fi"
 import { motion } from "framer-motion"
 
+// Constants
 const COLORS = [
   "#10B981", // Emerald
   "#EF4444", // Red
@@ -38,7 +33,14 @@ const COLORS = [
   "#6B7280", // Gray
 ]
 
-const renderActiveShape = (props: any) => {
+const TRANSACTION_TYPES = {
+  INCOME: ["INCOME", "CREDIT"],
+  EXPENSE: ["EXPENSE", "DEBIT", "TRANSFER", "CASH"],
+  INVESTMENT: ["INVESTMENT"],
+}
+
+// Memoized components
+const ActivePieShape = memo((props: any) => {
   const {
     cx,
     cy,
@@ -77,21 +79,22 @@ const renderActiveShape = (props: any) => {
       />
     </g>
   )
-}
+})
+ActivePieShape.displayName = "ActivePieShape"
 
-export default function TransactionCharts() {
+const TransactionCharts = memo(() => {
   const { transactions } = useAppSelector((state) => state.transactions)
   const [activeIndex, setActiveIndex] = useState(0)
   const [hoveredBar, setHoveredBar] = useState<string | null>(null)
 
-  // Calculate all chart data
+  // Process transactions data
   const { totals, counts, monthlyData, categoryData, cashFlowData } =
     useMemo(() => {
       const now = new Date()
       const sixMonthsAgo = new Date(now)
       sixMonthsAgo.setMonth(now.getMonth() - 5)
 
-      // Initialize monthly data structure
+      // Initialize data structures
       const months = Array.from({ length: 6 }, (_, i) => {
         const date = new Date(now)
         date.setMonth(now.getMonth() - (5 - i))
@@ -106,7 +109,7 @@ export default function TransactionCharts() {
       const calculatedCounts = { income: 0, expense: 0, investment: 0 }
       const categoryMap: Record<string, number> = {}
 
-      // Process transactions
+      // Process transactions in a single pass
       transactions.forEach((transaction) => {
         const amount = Math.abs(transaction.amount)
         const date = new Date(transaction.date)
@@ -114,57 +117,99 @@ export default function TransactionCharts() {
           (m) => m.month === date.toLocaleString("default", { month: "short" })
         )
 
-        if (transaction.type === "INCOME" || transaction.type === "CREDIT") {
+        if (TRANSACTION_TYPES.INCOME.includes(transaction.type)) {
           calculatedTotals.income += amount
           calculatedCounts.income++
           if (monthIndex >= 0) months[monthIndex].income += amount
-        } else if (
-          transaction.type === "EXPENSE" ||
-          transaction.type === "DEBIT"
-           || transaction.type === "TRANSFER" || transaction.type === "CASH" 
-        ) {
+        } else if (TRANSACTION_TYPES.EXPENSE.includes(transaction.type)) {
           calculatedTotals.expense += amount
           calculatedCounts.expense++
           if (monthIndex >= 0) months[monthIndex].expenses += amount
-
-          // Category breakdown
           categoryMap[transaction.category] =
             (categoryMap[transaction.category] || 0) + amount
-        } else if (transaction.type === "INVESTMENT") {
+        } else if (TRANSACTION_TYPES.INVESTMENT.includes(transaction.type)) {
           calculatedTotals.investment += amount
           calculatedCounts.investment++
         }
       })
 
-      // Prepare category data (top 6 categories)
-      const categoryData = Object.entries(categoryMap)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 6)
-
-      // Calculate net cash flow
-      const cashFlowData = months.map((month) => ({
-        ...month,
-        net: month.income - month.expenses,
-      }))
-
+      // Prepare final data
       return {
         totals: calculatedTotals,
         counts: calculatedCounts,
         monthlyData: months,
-        categoryData,
-        cashFlowData,
+        categoryData: Object.entries(categoryMap)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 6),
+        cashFlowData: months.map((month) => ({
+          ...month,
+          net: month.income - month.expenses,
+        })),
       }
     }, [transactions])
 
-  // Pie Chart Data (only show non-zero values)
-  const pieData = [
-    { name: "Income", value: totals.income, count: counts.income },
-    { name: "Expenses", value: totals.expense, count: counts.expense },
-    { name: "Investments", value: totals.investment, count: counts.investment },
-  ].filter((item) => item.value > 0)
+  // Memoized pie chart data
+  const pieData = useMemo(
+    () =>
+      [
+        { name: "Income", value: totals.income, count: counts.income },
+        { name: "Expenses", value: totals.expense, count: counts.expense },
+        {
+          name: "Investments",
+          value: totals.investment,
+          count: counts.investment,
+        },
+      ].filter((item) => item.value > 0),
+    [totals, counts]
+  )
 
-  const onPieEnter = (_: any, index: number) => setActiveIndex(index)
+  // Event handlers
+  const onPieEnter = useCallback(
+    (_: any, index: number) => setActiveIndex(index),
+    []
+  )
+  const handleBarHover = useCallback(
+    (data: any) => setHoveredBar(data?.activeLabel || null),
+    []
+  )
+  const handleBarLeave = useCallback(() => setHoveredBar(null), [])
+
+  // Tooltip formatters
+  const currencyFormatter = useCallback(
+    (value: number) => `$${value.toLocaleString()}`,
+    []
+  )
+  const pieTooltipFormatter = useCallback(
+    (value: number, name: string) => [
+      currencyFormatter(value),
+      `${name} (${
+        pieData.find((d) => d.name === name)?.count || 0
+      } transactions)`,
+    ],
+    [pieData, currencyFormatter]
+  )
+
+  // Gradient definitions
+  const renderGradients = useCallback(
+    () => (
+      <defs>
+        <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
+          <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+        </linearGradient>
+        <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8} />
+          <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
+        </linearGradient>
+        <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
+          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+    ),
+    []
+  )
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -182,10 +227,10 @@ export default function TransactionCharts() {
               </CardTitle>
               <div className="flex gap-2">
                 <span className="text-sm px-2 py-1 bg-emerald-100 text-emerald-800 rounded-full">
-                  Income: ${totals.income.toLocaleString()}
+                  Income: {currencyFormatter(totals.income)}
                 </span>
                 <span className="text-sm px-2 py-1 bg-red-100 text-red-800 rounded-full">
-                  Expenses: ${totals.expense.toLocaleString()}
+                  Expenses: {currencyFormatter(totals.expense)}
                 </span>
               </div>
             </div>
@@ -194,42 +239,11 @@ export default function TransactionCharts() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={cashFlowData}>
-                  <defs>
-                    <linearGradient
-                      id="colorIncome"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient
-                      id="colorExpenses"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1">
-                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                  {renderGradients()}
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="month" />
                   <YAxis />
-                  <Tooltip
-                    formatter={(value: number) => `$${value.toLocaleString()}`}
-                    contentStyle={{
-                      background: "rgba(255, 255, 255, 0.95)",
-                      borderRadius: "0.5rem",
-                      border: "none",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    }}
-                  />
+                  <Tooltip formatter={currencyFormatter} />
                   <Area
                     type="monotone"
                     dataKey="income"
@@ -281,7 +295,7 @@ export default function TransactionCharts() {
                 <PieChart>
                   <Pie
                     activeIndex={activeIndex}
-                    activeShape={renderActiveShape}
+                    activeShape={ActivePieShape}
                     data={pieData}
                     cx="50%"
                     cy="50%"
@@ -289,21 +303,14 @@ export default function TransactionCharts() {
                     outerRadius={100}
                     dataKey="value"
                     onMouseEnter={onPieEnter}>
-                    {pieData.map((entry, index) => (
+                    {pieData.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
                       />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      `$${value.toLocaleString()}`,
-                      `${name} (${
-                        pieData.find((d) => d.name === name)?.count || 0
-                      } transactions)`,
-                    ]}
-                  />
+                  <Tooltip formatter={pieTooltipFormatter} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -334,19 +341,12 @@ export default function TransactionCharts() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={categoryData}
-                  onMouseEnter={(data) =>
-                    setHoveredBar(data?.activeLabel || null)
-                  }
-                  onMouseLeave={() => setHoveredBar(null)}>
+                  onMouseEnter={handleBarHover}
+                  onMouseLeave={handleBarLeave}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip
-                    formatter={(value: number) => [
-                      `$${value.toLocaleString()}`,
-                      "Amount",
-                    ]}
-                  />
+                  <Tooltip formatter={currencyFormatter} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                     {categoryData.map((entry, index) => (
                       <Cell
@@ -379,7 +379,7 @@ export default function TransactionCharts() {
                     style={{ backgroundColor: COLORS[index % COLORS.length] }}
                   />
                   <span className="text-sm font-medium text-gray-700">
-                    {entry.name}: ${entry.value.toLocaleString()}
+                    {entry.name}: {currencyFormatter(entry.value)}
                   </span>
                 </motion.div>
               ))}
@@ -389,4 +389,8 @@ export default function TransactionCharts() {
       </motion.div>
     </div>
   )
-}
+})
+
+TransactionCharts.displayName = "TransactionCharts"
+export default TransactionCharts
+  

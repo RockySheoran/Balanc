@@ -9,31 +9,11 @@ import {
 import { ArrowUpDownIcon, ChevronDownIcon, DownloadIcon } from "./Icons"
 import { Button } from "@/Components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback, memo } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import LoadingSpinner from "./LoadingSpinner"
 
-type TransactionType =
-  | "CREDIT"
-  | "DEBIT"
-  | "TRANSFER"
-  | "EXPENSE"
-  | "INCOME"
-  | "INVESTMENT"
-  | "CASH"
-
-interface Transaction {
-  id: string
-  date: string
-  description: string
-  amount: number
-  type: TransactionType
-  category: string
-}
-
-type SortDirection = "asc" | "desc"
-type SortableField = keyof Transaction
-
+// Constants moved outside component to prevent recreation on every render
 const COLORS = {
   CREDIT: "#10B981",
   DEBIT: "#3B82F6",
@@ -62,7 +42,25 @@ const transactionTypes = [
   { value: "INVESTMENT", label: "Investments" },
 ] as const
 
-const TransactionRow = ({ transaction }: { transaction: Transaction }) => {
+type TransactionType = keyof typeof COLORS
+type SortDirection = "asc" | "desc"
+type SortableField = "date" | "amount" | "type"
+
+interface Transaction {
+  id: string
+  date: string
+  description: string
+  amount: number
+  type: TransactionType
+  category: string
+}
+
+// Memoized TransactionRow component to prevent unnecessary re-renders
+const TransactionRow = memo(({ transaction }: { transaction: Transaction }) => {
+  const isPositive =
+    transaction.type === "CREDIT" || transaction.type === "INCOME"
+  const color = COLORS[transaction.type]
+
   return (
     <motion.tr
       initial={{ opacity: 0, y: 10 }}
@@ -78,21 +76,17 @@ const TransactionRow = ({ transaction }: { transaction: Transaction }) => {
       </td>
       <td
         className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-          transaction.type == "CREDIT" || transaction.type == "INCOME"
-            ? "text-emerald-500"
-            : "text-red-500"
+          isPositive ? "text-emerald-500" : "text-red-500"
         }`}>
-        {transaction.type == "CREDIT" || transaction.type == "INCOME"
-          ? "+"
-          : "-"}
+        {isPositive ? "+" : "-"}
         {transaction.amount.toFixed(2)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span
           className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-all duration-200"
           style={{
-            color: COLORS[transaction.type],
-            backgroundColor: `${COLORS[transaction.type]}20`,
+            color,
+            backgroundColor: `${color}20`,
           }}>
           {transaction.type}
         </span>
@@ -102,7 +96,7 @@ const TransactionRow = ({ transaction }: { transaction: Transaction }) => {
       </td>
     </motion.tr>
   )
-}
+})
 
 const ErrorFallback = ({ error }: { error: Error }) => (
   <div className="p-4 text-red-500">
@@ -111,12 +105,32 @@ const ErrorFallback = ({ error }: { error: Error }) => (
   </div>
 )
 
+const SortIndicator = memo(
+  ({
+    sortKey,
+    sortConfig,
+  }: {
+    sortKey: SortableField
+    sortConfig: { key: string; direction: string } | null
+  }) => {
+    if (!sortConfig || sortConfig.key !== sortKey) {
+      return <ArrowUpDownIcon className="ml-1 h-3 w-3 opacity-30" />
+    }
+    return (
+      <ArrowUpDownIcon
+        className={`ml-1 h-3 w-3 ${
+          sortConfig.direction === "asc" ? "transform rotate-180" : ""
+        }`}
+      />
+    )
+  }
+)
+
 const TransactionTableContent = () => {
   const dispatch = useAppDispatch()
   const state = useAppSelector((state) => state.transactions)
 
   const {
-    transactions = [],
     filteredTransactions = [],
     filters = {
       timeFilter: "month",
@@ -144,6 +158,50 @@ const TransactionTableContent = () => {
     return filteredTransactions.slice(indexOfFirstItem, indexOfLastItem)
   }, [currentPage, transactionsPerPage, filteredTransactions])
 
+  // Memoized handlers
+  const handleSort = useCallback(
+    (key: SortableField) => {
+      const direction: SortDirection =
+        sortConfig?.key === key && sortConfig?.direction === "asc"
+          ? "desc"
+          : "asc"
+      dispatch(setSortConfig({ key, direction }))
+    },
+    [dispatch, sortConfig]
+  )
+
+  const handleTimeFilterChange = useCallback(
+    (value: string) => {
+      dispatch(setTimeFilter(value))
+      dispatch(setCurrentPage(1))
+    },
+    [dispatch]
+  )
+
+  const handleTypeFilterChange = useCallback(
+    (value: string) => {
+      dispatch(setTypeFilter(value))
+      dispatch(setCurrentPage(1))
+    },
+    [dispatch]
+  )
+
+  const goToPage = useCallback(
+    (page: number) => {
+      dispatch(setCurrentPage(page))
+    },
+    [dispatch]
+  )
+
+  const nextPage = useCallback(() => {
+    dispatch(setCurrentPage(Math.min(currentPage + 1, totalPages)))
+  }, [dispatch, currentPage, totalPages])
+
+  const prevPage = useCallback(() => {
+    dispatch(setCurrentPage(Math.max(currentPage - 1, 1)))
+  }, [dispatch, currentPage])
+
+  // Initial setup
   useEffect(() => {
     if (!state.filters) {
       dispatch(setTimeFilter("month"))
@@ -152,52 +210,13 @@ const TransactionTableContent = () => {
     }
   }, [dispatch, state.filters])
 
-  const handleSort = (key: SortableField) => {
-    const direction: SortDirection =
-      sortConfig?.key === key && sortConfig?.direction === "asc"
-        ? "desc"
-        : "asc"
-    dispatch(setSortConfig({ key, direction }))
-  }
-
-  const handleTimeFilterChange = (value: string) => {
-    try {
-      dispatch(setTimeFilter(value))
-      dispatch(setCurrentPage(1))
-    } catch (error) {
-      console.error("Error setting time filter:", error)
-    }
-  }
-
-  const handleTypeFilterChange = (value: string) => {
-    try {
-      dispatch(setTypeFilter(value))
-      dispatch(setCurrentPage(1))
-    } catch (error) {
-      console.error("Error setting type filter:", error)
-    }
-  }
-
-  const SortIndicator = ({ sortKey }: { sortKey: SortableField }) => {
-    if (!sortConfig || sortConfig.key !== sortKey) {
-      return <ArrowUpDownIcon className="ml-1 h-3 w-3 opacity-30" />
-    }
-    return (
-      <ArrowUpDownIcon
-        className={`ml-1 h-3 w-3 ${
-          sortConfig.direction === "asc" ? "transform rotate-180" : ""
-        }`}
-      />
-    )
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
       className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Filter Controls */}
+      {/* Filter Controls - simplified JSX */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between gap-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
         <div className="flex flex-col sm:flex-row gap-3 w-full">
           <select
@@ -231,46 +250,33 @@ const TransactionTableContent = () => {
         </Button>
       </div>
 
-      {/* Table */}
+      {/* Table - simplified with less inline styles */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
-                onClick={() => handleSort("date")}>
-                <div className="flex items-center">
-                  Date
-                  <SortIndicator sortKey="date" />
-                </div>
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200">
+              <SortableHeader
+                field="date"
+                label="Date"
+                sortConfig={sortConfig}
+                onSort={handleSort}
+              />
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Description
               </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
-                onClick={() => handleSort("amount")}>
-                <div className="flex items-center">
-                  Amount
-                  <SortIndicator sortKey="amount" />
-                </div>
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
-                onClick={() => handleSort("type")}>
-                <div className="flex items-center">
-                  Type
-                  <SortIndicator sortKey="type" />
-                </div>
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200">
+              <SortableHeader
+                field="amount"
+                label="Amount"
+                sortConfig={sortConfig}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                field="type"
+                label="Type"
+                sortConfig={sortConfig}
+                onSort={handleSort}
+              />
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Category
               </th>
             </tr>
@@ -301,97 +307,17 @@ const TransactionTableContent = () => {
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - extracted to separate component would be better */}
       {totalPages > 1 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <Button
-              onClick={() =>
-                dispatch(setCurrentPage(Math.max(currentPage - 1, 1)))
-              }
-              disabled={currentPage === 1}
-              variant="outline"
-              className="border-gray-300 dark:border-gray-600">
-              Previous
-            </Button>
-            <Button
-              onClick={() =>
-                dispatch(setCurrentPage(Math.min(currentPage + 1, totalPages)))
-              }
-              disabled={currentPage === totalPages}
-              variant="outline"
-              className="ml-3 border-gray-300 dark:border-gray-600">
-              Next
-            </Button>
-          </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Showing{" "}
-                <span className="font-medium">
-                  {(currentPage - 1) * transactionsPerPage + 1}
-                </span>{" "}
-                to{" "}
-                <span className="font-medium">
-                  {Math.min(
-                    currentPage * transactionsPerPage,
-                    filteredTransactions.length
-                  )}
-                </span>{" "}
-                of{" "}
-                <span className="font-medium">
-                  {filteredTransactions.length}
-                </span>{" "}
-                results
-              </p>
-            </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                <Button
-                  onClick={() =>
-                    dispatch(setCurrentPage(Math.max(currentPage - 1, 1)))
-                  }
-                  disabled={currentPage === 1}
-                  variant="outline"
-                  size="icon"
-                  className="rounded-r-none border-gray-300 dark:border-gray-600">
-                  <ChevronDownIcon className="h-4 w-4 transform rotate-90" />
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (page) => (
-                    <Button
-                      key={page}
-                      onClick={() => dispatch(setCurrentPage(page))}
-                      variant={currentPage === page ? "default" : "outline"}
-                      className={`rounded-none ${
-                        currentPage === page
-                          ? ""
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}>
-                      {page}
-                    </Button>
-                  )
-                )}
-                <Button
-                  onClick={() =>
-                    dispatch(
-                      setCurrentPage(Math.min(currentPage + 1, totalPages))
-                    )
-                  }
-                  disabled={currentPage === totalPages}
-                  variant="outline"
-                  size="icon"
-                  className="rounded-l-none border-gray-300 dark:border-gray-600">
-                  <ChevronDownIcon className="h-4 w-4 transform -rotate-90" />
-                </Button>
-              </nav>
-            </div>
-          </div>
-        </motion.div>
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredTransactions.length}
+          itemsPerPage={transactionsPerPage}
+          onPageChange={goToPage}
+          onNext={nextPage}
+          onPrev={prevPage}
+        />
       )}
     </motion.div>
   )
@@ -417,5 +343,121 @@ const TransactionTable = () => {
     </ErrorBoundary>
   )
 }
+
+// Extracted components for better readability and performance
+const SortableHeader = memo(
+  ({
+    field,
+    label,
+    sortConfig,
+    onSort,
+  }: {
+    field: SortableField
+    label: string
+    sortConfig: { key: string; direction: string } | null
+    onSort: (key: SortableField) => void
+  }) => (
+    <th
+      scope="col"
+      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
+      onClick={() => onSort(field)}>
+      <div className="flex items-center">
+        {label}
+        <SortIndicator sortKey={field} sortConfig={sortConfig} />
+      </div>
+    </th>
+  )
+)
+
+const PaginationControls = memo(
+  ({
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    onPageChange,
+    onNext,
+    onPrev,
+  }: {
+    currentPage: number
+    totalPages: number
+    totalItems: number
+    itemsPerPage: number
+    onPageChange: (page: number) => void
+    onNext: () => void
+    onPrev: () => void
+  }) => (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.2 }}
+      className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
+      <div className="flex-1 flex justify-between sm:hidden">
+        <Button
+          onClick={onPrev}
+          disabled={currentPage === 1}
+          variant="outline"
+          className="border-gray-300 dark:border-gray-600">
+          Previous
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={currentPage === totalPages}
+          variant="outline"
+          className="ml-3 border-gray-300 dark:border-gray-600">
+          Next
+        </Button>
+      </div>
+      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Showing{" "}
+            <span className="font-medium">
+              {(currentPage - 1) * itemsPerPage + 1}
+            </span>{" "}
+            to{" "}
+            <span className="font-medium">
+              {Math.min(currentPage * itemsPerPage, totalItems)}
+            </span>{" "}
+            of <span className="font-medium">{totalItems}</span> results
+          </p>
+        </div>
+        <div>
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+            <Button
+              onClick={onPrev}
+              disabled={currentPage === 1}
+              variant="outline"
+              size="icon"
+              className="rounded-r-none border-gray-300 dark:border-gray-600">
+              <ChevronDownIcon className="h-4 w-4 transform rotate-90" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <Button
+                key={page}
+                onClick={() => onPageChange(page)}
+                variant={currentPage === page ? "default" : "outline"}
+                className={`rounded-none ${
+                  currentPage === page
+                    ? ""
+                    : "border-gray-300 dark:border-gray-600"
+                }`}>
+                {page}
+              </Button>
+            ))}
+            <Button
+              onClick={onNext}
+              disabled={currentPage === totalPages}
+              variant="outline"
+              size="icon"
+              className="rounded-l-none border-gray-300 dark:border-gray-600">
+              <ChevronDownIcon className="h-4 w-4 transform -rotate-90" />
+            </Button>
+          </nav>
+        </div>
+      </div>
+    </motion.div>
+  )
+)
 
 export default TransactionTable

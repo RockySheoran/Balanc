@@ -1,9 +1,10 @@
 /** @format */
-import React from "react"
+
+import React, { useMemo } from "react"
 import { Badge } from "@/Components/ui/badge"
 import { Card, CardHeader, CardContent } from "@/Components/ui/card"
 import { ArrowUp, ArrowDown, Star, TrendingUp, Trophy } from "lucide-react"
-import { Investment } from "./investment"
+import { Investment } from "@/types/investment"
 
 interface TopPerformersProps {
   investments: Investment[]
@@ -11,25 +12,34 @@ interface TopPerformersProps {
   className?: string
 }
 
+interface PerformanceData {
+  sortedInvestments: Investment[]
+  averageRoi: number
+  performanceTrend: "improving" | "declining" | "neutral"
+  totals: {
+    value: number
+    gain: number
+  }
+}
+
 const TopPerformers: React.FC<TopPerformersProps> = ({
-  investments,
+  investments = [],
   count = 5,
   className = "",
 }) => {
-  // Memoized calculation of top performing investments
+  // Calculate performance data
   const { sortedInvestments, averageRoi, performanceTrend, totals } =
-    React.useMemo(() => {
-      if (!investments || investments.length === 0) {
+    useMemo(() => {
+      if (investments.length === 0) {
         return {
           sortedInvestments: [],
           averageRoi: 0,
-          performanceTrend: "neutral",
+          performanceTrend: "neutral" as const,
           totals: { value: 0, gain: 0 },
         }
       }
 
-      // Calculate ROI and sort
-      const withRoi = investments.map((inv) => {
+      const withPerformance = investments.map((inv) => {
         const currentValue = inv.currentPrice || inv.buyPrice
         const roi = ((currentValue - inv.buyPrice) / inv.buyPrice) * 100
         const value = currentValue * inv.quantity
@@ -37,15 +47,14 @@ const TopPerformers: React.FC<TopPerformersProps> = ({
         return { ...inv, roi, value, gain }
       })
 
-      const sorted = [...withRoi].sort((a, b) => b.roi - a.roi).slice(0, count)
-
-      // Calculate averages and totals
+      const sorted = [...withPerformance]
+        .sort((a, b) => b.roi - a.roi)
+        .slice(0, count)
       const avgRoi =
         sorted.reduce((sum, inv) => sum + inv.roi, 0) / sorted.length
       const totalValue = sorted.reduce((sum, inv) => sum + inv.value, 0)
       const totalGain = sorted.reduce((sum, inv) => sum + inv.gain, 0)
 
-      // Determine trend
       let trend: "improving" | "declining" | "neutral" = "neutral"
       if (sorted.length >= 2) {
         const first = sorted[0].roi
@@ -62,14 +71,11 @@ const TopPerformers: React.FC<TopPerformersProps> = ({
         sortedInvestments: sorted,
         averageRoi: avgRoi,
         performanceTrend: trend,
-        totals: {
-          value: totalValue,
-          gain: totalGain,
-        },
+        totals: { value: totalValue, gain: totalGain },
       }
     }, [investments, count])
 
-  // Format currency based on investment type (simplified)
+  // Format currency based on investment type
   const formatCurrency = (value: number, symbol = "$") => {
     return `${symbol}${value.toLocaleString("en-US", {
       minimumFractionDigits: 2,
@@ -140,9 +146,8 @@ const TopPerformers: React.FC<TopPerformersProps> = ({
 
       <CardContent className="space-y-4">
         <div className="space-y-3">
-          {sortedInvestments.slice(0,4).map((investment, index) => {
+          {sortedInvestments.slice(0, 4).map((investment, index) => {
             const isPositive = investment.roi > 0
-            const isNegative = investment.roi < 0
             const currencySymbol = investment.symbol.includes(".NS") ? "₹" : "$"
 
             return (
@@ -166,13 +171,7 @@ const TopPerformers: React.FC<TopPerformersProps> = ({
 
                 <div className="flex flex-col items-end ml-2">
                   <Badge
-                    variant={
-                      isPositive
-                        ? "default"
-                        : isNegative
-                        ? "destructive"
-                        : "secondary"
-                    }
+                    variant={isPositive ? "default" : "destructive"}
                     className="px-2 py-1 text-xs">
                     {investment.roi > 0 ? "+" : ""}
                     {investment.roi.toFixed(1)}%

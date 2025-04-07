@@ -2,6 +2,8 @@ import Env from "./env";
 
 const Api = `${Env.BACKEND_APP_URL}`;
 const client = `${Env.CLIENT_APP_URL}`;
+export const  Stock_API_URL = `${Env.Stock_API}`;
+export const  Stock_API_URL1 = `${Env.Stock_API1}`;
  
 
 export const registerApi = `${Api}/api/auth/register` 

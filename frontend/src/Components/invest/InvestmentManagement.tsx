@@ -2,14 +2,6 @@
 "use client"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  addInvestment,
-  fetchStockPrice,
-  selectInvestment,
-  setFilter,
-} from "@/lib/Redux/features/investmentSlice/investmentSlice"
-import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
-import { Investment } from "./investment"
 import dynamic from "next/dynamic"
 import { debounce } from "lodash"
 import {
@@ -20,7 +12,19 @@ import {
   FiPieChart,
 } from "react-icons/fi"
 import { RiArrowUpDownLine } from "react-icons/ri"
+
+// Redux
+import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
+import {
+  addInvestment,
+  fetchStockPrice,
+  selectInvestment,
+  setFilter,
+} from "@/lib/Redux/features/investmentSlice/investmentSlice"
+
+import type { RootState } from "@/lib/Redux/store/store"
 import SkeletonLoader from "./SkeletonLoader"
+import { Investment } from "./investment"
 
 // Components
 const SummaryCards = dynamic(() => import("./SummaryCards"), {
@@ -55,14 +59,11 @@ type Filters = {
   dateRange: "all" | "1m" | "3m" | "6m" | "1y"
   performanceFilter: "all" | "profit" | "loss" | "best"
 }
-interface PerformanceChartProps {
-  investments: Investment[]
-}
 
 const InvestmentManagement = () => {
   const dispatch = useAppDispatch()
   const { investments, status, filters } = useAppSelector(
-    (state) => state.investment
+    (state: RootState) => state.investment
   )
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState(filters.searchTerm)
@@ -106,10 +107,10 @@ const InvestmentManagement = () => {
     })
   }, [investments, filters])
 
-  // Debounced search
+  // Debounced search with useCallback
   const debouncedSearch = useCallback(
     debounce((term: string) => dispatch(setFilter({ searchTerm: term })), 300),
-    []
+    [dispatch]
   )
 
   useEffect(() => {
@@ -117,29 +118,34 @@ const InvestmentManagement = () => {
     return () => debouncedSearch.cancel()
   }, [searchTerm, debouncedSearch])
 
-  // Fetch prices
+  // Fetch prices with cleanup
   useEffect(() => {
-    if (investments?.length === 0) return
+    if (!investments || investments.length === 0) return
 
-    investments?.forEach((inv) => dispatch(fetchStockPrice(inv.symbol)))
-    const interval = setInterval(() => {
-      investments?.forEach((inv) => dispatch(fetchStockPrice(inv.symbol)))
-    }, 60000)
+    const fetchPrices = () => {
+      investments.forEach((inv) => dispatch(fetchStockPrice(inv.symbol)))
+    }
+
+    fetchPrices()
+    const interval = setInterval(fetchPrices, 60000)
 
     return () => clearInterval(interval)
   }, [investments, dispatch])
 
-  // const handleAddInvestment = useCallback(
-  //   (investment: Omit<Investment, "id" | "currentPrice">) => {
-  //     dispatch(addInvestment(investment))
-  //     setIsFormOpen(false)
-  //   },
-  //   [dispatch]
-  // )
+  const handleFilterChange = useCallback(
+    (key: keyof Filters, value: string) => {
+      dispatch(setFilter({ [key]: value }))
+    },
+    [dispatch]
+  )
 
-  const handleFilterChange = (key: keyof Filters, value: string) => {
-    dispatch(setFilter({ [key]: value }))
-  }
+  const handleAddInvestment = useCallback(
+    (investment: Omit<Investment, "id" | "currentPrice">) => {
+      dispatch(addInvestment(investment))
+      setIsFormOpen(false)
+    },
+    [dispatch]
+  )
 
   if (status === "loading" && investments.length === 0) {
     return (
@@ -197,7 +203,9 @@ const InvestmentManagement = () => {
           {/* Filter Button (Mobile) */}
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className="md:hidden flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-background">
+            className="md:hidden flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-background"
+            aria-expanded={isFilterOpen}
+            aria-label="Toggle filters">
             <RiArrowUpDownLine />
             <span>Filters</span>
           </button>
@@ -207,7 +215,8 @@ const InvestmentManagement = () => {
             <select
               value={filters.dateRange}
               onChange={(e) => handleFilterChange("dateRange", e.target.value)}
-              className="px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+              className="px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              aria-label="Filter by date range">
               <option value="all">All Time</option>
               <option value="1m">Last Month</option>
               <option value="3m">Last 3 Months</option>
@@ -220,7 +229,8 @@ const InvestmentManagement = () => {
               onChange={(e) =>
                 handleFilterChange("performanceFilter", e.target.value)
               }
-              className="px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+              className="px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              aria-label="Filter by performance">
               <option value="all">All Investments</option>
               <option value="profit">Profitable</option>
               <option value="loss">Losing</option>
@@ -234,7 +244,8 @@ const InvestmentManagement = () => {
           onClick={() => setIsFormOpen(true)}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg shadow-lg hover:shadow-xl transition-all">
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
+          aria-label="Add new investment">
           <FiPlus className="w-5 h-5" />
           <span>Add Investment</span>
         </motion.button>
@@ -294,10 +305,9 @@ const InvestmentManagement = () => {
       <AnimatePresence>
         {isFormOpen && (
           <InvestmentForm
-          open={isFormOpen}
+            open={isFormOpen}
             onClose={() => setIsFormOpen(false)}
-            // onSubmit={handleAddInvestment}
-           
+            onSubmit={handleAddInvestment}
           />
         )}
       </AnimatePresence>
