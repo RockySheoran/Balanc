@@ -152,6 +152,7 @@ export const AccountController = {
 
       const userId = req.user.id
       const { accountId } = req.body
+      console.log(userId,accountId)
 
       const account = await prisma.account.findUnique({
         where: { id: accountId },
@@ -164,15 +165,23 @@ export const AccountController = {
         })
       }
 
-      await prisma.$transaction([
-        prisma.transaction.deleteMany({
-          where: { accountId },
-        }),
-        prisma.account.delete({
-          where: { id: accountId },
-        }),
-      ])
-
+      // await prisma.$transaction([
+      //   prisma.transaction.deleteMany({
+      //     where: { accountId },
+      //   }),
+      //   prisma.account.delete({
+      //     where: { id: accountId },
+      //   }),
+      // ])
+      await prisma.account.delete({
+        where: { id: accountId },
+      })
+             await prisma.transaction.deleteMany({
+      where: { accountId },
+      })
+      await prisma.investment.deleteMany({
+        where: { accountId },
+      })
       // Redis addition: Invalidate cache
       await redisClient.del(`accounts:${userId}`)
 

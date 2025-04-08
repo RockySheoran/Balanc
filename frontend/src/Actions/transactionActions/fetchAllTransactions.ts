@@ -4,6 +4,7 @@ import { GetServerSession } from "@/Components/common/getSeverSesstion"
 import { ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import axios from "axios"
+import { cache } from "react"
 
 interface TransactionResponse {
   status: number
@@ -48,8 +49,8 @@ export const fetchAllTransactions = async ({
        
         headers: {
           "Content-Type": "application/json",
-        
-        },
+          "Cache-Control": "force-cache",
+        }
       }
     )
     console.log(response)

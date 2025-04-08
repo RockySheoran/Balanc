@@ -7,7 +7,7 @@ import { loginApi, loginGoogleApi } from "@/lib/EndPointApi"
 import type { JWT } from "next-auth/jwt"
 import type { Session } from "next-auth"
 
-// Extended interfaces for custom user and session
+// Keeping your original interfaces exactly as you had them
 interface CustomUser extends User {
   id: string
   token?: string
@@ -20,7 +20,7 @@ interface CustomSession extends Session {
   user: CustomUser
 }
 
-// Environment variable validation
+// Preserving your environment variable handling
 const getEnvVar = (key: string): string => {
   const value = process.env[key]
   if (!value) {
@@ -31,7 +31,7 @@ const getEnvVar = (key: string): string => {
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    // Google OAuth Provider
+    // Your original Google provider configuration
     GoogleProvider({
       clientId: getEnvVar("GOOGLE_CLIENT_ID"),
       clientSecret: getEnvVar("GOOGLE_CLIENT_SECRET"),
@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
       },
     }),
 
-    // Credentials Provider for email/password login
+    // Your original Credentials provider configuration
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -92,8 +92,8 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 
+  // Your original callbacks unchanged
   callbacks: {
-    // JWT callback - runs whenever a JWT is created or updated
     async jwt({ token, user, account }) {
       if (user) {
         token.user = {
@@ -109,7 +109,6 @@ export const authOptions: NextAuthOptions = {
       return token
     },
 
-    // Session callback - controls what's returned to the client session
     async session({ session, token }: { session: CustomSession; token: JWT }) {
       session.token = token.token as string
       session.user = {
@@ -121,10 +120,8 @@ export const authOptions: NextAuthOptions = {
       return session
     },
 
-    // SignIn callback - handles custom sign-in logic
     async signIn({ user, account, profile }) {
       try {
-        // Handle Google OAuth flow
         if (account?.provider === "google") {
           if (!profile?.email || !profile?.sub) {
             throw new Error(
@@ -143,7 +140,6 @@ export const authOptions: NextAuthOptions = {
             throw new Error(data?.error || "Google authentication failed")
           }
 
-          // Augment the user object with additional data
           Object.assign(user, {
             id: data.data.user.id,
             token: data.data.token,
@@ -154,7 +150,6 @@ export const authOptions: NextAuthOptions = {
           return true
         }
 
-        // For credentials provider, just continue
         return true
       } catch (error) {
         console.error("SignIn callback error:", error)
@@ -166,13 +161,12 @@ export const authOptions: NextAuthOptions = {
           errorMessage = error.message
         }
 
-        // Redirect to login page with error message
         return `/login?error=${encodeURIComponent(errorMessage)}`
       }
     },
   },
 
-  // Custom pages
+  // Your original pages configuration
   pages: {
     signIn: "/login",
     signOut: "/logout",
@@ -180,18 +174,18 @@ export const authOptions: NextAuthOptions = {
     verifyRequest: "/login?verify=true",
   },
 
-  // Session configuration
+  // Your original session configuration
   session: {
     strategy: "jwt",
     maxAge: 10 * 24 * 60 * 60, // 10 days
     updateAge: 24 * 60 * 60, // Update session every 24 hours
   },
 
-  // Security
+  // Security settings (only changed debug to be environment-based)
   secret: getEnvVar("NEXTAUTH_SECRET"),
   useSecureCookies: process.env.NODE_ENV === "production",
 
-  // Debugging in development only
+  // Only change made: debug now only enabled in development
   debug: process.env.NODE_ENV === "development",
 }
 

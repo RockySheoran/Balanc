@@ -28,7 +28,7 @@ import {
   selectPaginatedIncomes,
   selectTotalIncome,
 } from "@/lib/Redux/features/income/incomeSlices"
-import { Income } from "@/types/income"
+
 
 // Register ChartJS components
 ChartJS.register(

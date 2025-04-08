@@ -119,8 +119,8 @@ export function AccountSelector() {
     } else if (state.status === 200) {
       toast.success(state.message)
       if (state.data) {
-        dispatch(addAccount(state.data))
-        dispatch(selectAccount(state.data.id))
+        dispatch(addAccount(state.data.data))
+        dispatch(selectAccount(state.data.data.id))
         setIsCreateDialogOpen(false)
       }
     }

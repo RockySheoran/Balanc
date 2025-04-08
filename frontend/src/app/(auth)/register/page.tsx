@@ -48,11 +48,11 @@ const RegisterPage: NextPage = () => {
             <Link
               href="/login"
               className="font-medium text-purple-600 hover:underline hover:text-purple-700 transition-colors"
-              prefetch={false}>
+              prefetch={true}>
               Login
             </Link>
           </p>
-        </footer>
+        </footer  >
       </div>
     </div>
   )

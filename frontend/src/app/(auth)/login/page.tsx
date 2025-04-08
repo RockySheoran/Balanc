@@ -43,8 +43,8 @@ export default function LoginPage() {
   const error = searchParams.get("error")
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
-      <div className="w-full px-10 md:w-[550px] shadow-neutral-800 rounded-xl py-5 bg-white">
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-r  from-cyan-500 to-blue-500">
+      <div className="w-full sm:px-10 px-4 max-w-[550px]  shadow-neutral-800 rounded-xl py-5 mx-4 bg-white">
         <div className="text-center">
           <h1 className="text-4xl font-extrabold bg-gradient-to-r from-pink-400 to-purple-500 text-transparent bg-clip-text">
             PFMA
@@ -59,7 +59,9 @@ export default function LoginPage() {
         <p className="text-center mt-2">
           Don't have an account ?{" "}
           <strong>
-            <Link href="/register">Register</Link>
+            <Link href="/register" prefetch={true}>
+              Register
+            </Link>
           </strong>
         </p>
       </div>

@@ -115,14 +115,17 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
   const [fetchingStatus, setFetchingStatus] = useState<Record<string, boolean>>({})
 
   // API key configuration (consider moving to environment variables)
-  const API_CONFIG = useMemo(() => ({
-    method: "GET",
-    baseURL: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart",
-    headers: {
-      "x-rapidapi-key": "26c7895581msh780d3b1a5dc1a36p1019f0jsn4834cc6fc48c",
-      "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
-    }
-  }), [])
+  const API_CONFIG = useMemo(
+    () => ({
+      method: "GET",
+      baseURL: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart",
+      headers: {
+        "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI1,
+        "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
+      },
+    }),
+    []
+  )
 
   // Memoized fetch function for individual stock data
   const fetchStockChartData = useCallback(async (symbol: string) => {

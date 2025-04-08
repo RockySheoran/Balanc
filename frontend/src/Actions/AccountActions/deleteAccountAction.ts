@@ -45,6 +45,7 @@ export const deleteAccountAction = async ({
       message: "Unauthorized - Please login first",
     }
   }
+  // console.log(token,accountId)
 
   try {
     const response = await axios.post(
@@ -68,6 +69,7 @@ export const deleteAccountAction = async ({
       data: response.data,
     }
   } catch (error) {
+    console.log(error)
     // Enhanced error handling
     if (error instanceof AxiosError) {
       // Handle not found
@@ -78,13 +80,7 @@ export const deleteAccountAction = async ({
         }
       }
 
-      // Handle unauthorized/forbidden
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        return {
-          status: error.response.status,
-          message: "Session expired - Please login again",
-        }
-      }
+      
 
       // Handle validation errors
       if (error.response?.status === 422) {

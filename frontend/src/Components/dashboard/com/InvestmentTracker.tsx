@@ -206,8 +206,7 @@ const InvestmentTracker = () => {
             interval,
           },
           headers: {
-            "x-rapidapi-key":
-              "26c7895581msh780d3b1a5dc1a36p1019f0jsn4834cc6fc48c",
+            "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI1,
             "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
           },
         }

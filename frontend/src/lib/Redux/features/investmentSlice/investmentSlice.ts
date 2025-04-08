@@ -54,7 +54,7 @@ const fetchCurrentPrice = async (symbol: string) => {
     url: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-price",
     params: { region: symbol.endsWith(".NS") ? "IN" : "US", symbol },
     headers: {
-      "x-rapidapi-key": process.env.NEXT_PUBLIC_X_RAPIDAPI_KEY || "",
+      "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI1 || "",
       "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
     },
   }

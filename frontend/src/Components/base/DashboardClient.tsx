@@ -59,6 +59,7 @@ export default function DashboardClient({ session }: SessionProps) {
       const response = await fetchAllTransactions({
         accountId: selectedAccount!.id,
       })
+      
       console.log(response)
       if (response.status !== 200) throw new Error(response.message)
       return response.data.transactions
@@ -68,7 +69,6 @@ export default function DashboardClient({ session }: SessionProps) {
       shouldRetryOnError: false,
     }
   )
-
   // Session management effect
   useEffect(() => {
     if (!session) {

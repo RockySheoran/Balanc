@@ -37,9 +37,9 @@ export const fetchAllInvestment = async ({
         accountId,
       },
       {
-      
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "force-cache",
         },
       }
     )

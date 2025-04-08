@@ -260,7 +260,11 @@ export const SideBar: React.FC<SideBarProps> = ({
         <div className="flex flex-col h-full p-4">
           {/* Header */}
           <header className="flex items-center justify-between mb-8 p-2">
-            <Link href="/" className="flex items-center" aria-label="Home">
+            <Link
+              href="/dashboard"
+              prefetch={true}
+              className="flex items-center"
+              aria-label="Home">
               <h2
                 className={`text-2xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 text-transparent bg-clip-text ${
                   isCollapsed ? "hidden" : "block"
@@ -286,6 +290,8 @@ export const SideBar: React.FC<SideBarProps> = ({
           <nav className="flex-1 space-y-1">
             {navItems.map((item) => (
               <Link
+                prefetch={true}
+                prefetch={true}
                 key={item.href}
                 href={item.href}
                 className={`flex items-center p-3 rounded-lg transition-all duration-300 ${
