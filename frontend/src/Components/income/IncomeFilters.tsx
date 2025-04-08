@@ -49,7 +49,9 @@ const IncomeFilters = () => {
   )
 
   const handleReset = useCallback(() => {
+    console.log("object")
     dispatch(resetFilters())
+    console.log("3")
   }, [dispatch])
 
   return (
@@ -64,7 +66,7 @@ const IncomeFilters = () => {
         </h2>
         <button
           onClick={handleReset}
-          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-200 text-sm">
+          className="px-3 py-1 cursor-pointer bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-200 text-sm">
           Reset Filters
         </button>
       </div>
@@ -112,8 +114,8 @@ const IncomeFilters = () => {
             onChange={handleTypeChange}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-800 dark:text-white">
             <option value="">All Types</option>
-            <option value="credit">CREDIT</option>
-            <option value="debit">INCOME</option>
+            <option value="CREDIT">CREDIT</option>
+            <option value="INCOME">INCOME</option>
           </select>
         </div>
 

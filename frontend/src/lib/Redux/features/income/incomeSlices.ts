@@ -79,6 +79,7 @@ const incomeSlice = createSlice({
       state.currentPage = action.payload
     },
     resetFilters: (state) => {
+     
       state.filters = initialState.filters
       state.filteredIncomes = state.incomes
       state.currentPage = 1

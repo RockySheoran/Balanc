@@ -23,10 +23,10 @@ const ExpenseComponent = memo(() => {
   const dispatch = useAppDispatch()
 
   const handleClearExpenses = useCallback(() => {
-    if (window.confirm("Are you sure you want to clear all expenses?")) {
-      dispatch(clearExpense())
-    }
-  }, [dispatch])
+  //   if (window.confirm("Are you sure you want to clear all expenses?")) {
+  //     dispatch(clearExpense())
+  //   }
+  }, [])
 
   return (
     <motion.div

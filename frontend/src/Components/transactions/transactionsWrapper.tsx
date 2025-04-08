@@ -30,11 +30,11 @@ const TransactionsPage = memo(() => {
     dispatch(clearTransactions())
   }, [dispatch])
 
-  useEffect(() => {
-    return () => {
-      cleanup()
-    }
-  }, [cleanup])
+  // useEffect(() => {
+  //   return () => {
+  //     cleanup()
+  //   }
+  // }, [cleanup])
 
   return (
     <div className="w-full p-4 md:p-6 space-y-6">
