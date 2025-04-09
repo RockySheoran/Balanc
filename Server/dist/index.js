@@ -1,6 +1,5 @@
 /** @format */
 import express from "express";
-import helmet from "helmet";
 import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -19,6 +18,7 @@ const app = express();
 // Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+import helmet from "helmet";
 // Middleware to parse JSON and URL-encoded data
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
