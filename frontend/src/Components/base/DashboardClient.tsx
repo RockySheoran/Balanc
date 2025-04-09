@@ -49,6 +49,7 @@ interface SessionProps {
  * @param {SessionProps} session - User session data
  */
 export default function DashboardClient({ session }: SessionProps) {
+  // console.log(session)
   const dispatch = useAppDispatch()
   const { selectedAccount } = useAppSelector((state) => state.account)
   const { expenseTransactions } = useAppSelector((state) => state.transactions)
@@ -71,6 +72,7 @@ export default function DashboardClient({ session }: SessionProps) {
   )
   // Session management effect
   useEffect(() => {
+    
     if (!session) {
       signOut({ redirect: true, callbackUrl: "/login" })
       

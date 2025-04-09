@@ -13,6 +13,7 @@ export const getAllAccounts = async({token}: { token: string })=>{
 //           token?: string
 //         }
 // console.log(session)
+            //  console.log(token)
           if (!token) {
             return {
               status: 401,

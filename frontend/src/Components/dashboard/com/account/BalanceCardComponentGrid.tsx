@@ -6,20 +6,20 @@ import dynamic from "next/dynamic"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import { Skeleton } from "@/Components/ui/skeleton"
 import { Card, CardSkeleton } from "./Card"
-import { AccountSelector } from "./AccountSelector"
+// import { AccountSelector } from "./AccountSelector"
 
 // Lazy load AccountSelector (actual performance gain)
-// const AccountSelector = dynamic(
-//   () => import("./AccountSelector").then((mod) => mod.AccountSelector),
-//   {
-//     loading: () => <Skeleton className="h-10 w-48 rounded-md" />,
-//     ssr: false,
-//   }
-// )
+const AccountSelector = dynamic(
+  () => import("./AccountSelector").then((mod) => mod.AccountSelector),
+  {
+    loading: () => <Skeleton className="h-10 w-48 rounded-md" />,
+    ssr: false,
+  }
+)
 
 export const BalanceCardComponent = () => {
   const { selectedAccount } = useAppSelector((state) => state.account)
-
+// console.log(selectedAccount)
   const cards = useMemo(() => {
     if (!selectedAccount) return []
     return [
@@ -62,20 +62,20 @@ export const BalanceCardComponent = () => {
     ]
   }, [selectedAccount])
 
-  if (!selectedAccount) {
-    return (
-      <div className="mt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="w-full flex justify-end mb-6">
-          <Skeleton className="h-10 w-48 rounded-md" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
-      </div>
-    )
-  }
+  // if (!selectedAccount) {
+  //   return (
+  //     <div className="mt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+  //       <div className="w-full flex justify-end mb-6">
+  //         <Skeleton className="h-10 w-48 rounded-md" />
+  //       </div>
+  //       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  //         <CardSkeleton />
+  //         <CardSkeleton />
+  //         <CardSkeleton />
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
   return (
     <div className="mt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

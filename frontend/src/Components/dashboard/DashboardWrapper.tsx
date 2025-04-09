@@ -9,6 +9,11 @@ import IncomeDashboard from "./com/IncomeDashboard"
 import InvestmentTracker from "./com/InvestmentTracker"
 
 // Lazy imports (with memoized fallback to avoid remounting skeletons)
+// const BalanceCardComponent = lazy(() =>
+//   import("./com/account/BalanceCardComponentGrid").then((mod) => ({
+//     default: mod.BalanceCardComponent,
+//   }))
+// )
 
 
 // const RecentTransaction = lazy(() =>
@@ -43,25 +48,27 @@ export default function DashboardWrapper() {
   return (
     <div className="dashboard px-2 bg-gray-50">
       <div className="mx-auto py-6 space-y-6">
-        
+
+        <Suspense fallback={useSkeleton("h-64")}>
           <BalanceCardComponent />
        
+        </Suspense>
 
-        {/* <Suspense fallback={useSkeleton("h-64")}> */}
+        <Suspense fallback={useSkeleton("h-64")}>
           <RecentTransaction />
-        {/* </Suspense> */}
+        </Suspense>
 
-        {/* <Suspense fallback={useSkeleton("h-48")}> */}
+        <Suspense fallback={useSkeleton("h-48")}>
           <ExpenseTracker />
-        {/* </Suspense> */}
+        </Suspense>
 
-        {/* <Suspense fallback={useSkeleton("h-96")}> */}
+        <Suspense fallback={useSkeleton("h-96")}>
           <IncomeDashboard />
-        {/* </Suspense> */}
+        </Suspense>
 
-        {/* <Suspense fallback={useSkeleton("h-96")}> */}
+        <Suspense fallback={useSkeleton("h-96")}>
           <InvestmentTracker />
-        {/* </Suspense> */}
+        </Suspense>
       </div>
     </div>
   )

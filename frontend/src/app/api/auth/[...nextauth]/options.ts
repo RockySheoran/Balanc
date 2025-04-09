@@ -2,12 +2,14 @@
 import NextAuth, { type NextAuthOptions, type User } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
-import axios, { AxiosError } from "axios"
+import axios from "axios"
 import { loginApi, loginGoogleApi } from "@/lib/EndPointApi"
 import type { JWT } from "next-auth/jwt"
 import type { Session } from "next-auth"
 
-// Keeping your original interfaces exactly as you had them
+// Cache configuration
+const CACHE_TTL = 60 * 5 // 5 minutes cache
+
 interface CustomUser extends User {
   id: string
   token?: string
@@ -20,18 +22,24 @@ interface CustomSession extends Session {
   user: CustomUser
 }
 
-// Preserving your environment variable handling
+// Optimized environment variable handling with caching
+const envCache: Record<string, string> = {}
 const getEnvVar = (key: string): string => {
+  if (envCache[key]) return envCache[key]
   const value = process.env[key]
-  if (!value) {
-    throw new Error(`Missing environment variable: ${key}`)
-  }
+  if (!value) throw new Error(`Missing environment variable: ${key}`)
+  envCache[key] = value
   return value
 }
 
+// Shared axios instance with timeout
+const authApi = axios.create({
+  timeout: 5000, // 5s timeout
+  headers: { "Content-Type": "application/json" },
+})
+
 export const authOptions: NextAuthOptions = {
   providers: [
-    // Your original Google provider configuration
     GoogleProvider({
       clientId: getEnvVar("GOOGLE_CLIENT_ID"),
       clientSecret: getEnvVar("GOOGLE_CLIENT_SECRET"),
@@ -43,17 +51,13 @@ export const authOptions: NextAuthOptions = {
           scope: "openid email profile",
         },
       },
+      allowDangerousEmailAccountLinking: true,
     }),
 
-    // Your original Credentials provider configuration
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: {
-          label: "Email",
-          type: "email",
-          placeholder: "user@example.com",
-        },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
@@ -62,12 +66,12 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Email and password are required")
           }
 
-          const { data } = await axios.post(loginApi, {
+          const { data } = await authApi.post(loginApi, {
             email: credentials.email,
             password: credentials.password,
           })
 
-          if (!data?.success || !data.data) {
+          if (!data?.success) {
             throw new Error(data?.error || "Authentication failed")
           }
 
@@ -79,20 +83,13 @@ export const authOptions: NextAuthOptions = {
             provider: "credentials",
           } as CustomUser
         } catch (error) {
-          console.error("Credentials login error:", error)
-
-          if (axios.isAxiosError(error)) {
-            const message = error.response?.data?.error || error.message
-            throw new Error(message)
-          }
-
-          throw new Error((error as Error).message || "Login failed")
+          console.error("Credentials auth error:", error)
+          return null
         }
       },
     }),
   ],
 
-  // Your original callbacks unchanged
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {
@@ -105,11 +102,13 @@ export const authOptions: NextAuthOptions = {
           googleId: (user as CustomUser)?.googleId,
         }
         token.token = (user as CustomUser)?.token
+        token.iat = Math.floor(Date.now() / 1000)
+        token.exp = Math.floor(Date.now() / 1000) + 10 * 24 * 60 * 60 // 10 days
       }
       return token
     },
 
-    async session({ session, token }: { session: CustomSession; token: JWT }) {
+    async session({ session, token }) {
       session.token = token.token as string
       session.user = {
         ...session.user,
@@ -123,20 +122,18 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       try {
         if (account?.provider === "google") {
-          if (!profile?.email || !profile?.sub) {
-            throw new Error(
-              "Google authentication incomplete - missing profile data"
-            )
+          if (!profile?.email) {
+            throw new Error("Google authentication incomplete")
           }
 
-          const { data } = await axios.post(loginGoogleApi, {
+          const { data } = await authApi.post(loginGoogleApi, {
             email: profile.email,
             name: profile.name || user.name || profile.email.split("@")[0],
-            image: profile.picture || user.image,
+            image: profile.picture,
             googleId: profile.sub,
           })
 
-          if (!data?.success || !data.data?.token) {
+          if (!data?.success) {
             throw new Error(data?.error || "Google authentication failed")
           }
 
@@ -146,46 +143,37 @@ export const authOptions: NextAuthOptions = {
             googleId: profile.sub,
             provider: "google",
           })
-
-          return true
         }
-
         return true
       } catch (error) {
-        console.error("SignIn callback error:", error)
-
-        let errorMessage = "Authentication failed"
-        if (axios.isAxiosError(error)) {
-          errorMessage = error.response?.data?.error || error.message
-        } else if (error instanceof Error) {
-          errorMessage = error.message
-        }
-
-        return `/login?error=${encodeURIComponent(errorMessage)}`
+        console.error("SignIn error:", error)
+        return `/login?error=${encodeURIComponent(
+          axios.isAxiosError(error)
+            ? error.response?.data?.error || error.message
+            : "Authentication failed"
+        )}`
       }
     },
   },
 
-  // Your original pages configuration
   pages: {
     signIn: "/login",
-    signOut: "/logout",
     error: "/login?error=true",
-    verifyRequest: "/login?verify=true",
   },
 
-  // Your original session configuration
   session: {
     strategy: "jwt",
     maxAge: 10 * 24 * 60 * 60, // 10 days
-    updateAge: 24 * 60 * 60, // Update session every 24 hours
+    updateAge: 24 * 60 * 60, // 24 hours
   },
 
-  // Security settings (only changed debug to be environment-based)
+  jwt: {
+    secret: getEnvVar("NEXTAUTH_SECRET"),
+    maxAge: 10 * 24 * 60 * 60, // 10 days
+  },
+
   secret: getEnvVar("NEXTAUTH_SECRET"),
   useSecureCookies: process.env.NODE_ENV === "production",
-
-  // Only change made: debug now only enabled in development
   debug: process.env.NODE_ENV === "development",
 }
 

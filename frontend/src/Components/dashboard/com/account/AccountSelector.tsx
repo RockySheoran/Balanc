@@ -91,7 +91,9 @@ export function AccountSelector() {
     "accounts",
     async () => {
       if (!token) throw new Error("Token is required")
+        
       const response = await getAllAccounts({ token })
+      console.log(response)
       if (response?.status !== 200 || !response?.data) {
         throw new Error(response?.message || "Failed to fetch accounts")
       }

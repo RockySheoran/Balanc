@@ -1,5 +1,6 @@
 /** @format */
 import express from "express";
+import helmet from "helmet";
 import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -59,6 +60,7 @@ app.use(cors(corsOption));
 app.use(route);
 // app limit
 app.use(limiter);
+app.use(helmet());
 // redis
 // 
 import "./Config/redis/redis.js";
