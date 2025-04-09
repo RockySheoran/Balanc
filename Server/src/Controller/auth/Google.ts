@@ -97,9 +97,12 @@ const sendAuthResponse = (
         expiresIn: "10d",
       })
   
-      
+
   // console.log(token)
 
+
+
+  
   return res.json({
     success: true,
     isNewUser,
