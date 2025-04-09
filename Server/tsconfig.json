@@ -1,8 +1,8 @@
 
 {
   "compilerOptions": {
-      "rootDirs": ["src", "src/custom-types.d.ts"],
-    "outDir": "dist",
+    "rootDirs": ["src", "src/custom-types.d.ts"],
+    "outDir": "./dist",
     "lib": ["es2020", "esnext"],
     "target": "es2020",
     "module": "Node16",
@@ -12,7 +12,15 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    
+      "strict": true,
+      "noEmitOnError": true,
+      "noImplicitAny": true,
+      "forceConsistentCasingInFileNames": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true
+    
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]

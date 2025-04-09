@@ -10,8 +10,7 @@ import bcrypt from "bcrypt"
 import { ZodError } from "zod"
 import { formatError } from "../../helper.js"
 import jwt from "jsonwebtoken"
-const JWT_SECRET = process.env.JWT_SECRET_KEY as string || ""
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "10d"
+
 
 export const handleGoogleAuth = async (
   req: Request,
@@ -89,16 +88,15 @@ const sendAuthResponse = (
   user: any,
   isNewUser: boolean
 ): Response => {
-  const token = jwt.sign(
-    {
+    let JWTPayload = {
       id: user.id,
-      email: user.email,
       name: user.name,
-      provider: user.provider,
-    },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  )
+      email: user.email,
+    }
+   const token = jwt.sign(JWTPayload, process.env.JWT_SECRET_KEY!, {
+        expiresIn: "10d",
+      })
+  
   // console.log(token)
 
   return res.json({
