@@ -1,12 +1,11 @@
 /** @format */
 "use client"
-
+// export const revalidate = 3600 
 import LoadingSpinner from "@/Components/expense/LoadingSpinner"
 import { LoadingCard } from "@/Components/income/LoadingCard"
 import { motion } from "framer-motion"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
-
 
 // Dynamic imports with individual Suspense boundaries
 const IncomeStats = dynamic(() => import("@/Components/income/IncomeStats"), {

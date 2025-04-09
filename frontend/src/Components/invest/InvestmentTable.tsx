@@ -62,7 +62,7 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
     if (!investment.currentValue) return 0
     return (
       ((investment.currentValue - investment.buyPrice) / investment.buyPrice) *
-      100
+      100)
   }, [])
 
   // Format date

@@ -295,7 +295,7 @@ const IncomeDashboard = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-        {summaryData.map((summary, index) => {
+        {summaryData?.map((summary, index) => {
           const gradientClass = [
             COLORS.gradient.blueIndigo,
             COLORS.gradient.purplePink,
@@ -388,7 +388,7 @@ const IncomeDashboard = () => {
         </div>
 
         <div className="divide-y divide-gray-100">
-          {recentTransactions.slice(0,4).map((transaction, index) => (
+          {recentTransactions?.slice(0,4)?.map((transaction, index) => (
             <motion.div
               key={`${transaction.id}-${index}`}
               initial={{ opacity: 0, x: -10 }}
