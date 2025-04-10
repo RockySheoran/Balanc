@@ -1,7 +1,12 @@
 /** @format */
 
 import { z } from "zod"
-import { InvestmentType } from "@prisma/client"
+enum InvestmentType {
+  STOCK,
+  BOND,
+  REAL_ESTATE,
+  MUTUAL_FUND,
+}
 
 export const investmentSchema = z.object({
   accountId: z
