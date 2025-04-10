@@ -1,6 +1,7 @@
 /** @format */
 
 import { DateRange } from "react-day-picker"
+// Removed invalid assignment as DateRange is a type and cannot be used as a value
 
 export interface Expense {
   id: string

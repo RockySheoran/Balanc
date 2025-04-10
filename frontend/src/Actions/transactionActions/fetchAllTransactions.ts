@@ -4,6 +4,7 @@ import { GetServerSession } from "@/Components/common/getSeverSesstion"
 import { ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import axios from "axios"
+import { redirect } from "next/navigation"
 import { cache } from "react"
 
 interface TransactionResponse {
@@ -55,7 +56,7 @@ export const fetchAllTransactions = async ({
     )
     console.log(response)
 
-    
+    redirect(`/dashboard`)
 
     return {
       status: response.status,

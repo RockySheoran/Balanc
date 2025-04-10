@@ -7,12 +7,13 @@ import { Button } from "@/Components/ui/button"
 import { DownloadIcon } from "./Icons"
 import { clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
 import LoadingSpinner from "./LoadingSpinner1"
+import dynamic from "next/dynamic"
 
 
 // Lazy load components for better code splitting
-const TransactionStats = lazy(() => import("./TransactionStats"))
-const TransactionCharts = lazy(() => import("./TransactionCharts"))
-const TransactionTable = lazy(() => import("./TransactionTable"))
+const TransactionStats = dynamic(() => import("./TransactionStats"), { ssr: false })
+const TransactionCharts = dynamic(() => import("./TransactionCharts"), { ssr: false })
+const TransactionTable = dynamic(() => import("./TransactionTable"), { ssr: false })
 
 const TransactionsPage = memo(() => {
   const dispatch = useDispatch()

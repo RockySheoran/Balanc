@@ -1,6 +1,6 @@
 /** @format */
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
-import { Expense, FilterState } from "./types"
+import { Expense, FilterState, } from "./types"
 
 interface ExpenseState {
   expenses: Expense[]
@@ -96,8 +96,8 @@ const expenseSlice = createSlice({
   reducers: {
     addExpense: (state, action: PayloadAction<Omit<Expense, "id">>) => {
       const newExpense: Expense = {
+        id: crypto.randomUUID(),
         ...action.payload,
-
         date: action.payload.date || new Date().toISOString(),
       }
       state.expenses.unshift(newExpense)
@@ -128,7 +128,7 @@ const expenseSlice = createSlice({
       state.needsRecalculation = true
       recalculateExpenses(state)
     },
-    setDateRange: (state, action: PayloadAction<DateRange>) => {
+    setDateRange: (state, action: PayloadAction<FilterState["dateRange"]>) => {
       state.filterState.dateRange = action.payload
       state.needsRecalculation = true
       recalculateExpenses(state)

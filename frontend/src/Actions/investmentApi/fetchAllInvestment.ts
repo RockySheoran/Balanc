@@ -2,6 +2,7 @@
 
 import { ALL_INVEST_URL, ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
 import axios from "axios"
+import { redirect } from "next/navigation"
 
 interface TinvestmentResponse {
   status: number
@@ -44,6 +45,7 @@ export const fetchAllInvestment = async ({
       }
     )
     console.log(response) 
+   redirect(`/dashboard`)
 
     return {
       status: response.status,
