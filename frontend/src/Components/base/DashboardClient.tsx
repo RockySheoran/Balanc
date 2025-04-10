@@ -87,7 +87,7 @@ export default function DashboardClient({ session }: SessionProps) {
           id: null,
           name: session.user?.name || "",
           email: session.user?.email || "",
-          image: session.user?.image || "",
+          // image: session.user?.image || "",
           token: session.token || "",
         })
       )
