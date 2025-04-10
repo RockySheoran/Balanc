@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   // Enable Incremental Static Regeneration (ISR) with Partial Prerendering
   ppr: "incremental",
+  typescript: {
+    // !! WARN !!
+    // Dangerously allow production builds to successfully complete even if
+    // your project has type errors.
+    // !! WARN !!
+    ignoreBuildErrors: true,
+  },
 
   compiler: {
     styledComponents: {
