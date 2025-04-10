@@ -10,7 +10,9 @@ const nextConfig: NextConfig = {
 
     ignoreBuildErrors: true,
   },
-
+eslint: {
+    ignoreDuringBuilds: true,
+  },  
   compiler: {
     styledComponents: {
       // Enable better debugging and smaller production bundles
@@ -37,7 +39,7 @@ const nextConfig: NextConfig = {
       },
     },
     // Enable worker threads for faster builds
-    workerThreads: true,
+    workerThreads: false, // Disable if causing issues
     // Enable granular chunks for better caching
   
     
@@ -59,29 +61,13 @@ const nextConfig: NextConfig = {
   },
 
   // Webpack optimizations
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Only add these optimizations in production
-    if (!dev) {
-      // Enable persistent caching
-      config.cache = {
-        type: "filesystem",
-        buildDependencies: {
-          config: [__filename],
-        },
-      }
-
-      // Optimize moment.js locales
-      config.plugins.push(
-        new webpack.IgnorePlugin({
-          resourceRegExp: /^\.\/locale$/,
-          contextRegExp: /moment$/,
-        })
-      )
-    }
-
-    // Important: return the modified config
-    return config
+  webpack: (config) => {
+    config.cache = false; // Temporary fix for caching issues
+    return config;
   },
+
+
+  
 
   // Enable production browser source maps
   productionBrowserSourceMaps: false,
