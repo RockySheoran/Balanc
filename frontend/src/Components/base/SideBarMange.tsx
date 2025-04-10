@@ -94,7 +94,7 @@ const SignOutIcon = () => (
   </svg>
 )
 
- const SideBar: React.FC<SideBarProps> = ({
+ const Sidebar: React.FC<SideBarProps> = ({
   session,
   isCollapsed,
   setIsCollapsed,
@@ -378,4 +378,4 @@ const SignOutIcon = () => (
   )
 }
 
-export default SideBar
+export default Sidebar

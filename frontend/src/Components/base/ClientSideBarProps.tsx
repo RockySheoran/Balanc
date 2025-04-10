@@ -4,7 +4,8 @@
 import React, { useState } from "react"
 
 import { Session } from "next-auth"
-import SideBar from "../base/SideBar"
+import Sidebar from "./SideBarMange"
+
 
 
 
@@ -17,7 +18,7 @@ export function ClientSideBar({ session }: ClientSideBarProps) {
 
   return (
     <div className={""}>
-    <SideBar
+    <Sidebar
       session={session}
       isCollapsed={isCollapsed}
       setIsCollapsed={setIsCollapsed}
