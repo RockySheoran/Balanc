@@ -5,12 +5,9 @@ import withBundleAnalyzer from "@next/bundle-analyzer"
 const nextConfig: NextConfig = {
   reactStrictMode: false,
   // Enable Incremental Static Regeneration (ISR) with Partial Prerendering
-  ppr: "incremental",
+
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
+
     ignoreBuildErrors: true,
   },
 
@@ -29,18 +26,8 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
-    // Use Lightning CSS for faster CSS processing
-    // useLightningcss: true,
-    // Enable Partial Prerendering
-    ppr: true,
-    // Modern optimizations
-    optimizePackageImports: [
-      "@radix-ui/react-*",
-      "lodash-es",
-      "date-fns",
-      "@heroicons/react",
-    ],
-    // Turbopack specific settings
+   
+    
     webVitalsAttribution: ["CLS", "LCP"],
     turbo: {
       rules: {
@@ -52,9 +39,8 @@ const nextConfig: NextConfig = {
     // Enable worker threads for faster builds
     workerThreads: true,
     // Enable granular chunks for better caching
-    granularChunks: true,
-    // // Modern browser optimizations
-    modern: true,
+  
+    
   },
 
   images: {
