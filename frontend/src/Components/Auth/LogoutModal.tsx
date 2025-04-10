@@ -20,6 +20,7 @@ import { clearIncome } from "@/lib/Redux/features/income/incomeSlices"
 import { clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
 import { clearExpense } from "@/lib/Redux/features/expense/expenseSlice"
 import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
+import { clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
 
 export default function LogoutModal({
   open,
@@ -31,13 +32,13 @@ export default function LogoutModal({
   const dispatch = useAppDispatch()
   const handleLogout = () => {
     signOut({ redirect: true, callbackUrl: "/login" })
-  
+
     dispatch(clearUser())
     dispatch(clearIncome())
     dispatch(clearTransactions())
     dispatch(clearExpense())
     dispatch(clearAccount())
-
+    dispatch(clearInvestments())
   }
 
   const handleCancel = () => {

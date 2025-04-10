@@ -22,7 +22,7 @@ interface CustomSession extends Session {
   user: CustomUser
 }
 
-// Optimized environment variable handling with caching
+// Enhanced environment variable handling with error caching
 const envCache: Record<string, string> = {}
 const getEnvVar = (key: string): string => {
   if (envCache[key]) return envCache[key]
@@ -32,11 +32,34 @@ const getEnvVar = (key: string): string => {
   return value
 }
 
-// Shared axios instance with timeout
+// Configured axios instance with better error handling
 const authApi = axios.create({
-  
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  timeout: 10000, // 10 seconds timeout
   headers: { "Content-Type": "application/json" },
 })
+
+// Add response interceptor for consistent error handling
+authApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Handle HTTP errors
+      return Promise.reject(
+        new Error(
+          error.response.data?.error ||
+            error.response.data?.message ||
+            "Authentication failed"
+        )
+      )
+    } else if (error.request) {
+      // Handle no response errors
+      return Promise.reject(new Error("Network error - no response received"))
+    }
+    // Handle other errors
+    return Promise.reject(error)
+  }
+)
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -57,7 +80,11 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: {
+          label: "Email",
+          type: "email",
+          placeholder: "user@example.com",
+        },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
@@ -84,7 +111,11 @@ export const authOptions: NextAuthOptions = {
           } as CustomUser
         } catch (error) {
           console.error("Credentials auth error:", error)
-          return null
+          throw new Error(
+            axios.isAxiosError(error)
+              ? error.message
+              : "Invalid credentials. Please try again."
+          )
         }
       },
     }),
@@ -123,7 +154,7 @@ export const authOptions: NextAuthOptions = {
       try {
         if (account?.provider === "google") {
           if (!profile?.email) {
-            throw new Error("Google authentication incomplete")
+            throw new Error("Google authentication incomplete - no email found")
           }
 
           const { data } = await authApi.post(loginGoogleApi, {
@@ -146,19 +177,21 @@ export const authOptions: NextAuthOptions = {
         }
         return true
       } catch (error) {
-        // console.error("SignIn error:", error)
-        return `/login?error=${encodeURIComponent(
-          axios.isAxiosError(error)
-            ? error.response?.data?.error || error.message
-            : "Authentication failed"
-        )}`
+        const errorMessage = axios.isAxiosError(error)
+          ? error.response?.data?.error || error.message
+          : error instanceof Error
+          ? error.message
+          : "Authentication failed"
+
+        return `/login?error=${encodeURIComponent(errorMessage)}`
       }
     },
   },
 
   pages: {
     signIn: "/login",
-    // error: "/login",
+    error: "/login", // Unified error page
+    newUser: "/register", // Optional: for new user registration
   },
 
   session: {
@@ -173,8 +206,8 @@ export const authOptions: NextAuthOptions = {
   },
 
   secret: getEnvVar("NEXTAUTH_SECRET"),
-  // useSecureCookies: process.env.NODE_ENV === "production",
-  // debug: process.env.NODE_ENV === "development",
+  debug: process.env.NODE_ENV === "development",
+  useSecureCookies: process.env.NODE_ENV === "production",
 }
 
 export default NextAuth(authOptions)

@@ -82,6 +82,7 @@ export default function DashboardClient({ session }: SessionProps) {
           dispatch(clearTransactions())
           dispatch(clearExpense())
           dispatch(clearAccount())
+          dispatch(clearInvestments())
     } else {
       dispatch(
         setUser({
