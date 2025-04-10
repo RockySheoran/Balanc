@@ -66,6 +66,7 @@ export const handleGoogleAuth = async (
           name: name || user.name,
           image: image || user.image,
           googleId: googleId || user.googleId,
+          provider: "google",
         },
       })
     }

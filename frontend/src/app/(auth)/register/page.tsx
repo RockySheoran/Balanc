@@ -26,8 +26,8 @@ const RegisterForm = dynamic(
 
 const RegisterPage: NextPage = () => {
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-cyan-500 to-blue-500">
-      <div className="w-full px-4 sm:px-6 md:px-10 md:w-[90%] lg:w-[550px] shadow-lg rounded-xl py-5 bg-white/95 backdrop-blur-sm">
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
+      <div className="w-full px-4 sm:px-10 max-w-[550px] py-5 mx-4 bg-white rounded-xl shadow-xl">
         <header className="text-center">
           <h1 className="bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-3xl sm:text-4xl font-extrabold text-transparent">
             PFMA

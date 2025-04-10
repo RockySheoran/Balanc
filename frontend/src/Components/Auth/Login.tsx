@@ -50,7 +50,7 @@ export default function Login() {
         redirect: true,
         callbackUrl: "/dashboard",
       }).catch((error) => {
-        console.error("Sign-in error:", error)
+        // console.error("Sign-in error:", error)
         toast.error("Failed to sign in")
       })
     }

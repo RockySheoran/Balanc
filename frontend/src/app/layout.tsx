@@ -15,6 +15,8 @@ import { RedirectToDashboard } from "@/Components/common/RedirectToDashboard"
 import ClientSessionProvider from "./providers/ClientSessionProvider"
 import { REACT_LOADABLE_MANIFEST } from "next/dist/shared/lib/constants"
 import { redirect } from "next/navigation"
+import Link from "next/link"
+import LoginPageWithoutSession from "@/Components/common/LoginPageWithoutSession"
 
 
 export const metadata: Metadata = {
@@ -57,12 +59,18 @@ export default async function RootLayout({
         <ReduxProvider>
           <ClientSessionProvider>
             <div className="flex flex-col md:flex-row">
+              {/* {!session && (
+                <div className="flex-1">
+                  <LoginPageWithoutSession/>
+              
+                </div>
+              )} */}
              
              
               {session && (
                 <>
                   <SideBarWrapper Session={session} />
-                  <RedirectToDashboard  />
+                  <RedirectToDashboard  />  
                 </>
               )}
               <main className="flex-1 overflow-x-hidden md:mt-0 mt-16">

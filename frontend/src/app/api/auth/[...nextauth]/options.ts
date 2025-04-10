@@ -34,7 +34,7 @@ const getEnvVar = (key: string): string => {
 
 // Shared axios instance with timeout
 const authApi = axios.create({
-  timeout: 5000, // 5s timeout
+  
   headers: { "Content-Type": "application/json" },
 })
 
@@ -146,7 +146,7 @@ export const authOptions: NextAuthOptions = {
         }
         return true
       } catch (error) {
-        console.error("SignIn error:", error)
+        // console.error("SignIn error:", error)
         return `/login?error=${encodeURIComponent(
           axios.isAxiosError(error)
             ? error.response?.data?.error || error.message
@@ -158,7 +158,7 @@ export const authOptions: NextAuthOptions = {
 
   pages: {
     signIn: "/login",
-    error: "/login?error=true",
+    // error: "/login",
   },
 
   session: {
@@ -173,8 +173,8 @@ export const authOptions: NextAuthOptions = {
   },
 
   secret: getEnvVar("NEXTAUTH_SECRET"),
-  useSecureCookies: process.env.NODE_ENV === "production",
-  debug: process.env.NODE_ENV === "development",
+  // useSecureCookies: process.env.NODE_ENV === "production",
+  // debug: process.env.NODE_ENV === "development",
 }
 
 export default NextAuth(authOptions)
