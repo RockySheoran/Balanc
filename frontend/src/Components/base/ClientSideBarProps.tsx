@@ -17,7 +17,7 @@ export function ClientSideBar({ session }: ClientSideBarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
-    <div className={""}>
+    <div >
     <Sidebar
       session={session}
       isCollapsed={isCollapsed}

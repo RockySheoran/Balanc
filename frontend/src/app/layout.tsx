@@ -58,7 +58,7 @@ export default async function RootLayout({
               {session && (
                 <>
                   <SideBarWrapper Session={session} />
-                  {/* <RedirectToDashboard /> */}
+                  <RedirectToDashboard />
                 </>
               )}
               <main className="flex-1 overflow-x-hidden md:mt-0 mt-16">
