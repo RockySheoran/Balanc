@@ -1,9 +1,11 @@
 import{ConnectionOptions,DefaultJobOptions} from "bullmq"
 
 
-export const redisConnection:ConnectionOptions={
-    host:process.env.REDIS_HOST,
-    port:6379
+export const redisConnection: ConnectionOptions = {
+  host: process.env.REDIS_URL || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "14170"),
+  password: process.env.REDIS_PASSWORD, // Essential for authenticated Redis
+//   tls: process.env.REDIS_TLS === "true" ? {} : undefined, // For cloud Redis
 }
 
 
