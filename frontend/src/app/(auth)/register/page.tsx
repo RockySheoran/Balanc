@@ -30,7 +30,7 @@ const RegisterPage: NextPage = () => {
       <div className="w-full px-4 sm:px-10 max-w-[550px] py-5 mx-4 bg-white rounded-xl shadow-xl">
         <header className="text-center">
           <h1 className="bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-3xl sm:text-4xl font-extrabold text-transparent">
-            PFMA
+            BALANC
           </h1>
           <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-gray-800">
             Register

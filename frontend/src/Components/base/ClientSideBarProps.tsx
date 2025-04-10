@@ -4,7 +4,7 @@
 import React, { useState } from "react"
 
 import { Session } from "next-auth"
-import Sidebar from "./SideBarMange"
+import Sidebar from "./SideBar"
 
 
 

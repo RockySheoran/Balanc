@@ -269,7 +269,7 @@ const SignOutIcon = () => (
                 className={`text-2xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 text-transparent bg-clip-text ${
                   isCollapsed ? "hidden" : "block"
                 }`}>
-                PFMA
+                BALANC
               </h2>
               <h2
                 className={`text-2xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 text-transparent bg-clip-text ${
@@ -291,7 +291,6 @@ const SignOutIcon = () => (
             {navItems.map((item) => (
               <Link
                 prefetch={true}
-               
                 key={item.href}
                 href={item.href}
                 className={`flex items-center p-3 rounded-lg transition-all duration-300 ${
@@ -320,7 +319,15 @@ const SignOutIcon = () => (
                 }`}>
                 <div className="relative">
                   <div className="h-10 w-10 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
-                    <UserAvatar user={session?.user || { name: null, email: null, image: null }} />
+                    <UserAvatar
+                      user={
+                        session?.user || {
+                          name: null,
+                          email: null,
+                          image: null,
+                        }
+                      }
+                    />
                     {!session?.user?.image && (
                       <span className="text-lg">{userInitial}</span>
                     )}

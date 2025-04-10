@@ -13,16 +13,13 @@ import ReduxProvider from "./providers/ReduxProvider"
 import SideBarWrapper from "@/Components/base/SideBarWrapper"
 import { RedirectToDashboard } from "@/Components/common/RedirectToDashboard"
 import ClientSessionProvider from "./providers/ClientSessionProvider"
-import { REACT_LOADABLE_MANIFEST } from "next/dist/shared/lib/constants"
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import LoginPageWithoutSession from "@/Components/common/LoginPageWithoutSession"
 
+import { Analytics } from "@vercel/analytics/react"
 
 export const metadata: Metadata = {
   title: {
-    default: "Next.js Redux Template",
-    template: "%s | Next.js Redux",
+    default: "BALANC",
+    template: "%s | BALANC",
   },
   description: "Next.js with Redux Toolkit and TypeScript",
   metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
@@ -30,7 +27,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "/",
-    siteName: "Next.js Redux Template",
+    siteName: "BALANC",
+    images: [
+      {
+        url: "/logo.svg",
+        width: 1200,
+        height: 630,
+        alt: "logo",
+        type: "image/webp",
+      },
+    ],
   },
 }
 
@@ -65,16 +71,16 @@ export default async function RootLayout({
               
                 </div>
               )} */}
-             
-             
+
               {session && (
                 <>
                   <SideBarWrapper Session={session} />
-                  <RedirectToDashboard  />  
+                  <RedirectToDashboard />
                 </>
               )}
               <main className="flex-1 overflow-x-hidden md:mt-0 mt-16">
                 {children}
+                <Analytics />
               </main>
             </div>
             <Toaster

@@ -46,7 +46,7 @@ export default function LoginPage() {
       <div className="w-full px-4 sm:px-10 max-w-[550px] py-5 mx-4 bg-white rounded-xl shadow-xl">
         <div className="text-center">
           <h1 className="text-4xl font-extrabold bg-gradient-to-r from-pink-400 to-purple-500 text-transparent bg-clip-text">
-            PFMA
+           BALANC
           </h1>
           <h1 className="text-3xl font-bold">Login</h1>
           <p className="text-gray-600">Welcome back</p>

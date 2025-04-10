@@ -1,0 +1,20 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient background -->
+  <rect width="1200" height="630" fill="url(#gradient)"/>
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Dollar sign logo -->
+  <path d="M300 315L400 215L500 315L600 215L700 315L600 415L700 515L600 615L500 515L400 615L300 515L400 415L300 315Z" 
+        fill="#ffffff" stroke="#93c5fd" stroke-width="8"/>
+  
+  <!-- Text -->
+  <text x="600" y="400" font-family="Arial" font-size="80" font-weight="bold" 
+        text-anchor="middle" fill="#ffffff">DOLORS FINANCE</text>
+  <text x="600" y="470" font-family="Arial" font-size="40" 
+        text-anchor="middle" fill="#e0f2fe">Smart Money Management</text>
+</svg>

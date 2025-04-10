@@ -1,44 +1,50 @@
 /** @format */
 "use client"
 
-import React, { Suspense, lazy, useMemo } from "react"
-import { BalanceCardComponent } from "./com/account/BalanceCardComponentGrid"
-import { RecentTransaction } from "./com/recentTransaction"
-import { ExpenseTracker } from "./com/ExpenseTracker"
-import IncomeDashboard from "./com/IncomeDashboard"
-import InvestmentTracker from "./com/InvestmentTracker"
+import dynamic from "next/dynamic"
+import React, { Suspense, useMemo } from "react"
+// import { BalanceCardComponent } from "./com/account/BalanceCardComponentGrid"
+// import { RecentTransaction } from "./com/recentTransaction"
+// import { ExpenseTracker } from "./com/ExpenseTracker"
+// import IncomeDashboard from "./com/IncomeDashboard"
+// import InvestmentTracker from "./com/InvestmentTracker"
 
-// Lazy imports (with memoized fallback to avoid remounting skeletons)
-// const BalanceCardComponent = lazy(() =>
-//   import("./com/account/BalanceCardComponentGrid").then((mod) => ({
-//     default: mod.BalanceCardComponent,
-//   }))
-// )
+// dynamic imports (with memoized fallback to avoid remounting skeletons)
+const BalanceCardComponent = dynamic(() =>
+  import("./com/account/BalanceCardComponentGrid").then((mod) => ({
+    default: mod.BalanceCardComponent,
+    ssr: false,
+  }))
+)
 
 
-// const RecentTransaction = lazy(() =>
-//   import("./com/recentTransaction").then((mod) => ({
-//     default: mod.RecentTransaction,
-//   }))
-// )
+const RecentTransaction = dynamic(() =>
+  import("./com/recentTransaction").then((mod) => ({
+    default: mod.RecentTransaction,
+    ssr: false,
+  }))
+)
 
-// const ExpenseTracker = lazy(() =>
-//   import("./com/ExpenseTracker").then((mod) => ({
-//     default: mod.ExpenseTracker,
-//   }))
-// )
+const ExpenseTracker = dynamic(() =>
+  import("./com/ExpenseTracker").then((mod) => ({
+    default: mod.ExpenseTracker,
+    ssr: false,
+  }))
+)
 
-// const IncomeDashboard = lazy(() =>
-//   import("./com/IncomeDashboard").then((mod) => ({
-//     default: mod.default,
-//   }))
-// )
+const IncomeDashboard = dynamic(() =>
+  import("./com/IncomeDashboard").then((mod) => ({
+    default: mod.default,
+    ssr: false,
+  }))
+)
 
-// const InvestmentTracker = lazy(() =>
-//   import("./com/InvestmentTracker").then((mod) => ({
-//     default: mod.default,
-//   }))
-// )
+const InvestmentTracker = dynamic(() =>
+  import("./com/InvestmentTracker").then((mod) => ({
+    default: mod.default,
+    ssr: false,
+  }))
+)
 
 // Reusable skeleton fallback (memoized to avoid re-renders)
 const useSkeleton = (height: string) =>

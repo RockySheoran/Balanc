@@ -20,7 +20,7 @@ import {
 import useSWR from "swr"
 import { fetchAllInvestment } from "@/Actions/investmentApi/fetchAllInvestment"
 import { addBackendInvestment, clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
-import { clearIncome } from "@/lib/Redux/features/income/incomeSlices"
+import { addIncome, clearIncome } from "@/lib/Redux/features/income/incomeSlices"
 import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
 
 
@@ -53,7 +53,7 @@ export default function DashboardClient({ session }: SessionProps) {
   console.log(session)
   const dispatch = useAppDispatch()
   const { selectedAccount } = useAppSelector((state) => state.account)
-  const { expenseTransactions } = useAppSelector((state) => state.transactions)
+  const { expenseTransactions,incomeTransactions } = useAppSelector((state) => state.transactions)
   // SWR configuration for client-side data revalidation
   const { data: transactionsData, error: transactionsError } = useSWR(
     selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
@@ -131,6 +131,17 @@ export default function DashboardClient({ session }: SessionProps) {
     
     return () => clearTimeout(timer)
   }, [expenseTransactions, dispatch])
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      dispatch(clearIncome())
+      incomeTransactions?.forEach((transaction: any) => {
+        dispatch(addIncome(transaction))
+      })
+    }, 300) // Small debounce to avoid rapid updates
+
+    return () => clearTimeout(timer)
+  }, [incomeTransactions, dispatch])
+
   const { data: investmentData, error: investmentError } = useSWR(
     selectedAccount?.id ? `/api/investment/${selectedAccount.id}` : null,
     async (url) => {
