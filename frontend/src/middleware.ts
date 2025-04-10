@@ -1,32 +1,37 @@
-// /** @format */
+/** @format */
 
-export { default } from "next-auth/middleware"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { withAuth } from "next-auth/middleware"
 
-// export const config = {
-//   matcher: ["/","/dashboard/:path*", "/profile"], // Apply middleware to /dashboard and /profile
-// }
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+// Main middleware function
+export default withAuth(
+  function middleware(request: NextRequest) {
+    // Add security headers to all responses
+    const response = NextResponse.next()
 
-export function middleware(request: NextRequest) {
-  // Skip middleware for static files and API routes
-  if (
-    request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.includes('/api/') ||
-    request.nextUrl.pathname.includes('.') // Static files
-  ) {
-    return NextResponse.next();
+    response.headers.set("X-Frame-Options", "DENY")
+    response.headers.set("X-Content-Type-Options", "nosniff")
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.set(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=()"
+    )
+
+    return response
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => {
+        // If no token exists, redirect to login
+        return !!token
+      },
+    },
+    pages: {
+      signIn: "/login", // Your custom login page
+    },
   }
-
-  // Add security headers
-  const response = NextResponse.next();
-  
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
-  return response;
-}
+)
 
 export const config = {
   matcher: [
@@ -36,14 +41,7 @@ export const config = {
     "/expense",
     "/transaction",
     "/income",
-
-    /*
-     * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - images - .svg, .png, .jpg, etc.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Exclude static files and API routes
+    "/((?!api|_next/static|_next/image|favicon.ico|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

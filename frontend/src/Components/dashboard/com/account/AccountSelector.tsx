@@ -90,12 +90,17 @@ export function AccountSelector() {
   const { isLoading: isAccountsLoading } = useSWR(
     "accounts",
     async () => {
-      if (!token) throw new Error("Token is required")
-        
+      if (!token) {
+       toast.error("Please login");
+   
+      return null;
+      }
+        console.log(token)
       const response = await getAllAccounts({ token })
       console.log(response)
       if (response?.status !== 200 || !response?.data) {
-        throw new Error(response?.message || "Failed to fetch accounts")
+     
+        toast.error(response?.message || "Failed to fetch accounts")
       }
       return response
     },

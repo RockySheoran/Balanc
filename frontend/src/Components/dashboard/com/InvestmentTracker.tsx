@@ -214,12 +214,13 @@ const InvestmentTracker = () => {
         const response = await axios.request(options)
 
         if (!response.data?.chart?.result?.[0]) {
-          throw new Error(`No data received for ${symbol}`)
+          toast.error(`No data received for ${symbol}`)
         }
 
         return response.data
       } catch (err) {
-        console.error(`Error fetching data for ${symbol}:`, err)
+        // console.error(`Error fetching data for ${symbol}:`, err)
+        toast.error(`Error fetching data for ${symbol}`)
         return null
       }
     },
@@ -235,13 +236,14 @@ const InvestmentTracker = () => {
       setApiError(null)
 
       const allData = await Promise.all(
-        topInvestments.map((inv) => fetchStockChartData(inv.symbol))
+        topInvestments?.map((inv) => fetchStockChartData(inv.symbol))
       )
 
       const validData = allData.filter(Boolean)
 
       if (validData.length === 0) {
-        throw new Error("No valid chart data received for any investments")
+        toast.error("No valid chart data received for any investments")
+        return
       }
 
       setChartData(validData)

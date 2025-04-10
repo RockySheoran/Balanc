@@ -5,7 +5,8 @@
 
 import { GET_ALL_ACCOUNT_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
-import { redirect } from "next/navigation"
+import { revalidatePath } from "next/cache"
+
 // import { getServerSession ,Session} from "next-auth"
 
 export const getAllAccounts = async({token}: { token: string })=>{
@@ -29,13 +30,15 @@ export const getAllAccounts = async({token}: { token: string })=>{
             "Cache-Control": "force-cache",
           },
         })
-           redirect(`/dashboard`)
         
-        console.log(response +"sdfsdafsafsfsadfsfsfsf")
+        // console.log(response +"sdfsdafsafsfsadfsfsfsf")
+        
+      
         return {
           status: 200,
           message: "Accounts fetched successfully",
           data: response.data.data,
+       
         }
         
     } catch (error) {

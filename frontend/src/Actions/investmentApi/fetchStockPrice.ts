@@ -5,8 +5,7 @@
 import { authOptions } from "@/app/api/auth/[...nextauth]/options"
 import { CREATE_INVEST_URL } from "@/lib/EndPointApi"
 import axios from "axios"
-import { getServerSession } from "next-auth"
-import { revalidatePath } from "next/cache"
+
 
 interface YahooFinanceResponse {
   quoteSummary: {
@@ -164,7 +163,7 @@ export const addInvestmentAction = async (
     })
     console.log(response.data)
 
-    revalidatePath("/investments")
+  
     return {
       success: true,
       data: response.data,
@@ -196,6 +195,6 @@ export const refreshStockPrices = async (symbols: string[]) => {
     })
   )
 
-  revalidatePath("/investments")
+
   return results
 }

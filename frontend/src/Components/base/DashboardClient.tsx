@@ -49,7 +49,8 @@ interface SessionProps {
  * @param {SessionProps} session - User session data
  */
 export default function DashboardClient({ session }: SessionProps) {
-  // console.log(session)
+  
+  console.log(session)
   const dispatch = useAppDispatch()
   const { selectedAccount } = useAppSelector((state) => state.account)
   const { expenseTransactions } = useAppSelector((state) => state.transactions)
