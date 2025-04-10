@@ -9,7 +9,6 @@
     "lint": "next lint",
     "analyze": "ANALYZE=true next build"
   },
-  
   "dependencies": {
     "@emotion/babel-plugin": "^11.13.5",
     "@emotion/react": "^11.14.0",
@@ -72,6 +71,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/chartjs-plugin-annotation": "^0.5.5",
     "@types/lodash": "^4.17.16",
+    "@types/next": "^8.0.7",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

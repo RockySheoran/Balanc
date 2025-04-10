@@ -7,12 +7,11 @@ const nextConfig: NextConfig = {
   // Enable Incremental Static Regeneration (ISR) with Partial Prerendering
 
   typescript: {
-
     ignoreBuildErrors: true,
   },
-eslint: {
+  eslint: {
     ignoreDuringBuilds: true,
-  },  
+  },
   compiler: {
     styledComponents: {
       // Enable better debugging and smaller production bundles
@@ -28,8 +27,6 @@ eslint: {
   },
 
   experimental: {
-   
-    
     webVitalsAttribution: ["CLS", "LCP"],
     turbo: {
       rules: {
@@ -41,8 +38,6 @@ eslint: {
     // Enable worker threads for faster builds
     workerThreads: false, // Disable if causing issues
     // Enable granular chunks for better caching
-  
-    
   },
 
   images: {
@@ -62,12 +57,9 @@ eslint: {
 
   // Webpack optimizations
   webpack: (config) => {
-    config.cache = false; // Temporary fix for caching issues
-    return config;
+    config.cache = false // Temporary fix for caching issues
+    return config
   },
-
-
-  
 
   // Enable production browser source maps
   productionBrowserSourceMaps: false,
