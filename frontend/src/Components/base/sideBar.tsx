@@ -5,7 +5,7 @@
 import Link from "next/link"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { usePathname } from "next/navigation"
-import { signOut } from "next-auth/react"
+
 import LogoutModal from "@/Components/Auth/LogoutModal"
 import UserAvatar from "@/Components/base/UserAvatar"
 import { Session } from "next-auth"
@@ -94,7 +94,7 @@ const SignOutIcon = () => (
   </svg>
 )
 
-export const SideBar: React.FC<SideBarProps> = ({
+ const SideBar: React.FC<SideBarProps> = ({
   session,
   isCollapsed,
   setIsCollapsed,
@@ -377,3 +377,5 @@ export const SideBar: React.FC<SideBarProps> = ({
     </div>
   )
 }
+
+export default SideBar

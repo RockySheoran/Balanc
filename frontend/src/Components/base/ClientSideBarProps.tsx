@@ -1,11 +1,11 @@
 /** @format */
 
-// app/components/ClientSideBar.tsx
 "use client"
 import React, { useState } from "react"
 
 import { Session } from "next-auth"
-import { SideBar } from "./SideBar"
+import SideBar from "./SideBar"
+
 
 interface ClientSideBarProps {
   session: Session & { token?: string }
