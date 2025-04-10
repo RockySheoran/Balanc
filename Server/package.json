@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node ./dist/index.js",
     "watch": "tsc -w",
-    "build": "concurrently \"tsc --skipLibCheck\" \"npm run copy-files\" ",
+    "build": "concurrently \"tsc\" \"npm run copy-files\" ",
     "server": "nodemon ./dist/index.js",
     "dev": "concurrently \"npm run watch\" \"npm run server\" \"npm run watch-views\"",
     "copy-files": "copyfiles -u 1 \"src/views/**/*\" dist/",
@@ -52,6 +52,7 @@
     "ejs": "^3.1.10",
     "nodemon": "^3.1.9",
     "prisma": "^6.5.0",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.2"

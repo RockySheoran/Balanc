@@ -127,53 +127,53 @@ export const deleteInvestment = async (req: Request, res: Response) :Promise<any
 }
 
 // ✏️ Update Investment
-export const updateInvestment = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      })
-    }
-    const userId = req.user?.id
-    const data = req.body
+// export const updateInvestment = async (req: Request, res: Response) => {
+//   try {
+//     const { id } = req.params
+//     if (!req.user) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       })
+//     }
+//     const userId = req.user?.id
+//     const data = req.body
 
-    const payload = await investmentSchema.parse(data)
-    const investment = await prisma.investment.findUnique({
-      where: { id },
-    })
+//     const payload = await investmentSchema.parse(data)
+//     const investment = await prisma.investment.findUnique({
+//       where: { id },
+//     })
 
-    if (!investment || investment.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        message: "Investment not found or unauthorized",
-      })
-    }
+//     if (!investment || investment.userId !== userId) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Investment not found or unauthorized",
+//       })
+//     }
 
 
-    const updatedInvestment = await prisma.investment.update({
-      where: { id },
-      data: {
-        name: payload.name,
-        type: payload.type,
-        amount: payload.amount,
-        quantity: payload.quantity,
-        buyDate: payload.buyDate,
-        sellDate: payload.sellDate,
-        currentValue: payload.currentValue,
-      },
-    })
+//     const updatedInvestment = await prisma.investment.update({
+//       where: { id },
+//       data: {
+//         name: payload.name,
+//         type: payload.type,
+//         amount: payload.amount,
+//         quantity: payload.quantity,
+//         buyDate: payload.buyDate,
+//         sellDate: payload.sellDate,
+//         currentValue: payload.currentValue,
+//       },
+//     })
 
-    res.status(200).json({
-      success: true,
-      message: "Investment updated successfully",
-      investment: updatedInvestment,
-    })
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: (error as Error).message,
-    })
-  }
-}
+//     res.status(200).json({
+//       success: true,
+//       message: "Investment updated successfully",
+//       investment: updatedInvestment,
+//     })
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: (error as Error).message,
+//     })
+//   }
+// }
