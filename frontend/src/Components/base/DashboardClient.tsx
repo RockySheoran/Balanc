@@ -75,7 +75,8 @@ export default function DashboardClient({ session }: SessionProps) {
   useEffect(() => {
     
     if (!session) {
-      signOut({ redirect: true, callbackUrl: "/login" })
+      console.log("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+      signOut({ redirect: true, callbackUrl: "/login1" })
       
           dispatch(clearUser())
           dispatch(clearIncome())
@@ -186,7 +187,7 @@ export default function DashboardClient({ session }: SessionProps) {
 }
 
 // Optional: Create a wrapper for SSR/SSG/ISR support
-export async function DashboardServerWrapper({ session }: SessionProps) {
+export  function DashboardServerWrapper({ session }: SessionProps) {
   // This could pre-fetch data on the server if needed
   return (
     <Suspense fallback={<div>Loading dashboard...</div>}>

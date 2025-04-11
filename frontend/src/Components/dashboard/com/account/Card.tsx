@@ -21,13 +21,13 @@ export const Card = ({
   title: string
   value?: number
   trend: string
-  icon: string
+  icon: keyof typeof Icons
   gradient: string
   iconBg: string
   iconColor: string
   trendColor: string
 }) => {
-  const IconComponent = Icons[icon] || Icons.default
+  const IconComponent = Icons[icon] ?? Icons.default
 
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-gray-100 w-full">

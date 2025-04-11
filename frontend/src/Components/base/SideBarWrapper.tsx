@@ -4,10 +4,9 @@
  * with session data from the server
  */
 
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/options"
 
-import DashboardClient from "./DashboardClient"
+  
+import DashboardClient, { DashboardServerWrapper } from "./DashboardClient"
 import { redirect } from "next/navigation"
 import { Session } from "next-auth"
 import { ClientSideBar } from "./ClientSideBarProps"
@@ -21,20 +20,18 @@ export default async function SideBarWrapper({Session}: {Session: Session}) {
 
   // Handle unauthenticated users
   if (!Session) {
-    redirect("/login") // Redirect to sign-in page
+    redirect("/login1") // Redirect to sign-in page
     // Alternatively, you could return a loading state or null
     // return null
   }
 
-  // Validate session structure (optional)
-  if (!Session.user?.email) {
-    // console.error("Invalid session structure:", session)
-    redirect("/login")
-  }
+
+ 
 
   return (
     <>
       <ClientSideBar session={Session} />
+      <DashboardServerWrapper session={Session} />
       <DashboardClient session={Session} />
     </>
   )

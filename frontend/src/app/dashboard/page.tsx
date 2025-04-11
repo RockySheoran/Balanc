@@ -4,8 +4,10 @@ import DashboardWrapperClient from "@/Components/dashboard/DashboardWrapperClien
 
 
 
+
 const DashboardPage = async () => {
-  return <DashboardWrapperClient />
+  return( <DashboardWrapperClient />)
+ 
 }
 
 export default DashboardPage

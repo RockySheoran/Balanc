@@ -9,7 +9,7 @@ import { useEffect } from "react"
 
 export function RedirectToDashboard() {
   const { data: session } = useSession()
-  console.log(session)
+  // console.log(session)
   const router = useRouter()
   const pathname = usePathname()
 

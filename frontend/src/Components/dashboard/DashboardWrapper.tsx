@@ -3,13 +3,7 @@
 
 import dynamic from "next/dynamic"
 import React, { Suspense, useMemo } from "react"
-// import { BalanceCardComponent } from "./com/account/BalanceCardComponentGrid"
-// import { RecentTransaction } from "./com/recentTransaction"
-// import { ExpenseTracker } from "./com/ExpenseTracker"
-// import IncomeDashboard from "./com/IncomeDashboard"
-// import InvestmentTracker from "./com/InvestmentTracker"
 
-// dynamic imports (with memoized fallback to avoid remounting skeletons)
 const BalanceCardComponent = dynamic(() =>
   import("./com/account/BalanceCardComponentGrid").then((mod) => ({
     default: mod.BalanceCardComponent,
@@ -52,7 +46,7 @@ const useSkeleton = (height: string) =>
 
 export default function DashboardWrapper() {
   return (
-    <div className="dashboard px-2 bg-gray-50">
+    <div className="dashboard px-2 mt-16 md:mt-0 bg-gray-50">
       <div className="mx-auto py-6 space-y-6">
 
         <Suspense fallback={useSkeleton("h-64")}>

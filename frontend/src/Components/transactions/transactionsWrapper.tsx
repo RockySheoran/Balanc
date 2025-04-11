@@ -8,6 +8,8 @@ import { DownloadIcon } from "./Icons"
 import { clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
 import LoadingSpinner from "./LoadingSpinner1"
 import dynamic from "next/dynamic"
+import { exportToExcel } from "@/lib/exportToExcel"
+import { useAppSelector } from "@/lib/Redux/store/hooks"
 
 
 // Lazy load components for better code splitting
@@ -17,14 +19,11 @@ const TransactionTable = dynamic(() => import("./TransactionTable"), { ssr: fals
 
 const TransactionsPage = memo(() => {
   const dispatch = useDispatch()
+  const { transactions } = useAppSelector((state) => state.transactions)
+  const handleDownload = () => {
+    exportToExcel(transactions, "Transaction_Report")
+  }
 
-  const handleDownloadReport = useCallback(() => {
-    // Implement download report functionality
-    console.log("Downloading report...")
-    // In a real app:
-    // 1. Generate report data
-    // 2. Trigger download
-  }, [])
 
   // Cleanup transactions when component unmounts
   const cleanup = useCallback(() => {
@@ -38,7 +37,7 @@ const TransactionsPage = memo(() => {
   // }, [cleanup])
 
   return (
-    <div className="w-full p-4 md:p-6 space-y-6">
+    <div className="w-full  mt-16 md:mt-0 p-4 md:p-6 space-y-6">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -50,9 +49,9 @@ const TransactionsPage = memo(() => {
           </p>
         </div>
         <Button
-          className="bg-primary hover:bg-primary/90 text-white"
-          onClick={handleDownloadReport}
-          aria-label="Download transaction report">
+          className="bg-primary cursor-pointer hover:bg-primary/90 text-white"
+          onClick={handleDownload}
+          aria-label="Download  transaction report">
           <DownloadIcon className="mr-2 h-4 w-4" />
           Download Report
         </Button>

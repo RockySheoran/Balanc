@@ -33,7 +33,7 @@ const ExpenseComponent = memo(() => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="container mx-auto px-4 py-8">
+      className="container mx-auto  mt-16 md:mt-0 px-4 py-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">
           Expense Tracker
@@ -64,7 +64,7 @@ const ExpenseComponent = memo(() => {
       </Suspense>
 
       {/* <Suspense fallback={<LoadingSpinner className="h-32" />}> */}
-        <ExpenseFilters />
+      <ExpenseFilters />
       {/* </Suspense> */}
 
       <Suspense fallback={<LoadingSpinner className="h-96" />}>

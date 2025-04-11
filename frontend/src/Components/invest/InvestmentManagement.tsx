@@ -149,7 +149,7 @@ const InvestmentManagement = () => {
 
   if (status === "loading" && investments.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container  mt-16 md:mt-0 mx-auto px-4 py-8">
         <SkeletonLoader className="h-12 w-64 mb-6 rounded-lg" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[...Array(4)].map((_, i) => (
@@ -166,7 +166,7 @@ const InvestmentManagement = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto  mt-16 md:mt-0 px-4 py-8">
       {/* Header with animated gradient */}
       <motion.header
         className="mb-8"

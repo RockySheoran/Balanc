@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom"
 import { Button } from "../ui/button"
 import { useEffect, useState } from "react"
 
-export function GoogleSubmitBtn({ pending, setPending }: any) {
+export function GoogleSubmitBtn({ pending, setPending }: { pending: boolean; setPending: (pending: boolean) => void }) {
   useEffect(() => {
     if (pending) {
       const inter = setTimeout(() => {
@@ -17,7 +17,7 @@ export function GoogleSubmitBtn({ pending, setPending }: any) {
   }, [pending])
 
   return (
-    <span className=" text-center px-auto content-center" disabled={pending}>
+    <span className=" text-center px-auto content-center" aria-disabled={pending}>
       {pending ? (
         "Processing..."
       ) : (

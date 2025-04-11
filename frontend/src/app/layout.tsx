@@ -58,19 +58,14 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const session = await getServerSession(authOptions)
-
+console.log(session)
   return (
     <html lang="en" className={`${inter.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ReduxProvider>
           <ClientSessionProvider>
             <div className="flex flex-col md:flex-row">
-              {/* {!session && (
-                <div className="flex-1">
-                  <LoginPageWithoutSession/>
               
-                </div>
-              )} */}
 
               {session && (
                 <>
@@ -78,7 +73,7 @@ export default async function RootLayout({
                   <RedirectToDashboard />
                 </>
               )}
-              <main className="flex-1 overflow-x-hidden md:mt-0 mt-16">
+              <main className="flex-1 overflow-x-hidden md:mt-0 ">
                 {children}
                 <Analytics />
               </main>

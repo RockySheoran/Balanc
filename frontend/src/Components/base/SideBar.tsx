@@ -94,7 +94,7 @@ const SignOutIcon = () => (
   </svg>
 )
 
- const Sidebar: React.FC<SideBarProps> = ({
+const Sidebar: React.FC<SideBarProps> = ({
   session,
   isCollapsed,
   setIsCollapsed,
@@ -102,31 +102,32 @@ const SignOutIcon = () => (
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const [isMobile, setIsMobile] = useState(false)
 
   // Close mobile sidebar when route changes
   useEffect(() => {
     setIsMobileOpen(false)
   }, [pathname])
 
-  // Responsive behavior
+  // Check if mobile on mount and resize
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setIsCollapsed(false)
-      }
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+      setIsCollapsed(window.innerWidth >= 768)
     }
 
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
+    checkIfMobile()
+    window.addEventListener("resize", checkIfMobile)
+    return () => window.removeEventListener("resize", checkIfMobile)
   }, [setIsCollapsed])
 
   const toggleSidebar = useCallback(() => {
-    if (window.innerWidth < 768) {
+    if (isMobile) {
       setIsMobileOpen((prev) => !prev)
     } else {
       setIsCollapsed((prev) => !prev)
     }
-  }, [])
+  }, [isMobile])
 
   const handleCopyEmail = useCallback(() => {
     if (session?.user?.email) {
@@ -238,150 +239,171 @@ const SignOutIcon = () => (
   )
 
   return (
-    <div className={`${isCollapsed ? "w-20" : "md:w-64"}`}>
-      {/* Mobile Hamburger Button */}
-      <button
-        onClick={toggleSidebar}
-        className={`md:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-gradient-to-r from-pink-400 to-purple-500 text-white shadow-lg ${
-          !isMobileOpen ? "translate-x-0" : "translate-x-48"
-        } transition-transform duration-300 ease-in-out`}
-        aria-label={isMobileOpen ? "Close menu" : "Open menu"}>
-        <HamburgerIcon isOpen={isMobileOpen} />
-      </button>
-
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 transform ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 transition-all duration-300 ease-in-out ${
-          isCollapsed ? "w-20" : "w-64"
-        } bg-gradient-to-b from-gray-50 to-gray-100 shadow-xl`}
-        aria-label="Sidebar">
-        <div className="flex flex-col h-full p-4">
-          {/* Header */}
-          <header className="flex items-center justify-between mb-8 p-2">
-            <Link
-              href="/dashboard"
-              prefetch={true}
-              className="flex items-center"
-              aria-label="Home">
-              <h2
-                className={`text-2xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 text-transparent bg-clip-text ${
-                  isCollapsed ? "hidden" : "block"
-                }`}>
+    <>
+      <div className={`${isCollapsed ? "w-20" : "md:w-64"}`}>
+        {/* Mobile Navbar with Logo and Hamburger */}
+        {isMobile && (
+          <nav className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-sm p-4 flex justify-between items-center">
+            <Link href="/dashboard" className="flex items-center">
+              <h2 className="text-xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 text-transparent bg-clip-text">
                 BALANC
-              </h2>
-              <h2
-                className={`text-2xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 text-transparent bg-clip-text ${
-                  isCollapsed ? "block" : "hidden"
-                }`}>
-                P
               </h2>
             </Link>
             <button
               onClick={toggleSidebar}
-              className="hidden md:block p-1 rounded-full hover:bg-gray-200"
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
-              <CollapseIcon isCollapsed={isCollapsed} />
+              className="p-2 rounded-md bg-gradient-to-r from-pink-500 to-purple-600 text-white"
+              aria-label={isMobileOpen ? "Close menu" : "Open menu"}>
+              <HamburgerIcon isOpen={isMobileOpen} />
             </button>
-          </header>
-
-          {/* Navigation Links */}
-          <nav className="flex-1 space-y-1">
-            {navItems.map((item) => (
-              <Link
-                prefetch={true}
-                key={item.href}
-                href={item.href}
-                className={`flex items-center p-3 rounded-lg transition-all duration-300 ${
-                  pathname === item.href
-                    ? "bg-white shadow-md text-purple-600"
-                    : "hover:bg-white hover:shadow-md text-gray-700"
-                }`}
-                aria-current={pathname === item.href ? "page" : undefined}>
-                {item.icon}
-                <span className={`ml-3 ${isCollapsed ? "hidden" : "block"}`}>
-                  {item.name}
-                </span>
-              </Link>
-            ))}
           </nav>
+        )}
 
-          {/* Footer with User Info and Sign Out */}
-          <footer className="mt-auto">
-            <div
-              className={`${
-                isCollapsed ? "" : "block p-3 rounded-lg bg-white shadow-sm"
-              }`}>
+        {/* Sidebar - Hidden on mobile unless toggled */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 transform ${
+            isMobile
+              ? isMobileOpen
+                ? "translate-x-0"
+                : "-translate-x-full"
+              : "translate-x-0"
+          } transition-all duration-300 ease-in-out ${
+            isCollapsed ? "w-20" : "w-64"
+          } bg-gradient-to-b from-gray-50 to-gray-100 shadow-xl ${
+            isMobile ? "mt-16" : ""
+          }`}
+          aria-label="Sidebar">
+          <div className="flex flex-col h-full p-4">
+            {/* Header - Hidden on mobile since we have the navbar */}
+            {!isMobile && (
+              <header className="flex items-center justify-between mb-8 p-2">
+                <Link
+                  href="/dashboard"
+                  prefetch={true}
+                  className="flex items-center"
+                  aria-label="Home">
+                  <h2
+                    className={`text-2xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 text-transparent bg-clip-text ${
+                      isCollapsed ? "hidden" : "block"
+                    }`}>
+                    BALANC
+                  </h2>
+                  <h2
+                    className={`text-2xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 text-transparent bg-clip-text ${
+                      isCollapsed ? "block" : "hidden"
+                    }`}>
+                    B
+                  </h2>
+                </Link>
+                <button
+                  onClick={toggleSidebar}
+                  className="p-1 rounded-full hover:bg-gray-200"
+                  aria-label={
+                    isCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }>
+                  <CollapseIcon isCollapsed={isCollapsed} />
+                </button>
+              </header>
+            )}
+
+            {/* Navigation Links */}
+            <nav className="flex-1 space-y-1">
+              {navItems.map((item) => (
+                <Link
+                  prefetch={true}
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center p-3 rounded-lg transition-all duration-300 ${
+                    pathname === item.href
+                      ? "bg-white shadow-md text-purple-600 font-medium"
+                      : "hover:bg-white hover:shadow-md text-gray-700"
+                  }`}
+                  aria-current={pathname === item.href ? "page" : undefined}>
+                  {item.icon}
+                  <span className={`ml-3 ${isCollapsed ? "hidden" : "block"}`}>
+                    {item.name}
+                  </span>
+                </Link>
+              ))}
+            </nav>
+
+            {/* Footer with User Info and Sign Out */}
+            <footer className="mt-auto">
               <div
-                className={`flex items-center gap-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 ${
-                  isCollapsed ? "p-0.5" : "p-2"
+                className={`${
+                  isCollapsed ? "" : "block p-3 rounded-lg bg-white shadow-sm"
                 }`}>
-                <div className="relative">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
-                    <UserAvatar
-                      user={
-                        session?.user || {
-                          name: null,
-                          email: null,
-                          image: null,
+                <div
+                  className={`flex items-center gap-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 ${
+                    isCollapsed ? "p-0.5" : "p-2"
+                  }`}>
+                  <div className="relative">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center text-white font-bold overflow-hidden">
+                      <UserAvatar
+                        user={
+                          session?.user || {
+                            name: null,
+                            email: null,
+                            image: null,
+                          }
                         }
-                      }
-                    />
-                    {!session?.user?.image && (
-                      <span className="text-lg">{userInitial}</span>
-                    )}
-                  </div>
-                </div>
-
-                {!isCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-800 truncate">
-                        {session?.user?.name || "User"}
-                      </p>
+                      />
+                      {!session?.user?.image && (
+                        <span className="text-lg">{userInitial}</span>
+                      )}
                     </div>
-                    <div className="relative mt-1">
-                      <div className="text-xs text-gray-500 overflow-hidden flex items-center">
-                        <span className="truncate">{session?.user?.email}</span>
-                        <button
-                          onClick={handleCopyEmail}
-                          className="ml-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
-                          title="Copy email"
-                          aria-label="Copy email to clipboard">
-                          <CopyEmailIcon />
-                        </button>
+                  </div>
+
+                  {!isCollapsed && (
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {session?.user?.name || "User"}
+                        </p>
                       </div>
-                      <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none" />
+                      <div className="relative mt-1">
+                        <div className="text-xs text-gray-500 overflow-hidden flex items-center">
+                          <span className="truncate">
+                            {session?.user?.email}
+                          </span>
+                          <button
+                            onClick={handleCopyEmail}
+                            className="ml-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                            title="Copy email"
+                            aria-label="Copy email to clipboard">
+                            <CopyEmailIcon />
+                          </button>
+                        </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none" />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => setOpen(true)}
-              className={`flex items-center w-full p-3 mt-2 rounded-lg text-gray-700 hover:bg-white hover:shadow-md transition-all duration-300 ${
-                isCollapsed ? "justify-center" : ""
-              }`}
-              aria-label="Sign out">
-              <SignOutIcon />
-              {!isCollapsed && <span className="ml-3">Sign Out</span>}
-            </button>
-            <LogoutModal open={open} setOpen={setOpen} />
-          </footer>
-        </div>
-      </aside>
+              <button
+                onClick={() => setOpen(true)}
+                className={`flex items-center w-full p-3 mt-2 rounded-lg text-gray-700 hover:bg-white hover:shadow-md transition-all duration-300 ${
+                  isCollapsed ? "justify-center" : ""
+                }`}
+                aria-label="Sign out">
+                <SignOutIcon />
+                {!isCollapsed && <span className="ml-3">Sign Out</span>}
+              </button>
+              <LogoutModal open={open} setOpen={setOpen} />
+            </footer>
+          </div>
+        </aside>
 
-      {/* Overlay for mobile */}
-      {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
-          onClick={() => setIsMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-    </div>
+        {/* Overlay for mobile */}
+        {isMobileOpen && isMobile && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+            onClick={() => setIsMobileOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+    </>
   )
 }
 

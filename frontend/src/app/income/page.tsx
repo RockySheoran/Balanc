@@ -44,7 +44,7 @@ const AddIncomeForm = dynamic(
 
 const IncomeManagementPage = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br  mt-16 md:mt-0 from-indigo-50 to-blue-100 p-4 md:p-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

@@ -10,7 +10,7 @@ import { Card } from "./Card"
 
 // Lazy load AccountSelector (actual performance gain)
 const AccountSelector = dynamic(
-  () => import("./AccountSelector"),
+  () => import("./AccountSelector").then((mod) => mod.AccountSelector),
   {
     loading: () => <Skeleton className="h-10 w-48 rounded-md" />,
     ssr: false,
@@ -62,27 +62,12 @@ export const BalanceCardComponent = () => {
     ]
   }, [selectedAccount])
 
-  // if (!selectedAccount) {
-  //   return (
-  //     <div className="mt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-  //       <div className="w-full flex justify-end mb-6">
-  //         <Skeleton className="h-10 w-48 rounded-md" />
-  //       </div>
-  //       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-  //         <CardSkeleton />
-  //         <CardSkeleton />
-  //         <CardSkeleton />
-  //       </div>
-  //     </div>
-  //   )
-  // }
-
   return (
     <div className="mt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <div className="w-full flex justify-end mb-6">
-        <Suspense fallback={useSkeleton("h-96")}>
+        {/* <Suspense fallback={useSkeleton("h-96")}> */}
           <AccountSelector />
-        </Suspense>
+        {/* </Suspense> */}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
