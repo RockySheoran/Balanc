@@ -75,7 +75,7 @@ export const getAllInvestments = async (
       where: { accountId: accountId },
       orderBy: { createdAt: "desc" },
     })
-    console.log(investments)
+    // console.log(investments)
     res.status(200).json({ message: "Data Found", data:{investments} })
   } catch (error) {
     console.log(error)

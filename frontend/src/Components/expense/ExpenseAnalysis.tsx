@@ -154,7 +154,7 @@ const ExpenseAnalysis: React.FC = () => {
               <Tooltip formatter={formatTooltip} />
               <Legend />
               <Bar dataKey="value" name="Expense Amount" radius={[4, 4, 0, 0]}>
-                {monthlyData.map((entry, index) => (
+                {monthlyData?.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
@@ -163,16 +163,44 @@ const ExpenseAnalysis: React.FC = () => {
               </Bar>
             </BarChart>
           ) : (
-            <PieChart>
+            <PieChart width={400} height={400}>
               <Pie
                 data={categoryData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
                 outerRadius={80}
+                innerRadius={60} // Add inner radius for donut chart style (optional)
+                paddingAngle={5} // Add space between segments
                 dataKey="value"
                 nameKey="name"
-                label={renderPieLabel}
+                label={({
+                  cx,
+                  cy,
+                  midAngle,
+                  innerRadius,
+                  outerRadius,
+                  percent,
+                  index,
+                  name,
+                }) => {
+                  // Custom label positioning logic
+                  const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+                  const x = cx + radius * Math.cos((-midAngle * Math.PI) / 180)
+                  const y = cy + radius * Math.sin((-midAngle * Math.PI) / 180)
+
+                  return (
+                    <text
+                      x={x}
+                      y={y}
+                      fill="white"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={12}>
+                      {`${(percent * 100).toFixed(0)}%`}
+                    </text>
+                  )
+                }}
                 onClick={handlePieClick}>
                 {categoryData.map((entry, index) => (
                   <Cell
@@ -181,8 +209,23 @@ const ExpenseAnalysis: React.FC = () => {
                   />
                 ))}
               </Pie>
-              <Tooltip formatter={formatTooltip} />
-              <Legend />
+              <Tooltip
+                formatter={formatTooltip}
+                wrapperStyle={{
+                  backgroundColor: "#fff",
+                  padding: "5px 10px",
+                  borderRadius: "4px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                }}
+              />
+              <Legend
+                layout="vertical"
+                verticalAlign="middle"
+                align="right"
+                wrapperStyle={{
+                  paddingLeft: "20px",
+                }}
+              />
             </PieChart>
           )}
         </ResponsiveContainer>

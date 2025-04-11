@@ -118,7 +118,7 @@ export const ExpenseTracker = () => {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full mt-3 mx-auto bg-white rounded-lg shadow-md p-6">
+      className=" max-w-7xl mt-3 mx-auto bg-white rounded-lg shadow-md p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column - Recent Expenses */}
         <div>

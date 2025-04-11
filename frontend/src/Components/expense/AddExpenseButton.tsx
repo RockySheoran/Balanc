@@ -155,7 +155,9 @@ export const AddExpenseButton = () => {
             label="Type"
             id="type"
             name="type"
+      
             options={TRANSACTION_TYPES}
+    
             placeholder="Select transaction type"
             required
             errors={formState.errors}
@@ -165,6 +167,7 @@ export const AddExpenseButton = () => {
             label="Category"
             id="category"
             name="category"
+            
             options={CATEGORIES}
             placeholder="Select category"
             required
@@ -187,7 +190,9 @@ export const AddExpenseButton = () => {
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <SubmitButton />
+            <div>
+              <SubmitButton />
+            </div>
           </div>
 
           {formState.errors?.form && (

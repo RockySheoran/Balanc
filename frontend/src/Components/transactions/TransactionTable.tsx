@@ -242,12 +242,7 @@ const TransactionTableContent = () => {
           </select>
         </div>
 
-        <Button
-          variant="outline"
-          className="border-gray-300 cursor-pointer dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200">
-          <DownloadIcon className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+      
       </div>
 
       {/* Table - simplified with less inline styles */}

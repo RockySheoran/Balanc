@@ -21,7 +21,8 @@ import useSWR from "swr"
 import { fetchAllInvestment } from "@/Actions/investmentApi/fetchAllInvestment"
 import { addBackendInvestment, clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
 import { addIncome, clearIncome } from "@/lib/Redux/features/income/incomeSlices"
-import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
+import { clearAccount, selectAccount, setAccounts } from "@/lib/Redux/features/account/accountSlice"
+import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount"
 
 
 interface SessionProps {
@@ -49,12 +50,56 @@ interface SessionProps {
  * @param {SessionProps} session - User session data
  */
 export default function DashboardClient({ session }: SessionProps) {
-  
-  console.log(session)
+   const { allAccounts, selectedAccount, isLoading, error } = useAppSelector(
+      (state) => state.account
+    )
+  // console.log(session)
   const dispatch = useAppDispatch()
-  const { selectedAccount } = useAppSelector((state) => state.account)
+
   const { expenseTransactions,incomeTransactions } = useAppSelector((state) => state.transactions)
   // SWR configuration for client-side data revalidation
+    // Account data fetching with SWR
+    const { isLoading: isAccountsLoading } = useSWR(
+      session?.token ? "accounts" : null,
+      async () => {
+        try {
+          if (!session?.token) {
+            toast.error("Token is required to fetch accounts")
+            return  
+          }
+          console.log(
+            "111111111111111111111111111111111111111111111111111111111"
+          )
+          const response = await getAllAccounts({ token: session.token || "" })
+          console.log(response)
+          if (response?.status !== 200 || !response?.data) {
+            toast.error(response?.message || "Failed to fetch accounts")
+            return null
+          }
+  
+          return response.data
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "An unknown error occurred"
+          )
+          throw error
+        }
+      },
+      {
+        revalidateOnFocus: false,
+        shouldRetryOnError: false,
+        revalidateOnReconnect: true,
+        onSuccess: (data) => {
+          console.log(data)
+          dispatch(setAccounts(data))
+          if (!selectedAccount && data.length > 0) {
+            dispatch(selectAccount(data[0].id))
+          }
+        },
+        onError: (err) => toast.error(err.message),
+      }
+    )
+
   const { data: transactionsData, error: transactionsError } = useSWR(
     selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
     async (url) => {
@@ -75,8 +120,8 @@ export default function DashboardClient({ session }: SessionProps) {
   useEffect(() => {
     
     if (!session) {
-      console.log("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-      signOut({ redirect: true, callbackUrl: "/login1" })
+     
+      signOut({ redirect: true, callbackUrl: "/login" })
       
           dispatch(clearUser())
           dispatch(clearIncome())

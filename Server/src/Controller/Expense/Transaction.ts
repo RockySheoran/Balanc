@@ -12,7 +12,6 @@ import { transactionSchema } from "../../Validation/TransactionsValidation.js"
 import { formatError } from "../../helper.js"
 import redisClient from "../../Config/redis/redis.js"
 
-
 const CACHE_TTL = 3600 // 1 hour cache
 
 export const createTransaction = async (
@@ -132,14 +131,21 @@ export const deleteTransaction = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  try {
-    const { id } = req.params
+  try { 
     if (!req.user) {
-      return res.status(401).json({ success: false, message: "Unauthorized" })
-    }
-    const userId = req.user?.id
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized",
+    })
+  }
 
-    const transaction = await prisma.transaction.findUnique({ where: { id } })
+  const userId = req.user.id
+    const { id } = req.body
+    console.log(userId,id)
+
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: id, userId: userId },
+    })
     if (!transaction || transaction.userId !== userId) {
       return res.status(404).json({
         success: false,
@@ -169,13 +175,14 @@ export const deleteTransaction = async (
     }
 
     await prisma.transaction.delete({ where: { id } })
-    await prisma.account.update({
+   const updatedAccount = await prisma.account.update({
       where: { id: transaction.accountId },
       data: {
         balance: updatedBalance,
         totalExpense: updatedTotalExpense,
       },
     })
+    console.log(updatedAccount)
 
     // Redis addition: Invalidate cache
     await redisClient.del(`transactions:${transaction.accountId}`)
@@ -183,9 +190,10 @@ export const deleteTransaction = async (
     res.status(200).json({
       success: true,
       message: "Transaction deleted successfully",
+      data: { updatedAccount},
     })
   } catch (error) {
-    res.status(500).json({ success: false, error: (error as Error).message })
+    res.status(404).json({ success: false, error: (error as Error).message })
   }
 }
 

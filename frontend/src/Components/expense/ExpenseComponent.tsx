@@ -42,13 +42,13 @@ const ExpenseComponent = memo(() => {
           <Suspense fallback={<Button disabled>Loading...</Button>}>
             <AddExpenseButton />
           </Suspense>
-          <Button
+          {/* <Button
             variant="destructive"
             onClick={handleClearExpenses}
             aria-label="Clear all expenses"
             className="w-full sm:w-auto">
             Clear All Expenses
-          </Button>
+          </Button> */}
         </div>
       </div>
 

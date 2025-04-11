@@ -78,44 +78,47 @@ export function AccountSelector() {
     []
   )
 
-  // Account data fetching with SWR
-  const { isLoading: isAccountsLoading } = useSWR(
-    token ? "accounts" : null,
-    async () => {
-      try {
-        if (token === "") {
-          toast.error("Token is required to fetch accounts")
-          return
-        }
-        const response = await getAllAccounts({ token: token || "" })
-        // console.log(response)
-        if (response?.status !== 200 || !response?.data) {
-          toast.error(response?.message || "Failed to fetch accounts")
-          return null
-        }
+  // // Account data fetching with SWR
+  // const { isLoading: isAccountsLoading } = useSWR(
+  //   token ? "accounts" : null,
+  //   async () => {
+  //     try {
+  //       if (token === "") {
+  //         toast.error("Token is required to fetch accounts")
+  //         return  
+  //       }
+  //       console.log(
+  //         "111111111111111111111111111111111111111111111111111111111"
+  //       )
+  //       const response = await getAllAccounts({ token: token || "" })
+  //       console.log(response)
+  //       if (response?.status !== 200 || !response?.data) {
+  //         toast.error(response?.message || "Failed to fetch accounts")
+  //         return null
+  //       }
 
-        return response.data
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "An unknown error occurred"
-        )
-        throw error
-      }
-    },
-    {
-      revalidateOnFocus: false,
-      shouldRetryOnError: false,
-      revalidateOnReconnect: true,
-      onSuccess: (data) => {
-        console.log(data)
-        dispatch(setAccounts(data))
-        if (!selectedAccount && data.length > 0) {
-          dispatch(selectAccount(data[0].id))
-        }
-      },
-      onError: (err) => toast.error(err.message),
-    }
-  )
+  //       return response.data
+  //     } catch (error) {
+  //       toast.error(
+  //         error instanceof Error ? error.message : "An unknown error occurred"
+  //       )
+  //       throw error
+  //     }
+  //   },
+  //   {
+  //     revalidateOnFocus: false,
+  //     shouldRetryOnError: false,
+  //     revalidateOnReconnect: true,
+  //     onSuccess: (data) => {
+  //       console.log(data)
+  //       dispatch(setAccounts(data))
+  //       if (!selectedAccount && data.length > 0) {
+  //         dispatch(selectAccount(data[0].id))
+  //       }
+  //     },
+  //     onError: (err) => toast.error(err.message),
+  //   }
+  // )
 
   // Handle form submission response
   useEffect(() => {
@@ -183,7 +186,7 @@ export function AccountSelector() {
   )
 
   // Loading state
-  if (isAccountsLoading) {
+  if (!allAccounts || allAccounts.length === 0) {
     return (
       <div className="w-full p-4 space-y-6">
         <Skeleton className="h-10 w-1/3 rounded-md" />

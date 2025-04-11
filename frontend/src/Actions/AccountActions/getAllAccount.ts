@@ -5,7 +5,7 @@
 
 import { GET_ALL_ACCOUNT_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
-import { revalidatePath } from "next/cache"
+
 
 // import { getServerSession ,Session} from "next-auth"
 
@@ -27,11 +27,11 @@ export const getAllAccounts = async({token}: { token: string })=>{
           headers: {
             Authorization: `${token}`,
             "Content-Type": "application/json",
-            "Cache-Control": "force-cache",
+            
           },
         })
         
-        // console.log(response +"sdfsdafsafsfsadfsfsfsf")
+        console.log(response)
         
       
         return {

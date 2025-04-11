@@ -29,10 +29,13 @@ export const AccountController = {
       }
 
       const userId = req.user.id
+      console.log(userId+"fgrthrtyht")
       const cacheKey = `accounts:${userId}`
 
       // Redis addition: Check cache first
       const cachedAccounts = await redisClient.get(cacheKey)
+      console.log(cachedAccounts+"cachedAccounts")
+     
       if (cachedAccounts) {
         return res.status(200).json({
           success: true,
@@ -62,6 +65,7 @@ export const AccountController = {
           data: null,
         })
       }
+      console.log(accounts)
 
       // Redis addition: Cache results
       await redisClient.setEx(cacheKey, CACHE_TTL, JSON.stringify(accounts))

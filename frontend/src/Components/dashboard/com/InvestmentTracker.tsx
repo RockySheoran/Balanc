@@ -182,7 +182,7 @@ const InvestmentTracker = () => {
       }
       return response.data
     } catch (err) {
-      toast.error(`Error fetching data for ${symbol}`)
+      // toast.error(`Error fetching data for ${symbol}`)
       return null
     }
   }, [timeRange, interval])
@@ -200,7 +200,7 @@ const InvestmentTracker = () => {
       const validData = allData.filter(Boolean)
 
       if (validData.length === 0) {
-        throw new Error("No valid chart data received and api request completed")
+        throw new Error("No valid chart data received and free api request completed")
       }
 
       setChartData(validData)

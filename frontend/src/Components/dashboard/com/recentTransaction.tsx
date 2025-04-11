@@ -144,7 +144,7 @@ export const RecentTransaction = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full mt-5 mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
+      className="max-w-7xl w-full mt-5 mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6 ">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left Column - Recent Transactions */}
         <div className="md:col-span-1">
