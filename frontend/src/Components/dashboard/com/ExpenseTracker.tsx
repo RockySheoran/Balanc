@@ -52,14 +52,7 @@ const MAX_RECENT_EXPENSES = 5
 
 export const ExpenseTracker = () => {
   const { transactions } = useAppSelector((state) => state.transactions)
-useEffect(() => {
-  if(!transactions) {
-   toast.error("No transactions found1111111111111111111111111111")
-  }else{
-    toast.success("Transactions found2222222222222222222222222222222222")
-  }
 
-},[transactions])
   const { expenseData, recentExpenses } = useMemo(() => {
     const thirtyDaysAgo = new Date(
       Date.now() - DAYS_TO_FILTER * 24 * 60 * 60 * 1000

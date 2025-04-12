@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   compiler: {
     styledComponents: {
       // Enable better debugging and smaller production bundles
-      ssr: true,
+      ssr: false,
       displayName: true,
       fileName: false,
       pure: true,
