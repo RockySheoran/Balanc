@@ -1,6 +1,6 @@
 /** @format */
 
-// lib/store.ts
+// lib/Redux/store/store.ts
 import { configureStore } from "@reduxjs/toolkit"
 import {
   persistStore,
@@ -12,7 +12,7 @@ import {
   PURGE,
   REGISTER,
 } from "redux-persist"
-import storage from "redux-persist/lib/storage"
+import storage from "./storage" // Use our custom storage
 import { combineReducers } from "redux"
 import userSlice from "../features/user/userSlice"
 import accountReducer from "../features/account/accountSlice"
@@ -33,26 +33,25 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: "root",
   version: 1,
-  storage: typeof window !== "undefined" ? storage : undefined,
+  storage, // Use our custom storage
   whitelist: ["user", "transactions"],
   timeout: 2000,
 }
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)
 
-export const makeStore = () => {
-  return configureStore({
-    reducer: persistedReducer,
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware({
-        serializableCheck: {
-          ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-        },
-      }),
-    devTools: process.env.NODE_ENV !== "production",
-  })
-}
+export const store = configureStore({
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+    }),
+  devTools: process.env.NODE_ENV !== "production",
+})
 
-export type AppStore = ReturnType<typeof makeStore>
-export type RootState = ReturnType<AppStore["getState"]>
-export type AppDispatch = AppStore["dispatch"]
+export const persistor = persistStore(store)
+
+export type RootState = ReturnType<typeof store.getState>
+export type AppDispatch = typeof store.dispatch
