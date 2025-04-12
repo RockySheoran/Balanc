@@ -157,7 +157,7 @@ const InvestmentTracker = () => {
       profitLoss,
       profitLossPercentage,
       bestPerformer: performers[0] || null,
-      worstPerformer: performers[performers.length - 1] || null,
+      worstPerformer: performers[performers?.length - 1] || null,
     })
   }, [])
 
@@ -188,7 +188,7 @@ const InvestmentTracker = () => {
   }, [timeRange, interval])
 
   const fetchAllData = useCallback(async () => {
-    if (topInvestments.length === 0) return
+    if (topInvestments?.length === 0) return
 
     try {
       setLoading(true)
@@ -199,7 +199,7 @@ const InvestmentTracker = () => {
       )
       const validData = allData.filter(Boolean)
 
-      if (validData.length === 0) {
+      if (validData?.length === 0) {
         throw new Error("No valid chart data received and free api request completed")
       }
 
@@ -223,7 +223,7 @@ const InvestmentTracker = () => {
 
   // Chart data preparation (optimized)
   const lineChartData = useMemo(() => {
-    if (chartData.length === 0) return { labels: [], datasets: [] }
+    if (chartData?.length === 0) return { labels: [], datasets: [] }
 
     const referenceTimestamps = chartData[0]?.chart?.result?.[0]?.timestamp || []
     
@@ -245,10 +245,10 @@ const InvestmentTracker = () => {
         const result = data.chart.result[0]
         const meta = result.meta
         const quotes = result.indicators.quote[0]
-        const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
+        const color = COLOR_PALETTE[index % COLOR_PALETTE?.length]
 
         return {
-          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName.length > 15 ? "..." : ""}`,
+          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName?.length > 15 ? "..." : ""}`,
           data: quotes.close,
           borderColor: color,
           backgroundColor: `${color}20`,
@@ -268,7 +268,7 @@ const InvestmentTracker = () => {
         (inv.currentValue || inv.buyPrice) * inv.quantity
       ),
       backgroundColor: topInvestments.map(
-        (_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]
+        (_, i) => COLOR_PALETTE[i % COLOR_PALETTE?.length]
       ),
       borderWidth: 1,
     }],
@@ -305,7 +305,7 @@ const InvestmentTracker = () => {
   }, [])
 
   // Loading and empty states
-  if (loading && !chartData.length) {
+  if (loading && !chartData?.length) {
     return (
       <div className="max-w-7xl mx-auto p-4 md:p-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -322,7 +322,7 @@ const InvestmentTracker = () => {
     )
   }
 
-  if (topInvestments.length === 0) {
+  if (topInvestments?.length === 0) {
     return (
       <div className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col items-center justify-center h-96">
         <p className="text-gray-500 text-lg mb-4">No investments found</p>
@@ -540,7 +540,7 @@ const PerformanceCard = ({
           <p className="text-xl font-bold">{performer.symbol}</p>
           <p className="text-sm text-gray-500">
             {performer.name.substring(0, 15)}
-            {performer.name.length > 15 ? "..." : ""}
+            {performer.name?.length > 15 ? "..." : ""}
           </p>
           <p className="text-green-500 font-medium mt-1">
             {formatPercentage?.(

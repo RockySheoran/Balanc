@@ -73,7 +73,7 @@ export default function DashboardClient({ session }: SessionProps) {
       revalidateOnReconnect: true,
       onSuccess: (data) => {
         dispatch(setAccounts(data))
-        if (!selectedAccount && data.length > 0) {
+        if (!selectedAccount && data?.length > 0) {
           dispatch(selectAccount(data[0].id))
         }
         toast.success("Accounts loaded successfully")

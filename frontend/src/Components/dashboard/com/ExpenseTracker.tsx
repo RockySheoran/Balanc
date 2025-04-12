@@ -136,7 +136,7 @@ export const ExpenseTracker = () => {
           </div>
 
           <div className="space-y-4">
-            {recentExpenses.length > 0 ? (
+            {recentExpenses?.length > 0 ? (
               recentExpenses.slice(0, 4).map((transaction, index) => (
                 <motion.div
                   key={transaction.id}
@@ -219,7 +219,7 @@ export const ExpenseTracker = () => {
           </motion.div>
 
           {/* Color Legend */}
-          {expenseData.labels.length > 0 && (
+          {expenseData.labels?.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-3">
               {expenseData.labels.map((label, index) => (
                 <div key={label} className="flex items-center">

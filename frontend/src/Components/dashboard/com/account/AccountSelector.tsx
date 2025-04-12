@@ -121,20 +121,20 @@ export function AccountSelector() {
   // )
 
   // Handle form submission response
-  // useEffect(() => {
-  //   if (!state) return
+  useEffect(() => {
+    if (!state) return
 
-  //   if (state.status === 500) {
-  //     toast.error(state.message)
-  //   } else if (state.status === 200) {
-  //     toast.success(state.message)
-  //     if (state.data) {
-  //       dispatch(addAccount(state.data))
-  //       dispatch(selectAccount(state.data.id))
-  //       setIsCreateDialogOpen(false)
-  //     }
-  //   }
-  // }, [state, dispatch])
+    if (state.status === 500) {
+      toast.error(state.message)
+    } else if (state.status === 200) {
+      toast.success(state.message)
+      if (state.data) {
+        dispatch(addAccount(state.data))
+        dispatch(selectAccount(state.data.id))
+        setIsCreateDialogOpen(false)
+      }
+    }
+  }, [state, dispatch])
 
   // Delete account handler
   const handleDeleteAccount = useCallback(async () => {
@@ -151,11 +151,11 @@ export function AccountSelector() {
         toast.success(`Account "${selectedAccount.name}" deleted`)
 
         // Select another account if available
-        if (allAccounts.length > 1) {
+        if (allAccounts?.length > 1) {
           const remainingAccounts = allAccounts.filter(
             (acc) => acc.id !== selectedAccount.id
           )
-          if (remainingAccounts.length > 0) {
+          if (remainingAccounts?.length > 0) {
             dispatch(selectAccount(remainingAccounts[0].id))
           }
         }

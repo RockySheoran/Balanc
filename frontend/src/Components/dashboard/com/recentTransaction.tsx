@@ -76,7 +76,7 @@ export const RecentTransaction = () => {
     })
 
     const activeTypes = Object.keys(typeTotals)
-    const hasTransactions = activeTypes.length > 0
+    const hasTransactions = activeTypes?.length > 0
 
     return {
       labels: hasTransactions ? activeTypes : ["No transactions"],
@@ -161,7 +161,7 @@ export const RecentTransaction = () => {
           </div>
 
           <div className="space-y-3">
-            {recentTransactions.length > 0 ? (
+            {recentTransactions?.length > 0 ? (
               recentTransactions.map((transaction, index) => (
                 <motion.div
                   key={`${transaction.id}-${index}`}
