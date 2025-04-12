@@ -32,7 +32,8 @@ export const GetStockprice= async({name}: {name: string})=>{
         "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
       },
     }
-
+                     
+    
     try {
       const response = await axios.request(options)
       console.log(response.data)

@@ -1,5 +1,5 @@
 /** @format */
-
+"use server"
 
 import { ALL_TRANSACTION_URL } from "@/lib/EndPointApi"
 
