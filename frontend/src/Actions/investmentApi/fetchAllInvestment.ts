@@ -51,12 +51,12 @@ export const fetchAllInvestment = async ({
 
     return {
       status: response.status,
-      message: "Transactions fetched successfully",
+      message: "Investment fetched successfully",
       data: response.data.data,
     }
   } catch (error: any) {
     // Enhanced error handling
-    let errorMessage = "An error occurred while fetching transactions"
+    let errorMessage = "An error occurred while fetching investments"
     let statusCode = 500
 
     if (axios.isAxiosError(error)) {

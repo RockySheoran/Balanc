@@ -1,14 +1,12 @@
 /** @format */
 
-// src/app/dashboard/DashboardClient.tsx (Client Component)
+// src/app/dashboard/DashboardClient.tsx
 "use client"
 
-import { useEffect, Suspense, lazy } from "react"
+import { useEffect, Suspense } from "react"
 import { signOut } from "next-auth/react"
 import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
 import { clearUser, setUser } from "@/lib/Redux/features/user/userSlice"
-import { fetchAllTransactions } from "@/Actions/transactionActions/fetchAllTransactions"
-import { toast } from "sonner"
 import {
   addTransaction,
   clearTransactions,
@@ -17,13 +15,26 @@ import {
   addExpense,
   clearExpense,
 } from "@/lib/Redux/features/expense/expenseSlice"
-import useSWR from "swr"
+import {
+  addIncome,
+  clearIncome,
+} from "@/lib/Redux/features/income/incomeSlices"
+import {
+  clearAccount,
+  selectAccount,
+  setAccounts,
+} from "@/lib/Redux/features/account/accountSlice"
+import {
+  addBackendInvestment,
+  clearInvestments,
+} from "@/lib/Redux/features/investmentSlice/investmentSlice"
+
+import { fetchAllTransactions } from "@/Actions/transactionActions/fetchAllTransactions"
 import { fetchAllInvestment } from "@/Actions/investmentApi/fetchAllInvestment"
-import { addBackendInvestment, clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
-import { addIncome, clearIncome } from "@/lib/Redux/features/income/incomeSlices"
-import { clearAccount, selectAccount, setAccounts } from "@/lib/Redux/features/account/accountSlice"
 import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount"
 
+import { toast } from "sonner"
+import useSWR from "swr"
 
 interface SessionProps {
   session: {
@@ -32,208 +43,150 @@ interface SessionProps {
       email?: string | null
       image?: string | null
     }
-    token?: string // Added missing token property
+    token?: string
   } | null
 }
 
-/**
- * DashboardClient - Main dashboard component with optimized data fetching
- *
- * Features:
- * - Session management with automatic sign-out
- * - SWR for client-side data revalidation
- * - Lazy loading for heavy components
- * - Memoized selectors for performance
- * - Error boundaries for graceful failure
- * - Optimized Redux dispatches
- *
- * @param {SessionProps} session - User session data
- */
 export default function DashboardClient({ session }: SessionProps) {
-   const { allAccounts, selectedAccount, isLoading, error } = useAppSelector(
-      (state) => state.account
-    )
-  // console.log(session)
   const dispatch = useAppDispatch()
+  const { allAccounts, selectedAccount } = useAppSelector(
+    (state) => state.account
+  )
+  const { expenseTransactions, incomeTransactions } = useAppSelector(
+    (state) => state.transactions
+  )
 
-  const { expenseTransactions,incomeTransactions } = useAppSelector((state) => state.transactions)
-  // SWR configuration for client-side data revalidation
-    // Account data fetching with SWR
-    const { isLoading: isAccountsLoading } = useSWR(
-      session?.token ? "accounts" : null,
-      async () => {
-        try {
-          if (!session?.token) {
-            toast.error("Token is required to fetch accounts")
-            return  
-          }
-          console.log(
-            "111111111111111111111111111111111111111111111111111111111"
-          )
-          const response = await getAllAccounts({ token: session.token || "" })
-          console.log(response)
-          if (response?.status !== 200 || !response?.data) {
-            toast.error(response?.message || "Failed to fetch accounts")
-            return null
-          }
-  
-          return response.data
-        } catch (error) {
-          toast.error(
-            error instanceof Error ? error.message : "An unknown error occurred"
-          )
-          throw error
-        }
-      },
-      {
-        revalidateOnFocus: false,
-        shouldRetryOnError: false,
-        revalidateOnReconnect: true,
-        onSuccess: (data) => {
-          console.log(data)
-          dispatch(setAccounts(data))
-          if (!selectedAccount && data.length > 0) {
-            dispatch(selectAccount(data[0].id))
-          }
-        },
-        onError: (err) => toast.error(err.message),
+  // Fetch accounts
+  const { isLoading: isAccountsLoading } = useSWR(
+    session?.token ? "accounts" : null,
+    async () => {
+      const response = await getAllAccounts({ token: session?.token || "" })
+      if (response?.status !== 200 || !response?.data) {
+        toast.error(response?.message || "Failed to fetch accounts")
+        return null
       }
-    )
-
-  const { data: transactionsData, error: transactionsError } = useSWR(
-    selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
-    async (url) => {
-      const response = await fetchAllTransactions({
-        accountId: selectedAccount!.id,
-      })
-      
-      console.log(response)
-      if (response.status !== 200) throw new Error(response.message)
-      return response.data.transactions
+      return response.data
     },
     {
       revalidateOnFocus: false,
       shouldRetryOnError: false,
+      revalidateOnReconnect: true,
+      onSuccess: (data) => {
+        dispatch(setAccounts(data))
+        if (!selectedAccount && data.length > 0) {
+          dispatch(selectAccount(data[0].id))
+        }
+        toast.success("Accounts loaded successfully")
+      },
+      onError: (err) => toast.error(err.message),
     }
   )
-  // Session management effect
-  useEffect(() => {
-    
-    if (!session) {
-     
-      signOut({ redirect: true, callbackUrl: "/login" })
-      
-          dispatch(clearUser())
-          dispatch(clearIncome())
+
+  // Fetch transactions
+  const { data: transactionsData, error: transactionsError } = useSWR(
+    selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
+    async () => {
+      const response = await fetchAllTransactions({
+        accountId: selectedAccount!.id,
+      })
+      if (response.status !== 200) throw new Error(response.message)
+      return response.data
+    },
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+      revalidateOnReconnect: true,
+      onSuccess: (data) => {
+        if (data?.transactions) {
           dispatch(clearTransactions())
-          dispatch(clearExpense())
-          dispatch(clearAccount())
-          dispatch(clearInvestments())
+          data.transactions.forEach((transaction: any) => {
+            dispatch(addTransaction(transaction))
+          })
+          toast.success("Transactions loaded successfully")
+        } else {
+          toast.error("No transactions found")
+        }
+      },
+      onError: (err) => toast.error(err.message),
+    }
+  )
+
+  // Fetch investments
+  const { data: investmentData, error: investmentError } = useSWR(
+    selectedAccount?.id ? `/api/investment/${selectedAccount.id}` : null,
+    async () => {
+      const response = await fetchAllInvestment({
+        accountId: selectedAccount!.id,
+      })
+      if (response.status !== 200) throw new Error(response.message)
+      return response.data.investments
+    },
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+      revalidateOnReconnect: true,
+      onSuccess: (data) => {
+        dispatch(clearInvestments())
+        data.forEach((inv: any) => {
+          dispatch(addBackendInvestment(inv))
+        })
+        toast.success("Investments loaded successfully")
+      },
+      onError: (err) => toast.error("Failed to load investments"),
+    }
+  )
+
+  // Session effect
+  useEffect(() => {
+    if (!session) {
+      signOut({ redirect: true, callbackUrl: "/login" })
+      dispatch(clearUser())
+      dispatch(clearIncome())
+      dispatch(clearTransactions())
+      dispatch(clearExpense())
+      dispatch(clearAccount())
+      dispatch(clearInvestments())
     } else {
       dispatch(
         setUser({
           id: null,
           name: session.user?.name || "",
           email: session.user?.email || "",
-          // image: session.user?.image || "",
           token: session.token || "",
         })
       )
     }
   }, [session, dispatch])
 
-  // Transaction data effect with optimizations
-  useEffect(() => {
-    if (!selectedAccount?.id) return
-
-    const loadTransactions = async () => {
-      try {
-        console.log(transactionsData)
-        if (transactionsData) {
-          dispatch(clearTransactions())
-          transactionsData.forEach((transaction: any) => {
-            dispatch(addTransaction(transaction))
-          })
-        } else if (transactionsError) {
-          console.log(transactionsError)
-          toast.error("Failed to load transactions")
-        }
-      } catch (error) {
-        toast.error("An error occurred while processing transactions")
-      }
-    }
-
-    loadTransactions()
-  }, [selectedAccount?.id, transactionsData, transactionsError, dispatch])
-  
-  // Expense processing effect with debouncing
+  // Debounce expenses update
   useEffect(() => {
     const timer = setTimeout(() => {
       dispatch(clearExpense())
       expenseTransactions.forEach((transaction: any) => {
         dispatch(addExpense(transaction))
       })
-    }, 300) // Small debounce to avoid rapid updates
-    
+    }, 300)
+
     return () => clearTimeout(timer)
   }, [expenseTransactions, dispatch])
+
+  // Debounce income update
   useEffect(() => {
     const timer = setTimeout(() => {
       dispatch(clearIncome())
       incomeTransactions?.forEach((transaction: any) => {
         dispatch(addIncome(transaction))
       })
-    }, 300) // Small debounce to avoid rapid updates
+    }, 300)
 
     return () => clearTimeout(timer)
   }, [incomeTransactions, dispatch])
 
-  const { data: investmentData, error: investmentError } = useSWR(
-    selectedAccount?.id ? `/api/investment/${selectedAccount.id}` : null,
-    async (url) => {
-      const response = await fetchAllInvestment({
-        accountId: selectedAccount!.id,
-      })
-      console.log(response)
-      if (response.status !== 200) throw new Error(response.message)
-        return response.data.investments
-    },
-    {
-      revalidateOnFocus: false,
-      shouldRetryOnError: false,
-    }
-  )
-  
-  useEffect(() => {
-    if (!selectedAccount?.id) return
-
-    const loadInvestment = async () => {
-      try {
-        console.log(investmentData)
-        if (investmentData) {
-          dispatch(clearInvestments())
-          investmentData.forEach((transaction: any) => {
-            dispatch(addBackendInvestment(transaction))
-          })
-        } else if (investmentError) {
-          toast.error("Failed to load investments ")
-        }
-      } catch (error) {
-        toast.error("An error occurred while processing transactions")
-      }
-    }
-
-    loadInvestment()
-  }, [selectedAccount?.id, investmentData, investmentError, dispatch])
-
-  return (
-  <></>
-  )
+  return null
 }
 
-// Optional: Create a wrapper for SSR/SSG/ISR support
-export  function DashboardServerWrapper({ session }: SessionProps) {
-  // This could pre-fetch data on the server if needed
+// Wrapper for Suspense support
+export function DashboardServerWrapper({ session }: SessionProps) {
   return (
     <Suspense fallback={<div>Loading dashboard...</div>}>
       <DashboardClient session={session} />
