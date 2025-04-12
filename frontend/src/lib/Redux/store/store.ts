@@ -36,7 +36,7 @@ const persistConfig = {
   version: 1,
   storage,
   // whitelist: ["user"], // Only persist these reducers
-  blacklist: ["temporaryData"], // Exclude from persistence
+  // blacklist: ["temporaryData"], // Exclude from persistence
 }
 
 // 3. Create persisted reducer

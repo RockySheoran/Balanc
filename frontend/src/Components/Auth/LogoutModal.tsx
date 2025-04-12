@@ -31,14 +31,14 @@ export default function LogoutModal({
 }) {
   const dispatch = useAppDispatch()
   const handleLogout = () => {
-    signOut({ redirect: true, callbackUrl: "/login" })
-
     dispatch(clearUser())
     dispatch(clearIncome())
     dispatch(clearTransactions())
     dispatch(clearExpense())
     dispatch(clearAccount())
     dispatch(clearInvestments())
+    signOut({ redirect: true, callbackUrl: "/login" })
+
   }
 
   const handleCancel = () => {

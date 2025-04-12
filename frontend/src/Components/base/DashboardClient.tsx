@@ -86,10 +86,12 @@ export default function DashboardClient({ session }: SessionProps) {
   const { data: transactionsData, error: transactionsError } = useSWR(
     selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
     async () => {
+      console.log(`objectfffffffffffffffffffffffffffffffffffffffffffffffffffff`)
       const response = await fetchAllTransactions({
         accountId: selectedAccount!.id,
       })
       if (response.status !== 200) throw new Error(response.message)
+      console.log(response.data)
       return response.data
     },
     {
@@ -97,9 +99,10 @@ export default function DashboardClient({ session }: SessionProps) {
       shouldRetryOnError: false,
       revalidateOnReconnect: true,
       onSuccess: (data) => {
+        console.log(data)
         if (data?.transactions) {
           dispatch(clearTransactions())
-          data.transactions.forEach((transaction: any) => {
+          data?.transactions?.forEach((transaction: any) => {
             dispatch(addTransaction(transaction))
           })
           toast.success("Transactions loaded successfully")
