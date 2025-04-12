@@ -224,7 +224,9 @@ export function AccountSelector() {
                 </DialogTitle>
               </DialogHeader>
               <form
-                action={(formData) => formAction({ formData, token: token || "" })}
+                action={(formData) =>
+                  formAction({ formData, token: token || "" })
+                }
                 className="space-y-4">
                 <div className="space-y-2">
                   <Label
@@ -282,14 +284,14 @@ export function AccountSelector() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800">
+                      className="border-gray-300 cursor-pointer dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800">
                       Cancel
                     </Button>
                   </DialogTrigger>
                   <Button
                     type="submit"
                     disabled={pending}
-                    className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all"
+                    className="bg-gradient-to-r cursor-pointer from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all"
                     aria-disabled={pending}>
                     {pending ? (
                       <span className="flex items-center">

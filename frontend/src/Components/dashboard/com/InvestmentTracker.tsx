@@ -25,6 +25,7 @@ import {
   FiTrendingDown,
   FiRefreshCw,
   FiAlertTriangle,
+  FiInfo,
 } from "react-icons/fi"
 import { Skeleton } from "@/Components/ui/skeleton"
 import {
@@ -90,11 +91,20 @@ interface PortfolioSummary {
   worstPerformer: Investment | null
 }
 
+const DEFAULT_SUMMARY: PortfolioSummary = {
+  totalInvested: 0,
+  currentValue: 0,
+  profitLoss: 0,
+  profitLossPercentage: 0,
+  bestPerformer: null,
+  worstPerformer: null
+}
+
 const InvestmentTracker = () => {
   // State
   const investments = useAppSelector((state) => state.investment.investments)
   const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState<PortfolioSummary | null>(null)
+  const [summary, setSummary] = useState<PortfolioSummary>(DEFAULT_SUMMARY)
   const [timeRange, setTimeRange] = useState<TimeRange>("1mo")
   const [interval, setInterval] = useState<Interval>("1d")
   const [apiError, setApiError] = useState<string | null>(null)
@@ -108,6 +118,8 @@ const InvestmentTracker = () => {
       .slice(0, 5),
     [investments]
   )
+
+  const hasInvestments = topInvestments.length > 0
 
   // Formatting utilities
   const formatCurrency = useCallback((amount: number) => 
@@ -125,8 +137,13 @@ const InvestmentTracker = () => {
     []
   )
 
-  // Portfolio calculations (unchanged logic)
+  // Portfolio calculations
   const calculateSummary = useCallback((investments: Investment[]) => {
+    if (investments.length === 0) {
+      setSummary(DEFAULT_SUMMARY)
+      return
+    }
+
     const totalInvested = investments.reduce(
       (sum, investment) => sum + investment.buyPrice * investment.quantity,
       0
@@ -139,15 +156,14 @@ const InvestmentTracker = () => {
     )
 
     const profitLoss = currentValue - totalInvested
-    const profitLossPercentage = (profitLoss / totalInvested) * 100
+    const profitLossPercentage = totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0
 
     const performers = investments
       .map((investment) => ({
         ...investment,
-        performance: (
-          ((investment.currentValue || investment.buyPrice) - investment.buyPrice) / 
-          investment.buyPrice * 100
-        )
+        performance: investment.buyPrice > 0 ?
+          (((investment.currentValue || investment.buyPrice) - investment.buyPrice) / 
+          investment.buyPrice * 100) : 0
       }))
       .sort((a, b) => b.performance - a.performance)
 
@@ -157,56 +173,65 @@ const InvestmentTracker = () => {
       profitLoss,
       profitLossPercentage,
       bestPerformer: performers[0] || null,
-      worstPerformer: performers[performers?.length - 1] || null,
+      worstPerformer: performers[performers.length - 1] || null,
     })
   }, [])
 
-  // Data fetching (unchanged logic)
+  // Data fetching
   const fetchStockChartData = useCallback(async (symbol: string) => {
     try {
-      const response = await axios.get(`${Stock_API_URL1}/api/stock/get-chart`, {
-        params: {
-          symbol,
-          range: timeRange,
-          interval,
-          region: symbol.includes(".NS") ? "IN" : "US",
-        },
-        headers: {
-          "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI1,
-          "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
-        },
-      })
+      const response = await axios.get(
+        `https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart`,
+        {
+          params: {
+            symbol,
+            range: timeRange,
+            interval,
+            region: symbol.includes(".NS") ? "IN" : "US",
+          },
+          headers: {
+            "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI1,
+            "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
+          },
+        }
+      )
 
       if (!response.data?.chart?.result?.[0]) {
-        throw new Error(`No data received for ${symbol}`)
+        // toast.error(`No data received for ${symbol}`)
       }
       return response.data
     } catch (err) {
-      // toast.error(`Error fetching data for ${symbol}`)
+      if (axios.isAxiosError(err) && err.response) {
+        toast.error(err.response.data.message)
+      } else {
+        toast("An unexpected error occurred")
+      }
       return null
     }
   }, [timeRange, interval])
 
   const fetchAllData = useCallback(async () => {
-    if (topInvestments?.length === 0) return
-
     try {
       setLoading(true)
       setApiError(null)
 
+      if (!hasInvestments) {
+        setChartData([])
+        calculateSummary([])
+        return
+      }
+
       const allData = await Promise.all(
-        topInvestments.map((inv) => fetchStockChartData(inv.symbol))
-      )
+        topInvestments.map((inv) => fetchStockChartData(inv.symbol)))
       const validData = allData.filter(Boolean)
 
-      if (validData?.length === 0) {
-        throw new Error("No valid chart data received and free api request completed")
+      if (validData.length === 0 && topInvestments.length > 0) {
+        toast.error("No valid chart data received")
       }
 
       setChartData(validData)
       calculateSummary(topInvestments)
       setLastUpdated(new Date())
-      toast.success("Portfolio updated")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load data"
       setApiError(errorMessage)
@@ -214,16 +239,27 @@ const InvestmentTracker = () => {
     } finally {
       setLoading(false)
     }
-  }, [topInvestments, fetchStockChartData, calculateSummary])
+  }, [topInvestments, fetchStockChartData, calculateSummary, hasInvestments])
 
   // Initial data load
   useEffect(() => {
     fetchAllData()
   }, [fetchAllData])
 
-  // Chart data preparation (optimized)
+  // Chart data preparation
   const lineChartData = useMemo(() => {
-    if (chartData?.length === 0) return { labels: [], datasets: [] }
+    if (!hasInvestments || chartData.length === 0) {
+      return {
+        labels: ['No Data'],
+        datasets: [{
+          label: 'No Investments',
+          data: [1],
+          borderColor: '#cccccc',
+          backgroundColor: '#f0f0f0',
+          borderWidth: 1
+        }]
+      }
+    }
 
     const referenceTimestamps = chartData[0]?.chart?.result?.[0]?.timestamp || []
     
@@ -245,10 +281,10 @@ const InvestmentTracker = () => {
         const result = data.chart.result[0]
         const meta = result.meta
         const quotes = result.indicators.quote[0]
-        const color = COLOR_PALETTE[index % COLOR_PALETTE?.length]
+        const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
 
         return {
-          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName?.length > 15 ? "..." : ""}`,
+          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName.length > 15 ? "..." : ""}`,
           data: quotes.close,
           borderColor: color,
           backgroundColor: `${color}20`,
@@ -259,20 +295,22 @@ const InvestmentTracker = () => {
         }
       }),
     }
-  }, [chartData, timeRange])
+  }, [chartData, timeRange, hasInvestments])
 
   const pieChartData = useMemo(() => ({
-    labels: topInvestments.map((inv) => inv.symbol),
+    labels: hasInvestments ? 
+      topInvestments.map((inv) => inv.symbol) : 
+      ['No Investments'],
     datasets: [{
-      data: topInvestments.map(inv => 
-        (inv.currentValue || inv.buyPrice) * inv.quantity
-      ),
-      backgroundColor: topInvestments.map(
-        (_, i) => COLOR_PALETTE[i % COLOR_PALETTE?.length]
-      ),
+      data: hasInvestments ? 
+        topInvestments.map(inv => (inv.currentValue || inv.buyPrice) * inv.quantity) : 
+        [1],
+      backgroundColor: hasInvestments ? 
+        topInvestments.map((_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]) : 
+        ['#cccccc'],
       borderWidth: 1,
     }],
-  }), [topInvestments])
+  }), [topInvestments, hasInvestments])
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -285,7 +323,7 @@ const InvestmentTracker = () => {
       tooltip: {
         callbacks: {
           label: (context: any) => 
-            `${context.dataset.label}: ${formatCurrency(context.raw)}`
+            `${context.dataset.label}: ${hasInvestments ? formatCurrency(context.raw) : 'N/A'}`
         },
       },
     },
@@ -294,54 +332,27 @@ const InvestmentTracker = () => {
       axis: "x" as const,
       intersect: false,
     },
-  }), [formatCurrency])
+  }), [formatCurrency, hasInvestments])
 
   // Event handlers
-  const handleRefresh = useCallback(() => fetchAllData(), [fetchAllData])
+  const handleRefresh = useCallback(() => {
+    fetchAllData()
+    toast.success("Refreshing data...")
+  }, [fetchAllData])
 
   const handleRangeChange = useCallback((value: TimeRange) => {
     setTimeRange(value)
     setInterval(value === "1d" || value === "5d" ? "1d" : "1wk")
   }, [])
 
-  // Loading and empty states
-  if (loading && !chartData?.length) {
-    return (
-      <div className="max-w-7xl mx-auto p-4 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <Skeleton className="h-80 rounded-xl" />
-          <Skeleton className="h-80 rounded-xl" />
-        </div>
-        <Skeleton className="h-96 rounded-xl" />
-      </div>
-    )
-  }
-
-  if (topInvestments?.length === 0) {
-    return (
-      <div className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col items-center justify-center h-96">
-        <p className="text-gray-500 text-lg mb-4">No investments found</p>
-        <Button onClick={fetchAllData} variant="outline">
-          <FiRefreshCw className="mr-2" />
-          Refresh
-        </Button>
-      </div>
-    )
-  }
-
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Investment Portfolio</h1>
-        <div className="flex items-center mt-4 md:mt-0">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Investment Portfolio</h1>
+        <div className="flex items-center mt-4 md:mt-0 space-x-2">
           {lastUpdated && (
-            <p className="text-sm text-gray-500 mr-4">
+            <p className="text-xs md:text-sm text-gray-500">
               Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
             </p>
           )}
@@ -350,91 +361,151 @@ const InvestmentTracker = () => {
             disabled={loading}
             variant="outline"
             size="sm"
-            className="flex items-center gap-2"
+            className="flex items-center gap-1 md:gap-2"
           >
-            {loading ? <FiRefreshCw className="animate-spin" /> : <FiRefreshCw />}
-            Refresh
+            {loading ? (
+              <FiRefreshCw className="animate-spin h-4 w-4" />
+            ) : (
+              <FiRefreshCw className="h-4 w-4" />
+            )}
+            <span className="hidden md:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
-      {/* Error messages */}
-      {apiError && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6"
-        >
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <FiAlertTriangle className="h-5 w-5 text-yellow-500" />
+      {/* Status Messages */}
+      <div className="space-y-3 mb-6">
+        {apiError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-yellow-50 border-l-4 border-yellow-500 p-3 md:p-4 rounded"
+          >
+            <div className="flex items-start">
+              <FiAlertTriangle className="flex-shrink-0 h-5 w-5 text-yellow-500 mt-0.5" />
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">{apiError}</p>
+              </div>
             </div>
-            <div className="ml-3">
-              <p className="text-sm text-yellow-700">{apiError}</p>
+          </motion.div>
+        )}
+
+        {!hasInvestments && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-red-50 border-l-4 border-red-500 p-3 md:p-4 rounded"
+          >
+            <div className="flex items-start">
+              <FiInfo className="flex-shrink-0 h-5 w-5 text-red-500 mt-0.5" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">No investments found</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  Add investments to see your portfolio analysis
+                </p>
+              </div>
             </div>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Invested */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
         <SummaryCard
           title="Total Invested"
-          value={summary?.totalInvested}
-          icon={<FiDollarSign size={20} />}
+          value={summary.totalInvested}
+          icon={<FiDollarSign className="h-5 w-5" />}
           color="blue"
-          description="Top 5 investments by value"
+          description={hasInvestments ? "Across all holdings" : "No investments"}
           formatValue={formatCurrency}
+          loading={loading}
         />
 
-        {/* Current Value */}
         <SummaryCard
           title="Current Value"
-          value={summary?.currentValue}
-          icon={<FiTrendingUp size={20} />}
+          value={summary.currentValue}
+          icon={<FiTrendingUp className="h-5 w-5" />}
           color="green"
-          description={summary ? formatPercentage(summary.profitLossPercentage) : "--"}
+          description={
+            hasInvestments ? 
+              `${formatPercentage(summary.profitLossPercentage)}` : 
+              "--"
+          }
           formatValue={formatCurrency}
+          loading={loading}
         />
 
-        {/* Profit/Loss */}
         <SummaryCard
           title="Profit/Loss"
-          value={summary?.profitLoss}
-          icon={summary?.profitLoss && summary.profitLoss >= 0 ? 
-            <FiTrendingUp size={20} /> : <FiTrendingDown size={20} />}
-          color={summary?.profitLoss && summary.profitLoss >= 0 ? "green" : "red"}
-          description={summary?.profitLoss && summary.profitLoss >= 0 ? "Profit" : "Loss"}
-          percentage={summary?.profitLossPercentage}
+          value={summary.profitLoss}
+          icon={
+            summary.profitLoss >= 0 ? 
+              <FiTrendingUp className="h-5 w-5" /> : 
+              <FiTrendingDown className="h-5 w-5" />
+          }
+          color={summary.profitLoss >= 0 ? "green" : "red"}
+          description={
+            hasInvestments ? 
+              `${summary.profitLoss >= 0 ? "Profit" : "Loss"}` : 
+              "--"
+          }
+          percentage={summary.profitLossPercentage}
           formatValue={formatCurrency}
           formatPercentage={formatPercentage}
+          loading={loading}
         />
 
-        {/* Best Performer */}
         <PerformanceCard 
-          performer={summary?.bestPerformer}
-          title="Best Performer"
-          icon={<FiArrowUp size={20} />}
+          performer={summary.bestPerformer}
+          title={hasInvestments ? "Best Performer" : "Top Holding"}
+          icon={<FiArrowUp className="h-5 w-5" />}
           color="purple"
           formatPercentage={formatPercentage}
+          loading={loading}
+          hasInvestments={hasInvestments}
         />
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Performance Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-8">
         <ChartSection
-          title="Top 5 Holdings Performance"
-          chart={<Line data={lineChartData} options={chartOptions} />}
+          title={hasInvestments ? "Performance Trend" : "Performance Overview"}
+          chart={
+            loading ? (
+              <div className="h-80 flex items-center justify-center">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : (
+              <Line 
+                data={lineChartData} 
+                options={chartOptions} 
+                className="h-80"
+              />
+            )
+          }
           timeRange={timeRange}
           onRangeChange={handleRangeChange}
+          hasInvestments={hasInvestments}
+          loading={loading}
         />
 
-        {/* Allocation Chart */}
         <ChartSection
-          title="Top 5 Holdings Allocation"
-          chart={<Pie data={pieChartData} options={chartOptions} />}
+          title={hasInvestments ? "Portfolio Allocation" : "Investment Distribution"}
+          chart={
+            loading ? (
+              <div className="h-80 flex items-center justify-center">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : (
+              <Pie 
+                data={pieChartData} 
+                options={chartOptions} 
+                className="h-80"
+              />
+            )
+          }
+          hasInvestments={hasInvestments}
+          loading={loading}
         />
       </div>
 
@@ -443,13 +514,27 @@ const InvestmentTracker = () => {
         investments={topInvestments} 
         formatCurrency={formatCurrency}
         formatPercentage={formatPercentage}
+        hasInvestments={hasInvestments}
+        loading={loading}
       />
     </div>
   )
 }
 
-// Sub-components for better organization
-const SummaryCard = ({
+// Sub-components
+interface SummaryCardProps {
+  title: string
+  value: number
+  icon: React.ReactNode
+  color: "blue" | "green" | "red" | "purple"
+  description?: string
+  percentage?: number
+  formatValue: (value: number) => string
+  formatPercentage?: (value: number) => string
+  loading?: boolean
+}
+
+const SummaryCard: React.FC<SummaryCardProps> = ({
   title,
   value,
   icon,
@@ -457,132 +542,165 @@ const SummaryCard = ({
   description,
   percentage,
   formatValue,
-  formatPercentage
-}: {
-  title: string
-  value?: number
-  icon: React.ReactNode
-  color: "blue" | "green" | "red" | "purple"
-  description?: string
-  percentage?: number
-  formatValue: (value: number) => string
-  formatPercentage?: (value: number) => string
+  formatPercentage,
+  loading = false
 }) => {
   const colorClasses = {
-    blue: { bg: "bg-blue-50", text: "text-blue-500", border: "border-gray-100" },
-    green: { bg: "bg-green-50", text: "text-green-500", border: "border-gray-100" },
-    red: { bg: "bg-red-50", text: "text-red-500", border: "border-red-100" },
-    purple: { bg: "bg-purple-50", text: "text-purple-500", border: "border-gray-100" },
+    blue: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-100" },
+    green: { bg: "bg-green-50", text: "text-green-600", border: "border-green-100" },
+    red: { bg: "bg-red-50", text: "text-red-600", border: "border-red-100" },
+    purple: { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-100" },
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white rounded-xl shadow-md p-6 border ${colorClasses[color].border}`}
+      className={`bg-white rounded-lg shadow-sm p-4 border ${colorClasses[color].border} h-full`}
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-gray-500 font-medium">{title}</h3>
+        <h3 className="text-sm md:text-base font-medium text-gray-600">{title}</h3>
         <div className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
           {icon}
         </div>
       </div>
-      <p className="text-2xl font-bold text-gray-900 mt-2">
-        {value !== undefined ? formatValue(value) : "--"}
-      </p>
-      {percentage !== undefined ? (
-        <div className="flex items-center mt-1">
-          <span className={`text-sm ${percentage >= 0 ? "text-green-500" : "text-red-500"}`}>
-            {formatPercentage?.(percentage) ?? percentage}
-          </span>
+      
+      {loading ? (
+        <div className="mt-3 space-y-2">
+          <Skeleton className="h-7 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
         </div>
       ) : (
-        <p className="text-sm text-gray-500 mt-1">{description}</p>
+        <>
+          <p className="text-xl md:text-2xl font-bold text-gray-900 mt-2">
+            {formatValue(value)}
+          </p>
+          {percentage !== undefined ? (
+            <div className="flex items-center mt-1">
+              <span className={`text-sm ${percentage >= 0 ? "text-green-600" : "text-red-600"}`}>
+                {formatPercentage?.(percentage) ?? percentage}
+              </span>
+            </div>
+          ) : (
+            <p className="text-xs md:text-sm text-gray-500 mt-1">{description}</p>
+          )}
+        </>
       )}
     </motion.div>
   )
 }
 
-const PerformanceCard = ({
+interface PerformanceCardProps {
+  performer: Investment | null
+  title: string
+  icon: React.ReactNode
+  color: "blue" | "green" | "red" | "purple"
+  formatPercentage?: (value: number) => string
+  loading?: boolean
+  hasInvestments?: boolean
+}
+
+const PerformanceCard: React.FC<PerformanceCardProps> = ({
   performer,
   title,
   icon,
   color,
-  formatPercentage
-}: {
-  performer?: Investment | null
-  title: string
-  icon: React.ReactNode
-  color: "blue" | "green" | "red" | "purple"
-  formatPercentage?: (value: number) => string
+  formatPercentage,
+  loading = false,
+  hasInvestments = false
 }) => {
   const colorClasses = {
-    blue: { bg: "bg-blue-50", text: "text-blue-500" },
-    green: { bg: "bg-green-50", text: "text-green-500" },
-    red: { bg: "bg-red-50", text: "text-red-500" },
-    purple: { bg: "bg-purple-50", text: "text-purple-500" },
+    blue: { bg: "bg-blue-50", text: "text-blue-600" },
+    green: { bg: "bg-green-50", text: "text-green-600" },
+    red: { bg: "bg-red-50", text: "text-red-600" },
+    purple: { bg: "bg-purple-50", text: "text-purple-600" },
   }
+
+  const performanceValue = performer && performer.buyPrice > 0 ?
+    (((performer.currentValue || performer.buyPrice) - performer.buyPrice) / performer.buyPrice * 100 ): 0
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl shadow-md p-6 border border-gray-100"
+      className="bg-white rounded-lg shadow-sm p-4 border border-gray-100 h-full"
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-gray-500 font-medium">{title}</h3>
+        <h3 className="text-sm md:text-base font-medium text-gray-600">{title}</h3>
         <div className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
           {icon}
         </div>
       </div>
-      {performer ? (
-        <div className="mt-2">
-          <p className="text-xl font-bold">{performer.symbol}</p>
-          <p className="text-sm text-gray-500">
-            {performer.name.substring(0, 15)}
-            {performer.name?.length > 15 ? "..." : ""}
-          </p>
-          <p className="text-green-500 font-medium mt-1">
-            {formatPercentage?.(
-              (((performer.currentValue || performer.buyPrice) - performer.buyPrice) /
-              performer.buyPrice) * 100
-            ) ?? (
-              `+${(
-                (((performer.currentValue || performer.buyPrice) - performer.buyPrice) /
-                performer.buyPrice) * 100
-              ).toFixed(2)}%`
-            )}
-          </p>
+      
+      {loading ? (
+        <div className="mt-3 space-y-2">
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-1/3" />
         </div>
       ) : (
-        <p className="text-gray-500 mt-2">--</p>
+        <div className="mt-2">
+          {hasInvestments && performer ? (
+            <>
+              <p className="text-lg md:text-xl font-bold text-gray-900">
+                {performer.symbol}
+              </p>
+              <p className="text-xs md:text-sm text-gray-500 truncate">
+                {performer.name}
+              </p>
+              <p className={`mt-1 text-sm md:text-base font-medium ${
+                performanceValue >= 0 ? "text-green-600" : "text-red-600"
+              }`}>
+                {formatPercentage?.(performanceValue) ?? `${performanceValue.toFixed(2)}%`}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg md:text-xl font-bold text-gray-400">--</p>
+              <p className="text-xs md:text-sm text-gray-400">No data</p>
+              <p className="mt-1 text-sm md:text-base text-gray-400">0%</p>
+            </>
+          )}
+        </div>
       )}
     </motion.div>
   )
 }
 
-const ChartSection = ({
-  title,
-  chart,
-  timeRange,
-  onRangeChange
-}: {
+interface ChartSectionProps {
   title: string
   chart: React.ReactNode
   timeRange?: TimeRange
   onRangeChange?: (value: TimeRange) => void
+  hasInvestments?: boolean
+  loading?: boolean
+}
+
+const ChartSection: React.FC<ChartSectionProps> = ({
+  title,
+  chart,
+  timeRange,
+  onRangeChange,
+  hasInvestments = false,
+  loading = false
 }) => (
   <motion.div
-    initial={{ opacity: 0, x: title === "Performance" ? -20 : 20 }}
+    initial={{ opacity: 0, x: title.includes("Performance") ? -10 : 10 }}
     animate={{ opacity: 1, x: 0 }}
-    className="bg-white p-6 rounded-xl shadow-md border border-gray-100"
+    className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-100"
   >
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+      <h3 className="text-base md:text-lg font-semibold text-gray-800">
+        {title}
+      </h3>
       {timeRange && onRangeChange && (
-        <Select value={timeRange} onValueChange={onRangeChange}>
+        <Select 
+          value={timeRange} 
+          onValueChange={onRangeChange}
+          disabled={!hasInvestments || loading}
+        >
           <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="Time Range" />
+            <SelectValue placeholder="Range" />
           </SelectTrigger>
           <SelectContent>
             {RANGE_OPTIONS.map((option) => (
@@ -594,26 +712,36 @@ const ChartSection = ({
         </Select>
       )}
     </div>
-    <div className="h-80">{chart}</div>
+    <div className="h-64 md:h-80">
+      {chart}
+    </div>
   </motion.div>
 )
 
-const HoldingsTable = ({
-  investments,
-  formatCurrency,
-  formatPercentage
-}: {
+interface HoldingsTableProps {
   investments: Investment[]
   formatCurrency: (value: number) => string
   formatPercentage: (value: number) => string
+  hasInvestments?: boolean
+  loading?: boolean
+}
+
+const HoldingsTable: React.FC<HoldingsTableProps> = ({
+  investments,
+  formatCurrency,
+  formatPercentage,
+  hasInvestments = false,
+  loading = false
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100"
+    className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100"
   >
-    <div className="p-6 border-b border-gray-200">
-      <h3 className="text-xl font-semibold text-gray-800">Your Top 5 Holdings</h3>
+    <div className="p-4 md:p-6 border-b border-gray-200">
+      <h3 className="text-lg md:text-xl font-semibold text-gray-800">
+        {hasInvestments ? "Your Holdings" : "Investment Summary"}
+      </h3>
     </div>
 
     <div className="overflow-x-auto">
@@ -626,7 +754,7 @@ const HoldingsTable = ({
             ].map((header) => (
               <th
                 key={header}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
               >
                 {header}
               </th>
@@ -634,57 +762,77 @@ const HoldingsTable = ({
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {investments.map((investment) => {
-            const invested = investment.buyPrice * investment.quantity
-            const currentValue = (investment.currentValue || investment.buyPrice) * investment.quantity
-            const profitLoss = currentValue - invested
-            const profitLossPercentage = (profitLoss / invested) * 100
-
-            return (
-              <tr key={investment.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                  {investment.symbol}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                  {investment.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                  {format(new Date(investment.buyDate), "MMM dd, yyyy")}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                  {formatCurrency(investment.buyPrice)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap font-medium">
-                  {investment.currentValue
-                    ? formatCurrency(investment.currentValue)
-                    : "--"}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                  {investment.quantity}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                  {formatCurrency(invested)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap font-medium">
-                  {formatCurrency(currentValue)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div
-                    className={`flex items-center ${
-                      profitLoss >= 0 ? "text-green-500" : "text-red-500"
-                    }`}
-                  >
-                    {profitLoss >= 0 ? (
-                      <FiArrowUp className="mr-1" />
-                    ) : (
-                      <FiArrowDown className="mr-1" />
-                    )}
-                    {formatCurrency(profitLoss)} ({formatPercentage(profitLossPercentage)})
-                  </div>
-                </td>
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <tr key={`skeleton-${i}`}>
+                {Array.from({ length: 9 }).map((_, j) => (
+                  <td key={`skeleton-${i}-${j}`} className="px-4 py-3">
+                    <Skeleton className="h-4 w-full" />
+                  </td>
+                ))}
               </tr>
-            )
-          })}
+            ))
+          ) : hasInvestments ? (
+            investments.map((investment) => {
+              const invested = investment.buyPrice * investment.quantity
+              const currentValue = (investment.currentValue || investment.buyPrice) * investment.quantity
+              const profitLoss = currentValue - invested
+              const profitLossPercentage = invested > 0 ? (profitLoss / invested) * 100 : 0
+
+              return (
+                <tr key={investment.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {investment.symbol}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 truncate max-w-[120px]">
+                    {investment.name}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {format(new Date(investment.buyDate), "MMM dd, yyyy")}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {formatCurrency(investment.buyPrice)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                    {investment.currentValue
+                      ? formatCurrency(investment.currentValue)
+                      : "--"}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {investment.quantity}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {formatCurrency(invested)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                    {formatCurrency(currentValue)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <div
+                      className={`flex items-center ${
+                        profitLoss >= 0 ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {profitLoss >= 0 ? (
+                        <FiArrowUp className="mr-1 flex-shrink-0" />
+                      ) : (
+                        <FiArrowDown className="mr-1 flex-shrink-0" />
+                      )}
+                      <span>
+                        {formatCurrency(profitLoss)} ({formatPercentage(profitLossPercentage)})
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })
+          ) : (
+            <tr>
+              <td colSpan={9} className="px-4 py-6 text-center text-sm text-gray-500">
+                No investment data available
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

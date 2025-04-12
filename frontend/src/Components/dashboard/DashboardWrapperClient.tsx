@@ -24,12 +24,12 @@ export default async function DashboardWrapperClient() {
         }>
         <DashboardWrapper />
       </Suspense>
-      <Suspense
+      {/* <Suspense
         fallback={
           <div className="h-64 bg-gray-200 animate-pulse rounded-md" />
         }>
         <DashboardServerWrapper session={session} />
-      </Suspense>
+      </Suspense> */}
     </>
   )
 }

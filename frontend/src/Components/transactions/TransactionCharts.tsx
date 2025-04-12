@@ -220,12 +220,12 @@ const TransactionCharts = memo(() => {
         transition={{ duration: 0.5 }}>
         <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50">
           <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row space-y-1 justify-between ">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <FiTrendingUp className="text-emerald-500" />
                 Monthly Cash Flow
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-2 content-center text-center">
                 <span className="text-sm px-2 py-1 bg-emerald-100 text-emerald-800 rounded-full">
                   Income: {currencyFormatter(totals.income)}
                 </span>

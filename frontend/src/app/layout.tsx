@@ -39,7 +39,7 @@ export default async function RootLayout({
     <html lang="en" className={`${inter.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ReduxProvider>
-          <ClientSessionProvider session={session}>
+          <ClientSessionProvider >
             <div className="flex flex-col md:flex-row">
               {session && (
                 <>
