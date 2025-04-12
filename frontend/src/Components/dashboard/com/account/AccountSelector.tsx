@@ -121,20 +121,20 @@ export function AccountSelector() {
   // )
 
   // Handle form submission response
-  useEffect(() => {
-    if (!state) return
+  // useEffect(() => {
+  //   if (!state) return
 
-    if (state.status === 500) {
-      toast.error(state.message)
-    } else if (state.status === 200) {
-      toast.success(state.message)
-      if (state.data) {
-        dispatch(addAccount(state.data))
-        dispatch(selectAccount(state.data.id))
-        setIsCreateDialogOpen(false)
-      }
-    }
-  }, [state, dispatch])
+  //   if (state.status === 500) {
+  //     toast.error(state.message)
+  //   } else if (state.status === 200) {
+  //     toast.success(state.message)
+  //     if (state.data) {
+  //       dispatch(addAccount(state.data))
+  //       dispatch(selectAccount(state.data.id))
+  //       setIsCreateDialogOpen(false)
+  //     }
+  //   }
+  // }, [state, dispatch])
 
   // Delete account handler
   const handleDeleteAccount = useCallback(async () => {
@@ -186,14 +186,14 @@ export function AccountSelector() {
   )
 
   // Loading state
-  if (!allAccounts || allAccounts.length === 0) {
-    return (
-      <div className="w-full p-4 space-y-6">
-        <Skeleton className="h-10 w-1/3 rounded-md" />
-        <Skeleton className="h-20 w-full rounded-md" />
-      </div>
-    )
-  }
+  // if (!allAccounts || allAccounts.length === 0) {
+  //   return (
+  //     <div className="w-full p-4 space-y-6">
+  //       <Skeleton className="h-10 w-1/3 rounded-md" />
+  //       <Skeleton className="h-20 w-full rounded-md" />
+  //     </div>
+  //   )  
+  // }
 
   return (
     <div className="w-full p-4 space-y-6">
