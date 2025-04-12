@@ -19,6 +19,7 @@
   "dependencies": {
     "@prisma/client": "^6.5.0",
     "@types/express-session": "^1.18.1",
+    "@vercel/speed-insights": "^1.2.0",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.44.0",
     "connect-redis": "^8.0.2",

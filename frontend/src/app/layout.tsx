@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "./api/auth/[...nextauth]/options"
 
 import { Inter } from "next/font/google"
-
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import ReduxProvider from "./providers/ReduxProvider"
 
 import SideBarWrapper from "@/Components/base/SideBarWrapper"
@@ -65,8 +65,6 @@ export default async function RootLayout({
         <ReduxProvider>
           <ClientSessionProvider>
             <div className="flex flex-col md:flex-row">
-              
-
               {session && (
                 <>
                   <SideBarWrapper Session={session} />
@@ -76,6 +74,7 @@ export default async function RootLayout({
               <main className="flex-1 overflow-x-hidden md:mt-0 ">
                 {children}
                 <Analytics />
+                <SpeedInsights />
               </main>
             </div>
             <Toaster

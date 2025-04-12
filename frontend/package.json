@@ -30,6 +30,7 @@
     "@types/react-datepicker": "^6.2.0",
     "@types/react-icons": "^2.2.7",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "alphavantage": "^2.5.0",
     "axios": "^1.8.4",
     "chart.js": "^4.4.8",
