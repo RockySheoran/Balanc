@@ -167,7 +167,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         })
 
         if (!response.data?.chart?.result?.[0]) {
-          throw new Error(`Invalid data structure for ${symbol}`)
+          // throw new Error(`Invalid data structure for ${symbol}`)
         }
 
         // Update cache

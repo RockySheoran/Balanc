@@ -37,7 +37,6 @@ interface InvestmentState {
   lastFetchTime: string | null
   currentApiKeyIndex: number
   apiKeyStatus: Record<string, { valid: boolean; lastChecked: string }>
-  retryCount: number
 }
 
 const initialState: InvestmentState = {
@@ -54,15 +53,14 @@ const initialState: InvestmentState = {
   lastFetchTime: null,
   currentApiKeyIndex: 0,
   apiKeyStatus: {},
-  retryCount: 0,
 }
 
 // API Keys configuration
 const API_KEYS = [
-  process.env.NEXT_PUBLIC_RAPIDAPI1 || "default_key_1",
-  process.env.NEXT_PUBLIC_RAPIDAPI2 || "default_key_2",
-  process.env.NEXT_PUBLIC_RAPIDAPI3 || "default_key_3",
-].filter((key) => key.length > 0)
+  process.env.NEXT_PUBLIC_RAPIDAPI1,
+  process.env.NEXT_PUBLIC_RAPIDAPI2,
+  process.env.NEXT_PUBLIC_RAPIDAPI3,
+].filter(Boolean) as string[]
 
 // Initialize API key status
 API_KEYS.forEach((key) => {
@@ -74,36 +72,35 @@ API_KEYS.forEach((key) => {
 
 // Cache and staleness helpers
 const isPriceStale = (timestamp: string): boolean => {
-  return new Date(timestamp) < new Date(Date.now() - 60 * 60 * 1000)
+  return new Date(timestamp) < new Date(Date.now() - 60 * 60 * 1000) // 1 hour
 }
 
 const isDataStale = (timestamp: string | null): boolean => {
   return (
     !timestamp ||
     new Date(timestamp) < new Date(Date.now() - 24 * 60 * 60 * 1000)
-  )
+  ) // 24 hours
 }
 
 const isApiKeyStale = (lastChecked: string): boolean => {
-  return new Date(lastChecked) < new Date(Date.now() - 5 * 60 * 1000)
+  return new Date(lastChecked) < new Date(Date.now() - 5 * 60 * 1000) // 5 minutes
 }
 
-// Enhanced fetch function with retry and key rotation
-const fetchWithRetry = async (
+// Enhanced fetch function with automatic key rotation
+const fetchCurrentPrice = async (
   symbol: string,
   currentApiKeyIndex: number,
-  apiKeyStatus: InvestmentState["apiKeyStatus"],
-  maxRetries = API_KEYS.length * 3, // More retry attempts
-  baseDelay = 500 // Initial delay in ms
+  apiKeyStatus: InvestmentState["apiKeyStatus"]
 ): Promise<{ price: number; apiKeyIndex: number }> => {
   let attempts = 0
   let apiKeyIndex = currentApiKeyIndex
-  let lastError: any = null
+  let lastError: Error | null = null
 
-  while (attempts < maxRetries) {
+  while (attempts < API_KEYS.length * 2) {
+    // Try each key twice
     const apiKey = API_KEYS[apiKeyIndex]
 
-    // Skip recently failed keys unless they're stale
+    // Skip invalid keys unless they're stale
     if (
       !apiKeyStatus[apiKey]?.valid &&
       !isApiKeyStale(apiKeyStatus[apiKey]?.lastChecked)
@@ -114,18 +111,21 @@ const fetchWithRetry = async (
     }
 
     try {
-      const response = await axios.request({
-        method: "GET",
-        url: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-price",
-        params: { region: symbol.endsWith(".NS") ? "IN" : "US", symbol },
-        headers: {
-          "x-rapidapi-key": apiKey,
-          "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
-        },
-        timeout: 8000,
-      })
+      const response = await axios.get(
+        "https://yahoo-finance166.p.rapidapi.com/api/stock/get-price",
+        {
+          params: {
+            region: symbol.endsWith(".NS") ? "IN" : "US",
+            symbol,
+          },
+          headers: {
+            "x-rapidapi-key": apiKey,
+            "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
+          },
+          timeout: 8000,
+        }
+      )
 
-      // Validate response structure
       if (
         response.data?.quoteSummary?.result?.[0]?.price?.regularMarketPrice?.raw
       ) {
@@ -136,37 +136,30 @@ const fetchWithRetry = async (
         }
       }
       throw new Error("Invalid API response structure")
-    } catch (error: any) {
-      lastError = error
+    } catch (error) {
+      lastError = error as Error
 
-      // Update key status based on error
-      if (
-        error.response?.status === 429 ||
-        error.response?.status === 401 ||
-        error.response?.status === 403
-      ) {
-        apiKeyStatus[apiKey] = {
-          valid: false,
-          lastChecked: new Date().toISOString(),
+      // Mark key as invalid if rate limited
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 429 || error.response?.status === 403) {
+          apiKeyStatus[apiKey] = {
+            valid: false,
+            lastChecked: new Date().toISOString(),
+          }
         }
       }
-
-      // Exponential backoff with jitter
-      const delay = Math.min(
-        5000, // max delay
-        baseDelay * Math.pow(2, attempts) + Math.random() * 500
-      )
-
-      await new Promise((resolve) => setTimeout(resolve, delay))
 
       // Rotate to next key
       apiKeyIndex = (apiKeyIndex + 1) % API_KEYS.length
       attempts++
+
+      // Add small delay between retries
+      await new Promise((resolve) => setTimeout(resolve, 200))
     }
   }
 
   throw (
-    lastError || new Error(`All API keys failed after ${maxRetries} attempts`)
+    lastError || new Error(`Failed to fetch price after ${attempts} attempts`)
   )
 }
 
@@ -178,38 +171,36 @@ export const fetchStockPrice = createAsyncThunk(
     const { priceCache, currentApiKeyIndex, apiKeyStatus } = state.investments
 
     // Check cache first
-    if (priceCache[symbol] && !isPriceStale(priceCache[symbol].timestamp)) {
+    const cachedPrice = priceCache[symbol]
+    if (cachedPrice && !isPriceStale(cachedPrice.timestamp)) {
       return {
         symbol,
-        price: priceCache[symbol].price,
+        price: cachedPrice.price,
         apiKeyIndex: currentApiKeyIndex,
         fromCache: true,
       }
     }
 
     try {
-      const { price, apiKeyIndex } = await fetchWithRetry(
+      const { price, apiKeyIndex } = await fetchCurrentPrice(
         symbol,
         currentApiKeyIndex,
         apiKeyStatus
       )
       return { symbol, price, apiKeyIndex, fromCache: false }
     } catch (error) {
-      console.error("Price fetch error:", error)
-
-      // Fallback to cached price if available (even if stale)
-      if (priceCache[symbol]) {
+      // Fallback to cached price if available
+      if (cachedPrice) {
         return {
           symbol,
-          price: priceCache[symbol].price,
+          price: cachedPrice.price,
           apiKeyIndex: currentApiKeyIndex,
           fromCache: true,
           error: "Using stale cache after fetch failure",
         }
       }
-
       return rejectWithValue(
-        error instanceof Error ? error.message : "Unknown price fetch error"
+        error instanceof Error ? error.message : "Failed to fetch price"
       )
     }
   }
@@ -227,8 +218,8 @@ export const addInvestment = createAsyncThunk(
     const state = getState() as { investments: InvestmentState }
 
     try {
-      // Try to get price (with retry logic)
-      const { price } = await fetchWithRetry(
+      // Fetch current price with API key rotation
+      const { price } = await fetchCurrentPrice(
         investmentData.symbol,
         state.investments.currentApiKeyIndex,
         state.investments.apiKeyStatus
@@ -236,7 +227,7 @@ export const addInvestment = createAsyncThunk(
 
       const newInvestment: Investment = {
         ...investmentData,
-        currentValue: price ,
+        currentValue: price * investmentData.quantity, // Calculate total current value
         id: Math.random().toString(36).substring(2, 9),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -245,7 +236,6 @@ export const addInvestment = createAsyncThunk(
 
       return newInvestment
     } catch (error) {
-      console.error("Add investment error:", error)
       return rejectWithValue(
         error instanceof Error ? error.message : "Failed to add investment"
       )
@@ -258,10 +248,12 @@ export const refreshAllInvestments = createAsyncThunk(
   async (_, { getState, dispatch }) => {
     const state = getState() as { investments: InvestmentState }
 
+    // Only refresh if data is stale
     if (!isDataStale(state.investments.lastFetchTime)) {
-      return { skipped: true, count: state.investments.investments.length }
+      return { skipped: true }
     }
 
+    // Refresh all investments' prices
     const results = await Promise.allSettled(
       state.investments.investments.map((inv) =>
         dispatch(fetchStockPrice(inv.symbol))
@@ -269,15 +261,7 @@ export const refreshAllInvestments = createAsyncThunk(
     )
 
     const failed = results.filter((r) => r.status === "rejected").length
-    if (failed > 0) {
-      console.warn(`Failed to refresh ${failed} investments`)
-    }
-
-    return {
-      skipped: false,
-      count: state.investments.investments.length,
-      failed,
-    }
+    return { skipped: false, failed }
   }
 )
 
@@ -315,6 +299,9 @@ const investmentSlice = createSlice({
         state.selectedInvestment = null
       }
     },
+    resetFilters: (state) => {
+      state.filters = initialState.filters
+    },
     clearInvestments: (state) => {
       state.investments = []
       state.selectedInvestment = null
@@ -323,10 +310,7 @@ const investmentSlice = createSlice({
       state.filters = initialState.filters
       state.priceCache = {}
       state.lastFetchTime = null
-      state.retryCount = 0
-    },
-    resetFilters: (state) => {
-      state.filters = initialState.filters
+      // state.retryCount = 0
     },
     resetApiKeyStatus: (state, action: PayloadAction<string>) => {
       const apiKey = action.payload
@@ -337,18 +321,13 @@ const investmentSlice = createSlice({
         }
       }
     },
-    incrementRetryCount: (state) => {
-      state.retryCount += 1
-    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchStockPrice.pending, (state) => {
         state.status = "loading"
-        state.error = null
       })
       .addCase(fetchStockPrice.fulfilled, (state, action) => {
-        state.status = "succeeded"
         const { symbol, price, apiKeyIndex, fromCache } = action.payload
 
         // Update cache if not from cache
@@ -358,38 +337,39 @@ const investmentSlice = createSlice({
             timestamp: new Date().toISOString(),
           }
           state.currentApiKeyIndex = apiKeyIndex
-
-          // Update investments with this symbol
-          state.investments = state.investments.map((inv) => {
-            if (inv.symbol === symbol) {
-              return {
-                ...inv,
-                currentValue: price ,
-                updatedAt: new Date().toISOString(),
-                lastPriceUpdate: new Date().toISOString(),
-              }
-            }
-            return inv
-          })
         }
+
+        // Update investments with this symbol
+        state.investments = state.investments.map((inv) => {
+          if (inv.symbol === symbol) {
+            return {
+              ...inv,
+              currentValue: price * inv.quantity, // Update current value
+              updatedAt: new Date().toISOString(),
+              lastPriceUpdate: new Date().toISOString(),
+            }
+          }
+          return inv
+        })
+
+        state.status = "succeeded"
+        state.lastFetchTime = new Date().toISOString()
       })
       .addCase(fetchStockPrice.rejected, (state, action) => {
         state.status = "failed"
-        state.error = (action.payload as string) || "Price fetch failed"
-        state.retryCount += 1
+        state.error = action.payload as string
       })
       .addCase(addInvestment.pending, (state) => {
         state.status = "loading"
-        state.error = null
       })
       .addCase(addInvestment.fulfilled, (state, action) => {
-        state.status = "succeeded"
         state.investments.push(action.payload)
+        state.status = "succeeded"
         state.lastFetchTime = new Date().toISOString()
       })
       .addCase(addInvestment.rejected, (state, action) => {
         state.status = "failed"
-        state.error = (action.payload as string) || "Add investment failed"
+        state.error = action.payload as string
       })
       .addCase(refreshAllInvestments.pending, (state) => {
         state.status = "loading"
@@ -402,7 +382,7 @@ const investmentSlice = createSlice({
       })
       .addCase(refreshAllInvestments.rejected, (state) => {
         state.status = "failed"
-        state.error = "Bulk refresh failed"
+        state.error = "Failed to refresh some investments"
       })
   },
 })
@@ -413,10 +393,9 @@ export const {
   addBackendInvestment,
   updateAllCurrentValues,
   deleteInvestment,
-  clearInvestments,
   resetFilters,
+  clearInvestments,
   resetApiKeyStatus,
-  incrementRetryCount,
 } = investmentSlice.actions
 
 export default investmentSlice.reducer
