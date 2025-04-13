@@ -266,7 +266,7 @@ const InvestmentManagement = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}>
-        <div className="lg:col-span-2 bg-card p-6 rounded-xl shadow-sm border border-border transition-all hover:shadow-md">
+        <div className="lg:col-span-2 bg-card p-1 sm:p-6 rounded-xl shadow-sm border border-border transition-all hover:shadow-md">
           <div className="flex items-center gap-2 mb-4">
             <FiTrendingUp className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold">Performance Overview</h2>
@@ -274,7 +274,7 @@ const InvestmentManagement = () => {
           <PerformanceChart investments={filteredInvestments} />
         </div>
 
-        <div className="bg-card p-6 rounded-xl shadow-sm border border-border transition-all hover:shadow-md">
+        <div className="bg-card p-1 sm:p-6 rounded-xl shadow-sm border border-border transition-all hover:shadow-md">
           <div className="flex items-center gap-2 mb-4">
             <FiAward className="w-5 h-5 text-accent" />
             <h2 className="text-xl font-semibold">Top Performers</h2>

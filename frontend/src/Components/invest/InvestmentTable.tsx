@@ -517,9 +517,9 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Profit/Loss</Label>
+                <Label className="text-right mr-10  ">Profit/Loss</Label>
                 <div
-                  className={`col-span-3 ${getProfitLossColor(
+                  className={`col-span-3 ml-3 pl-10${getProfitLossColor(
                     calculateSellProfitLoss(),
                     0
                   )}`}>
