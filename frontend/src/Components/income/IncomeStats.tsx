@@ -21,24 +21,24 @@ const IncomeStats = memo(() => {
       {
         name: "Total Income",
         value: totalIncome.toFixed(2),
-        change: "+12%",
-        trend: "up",
+       
+       
         gradient: "from-blue-500 to-indigo-600",
         icon: <FiTrendingUp className="w-4 h-4 ml-1" />,
       },
       {
         name: "Last Month",
         value: lastMonthIncome.toFixed(2),
-        change: "+5%",
-        trend: "up",
+        
+      
         gradient: "from-purple-500 to-pink-500",
         icon: <FiTrendingUp className="w-4 h-4 ml-1" />,
       },
       {
         name: "Avg. Income",
         value: averageIncome.toFixed(2),
-        change: "-2%",
-        trend: "down",
+       
+      
         gradient: "from-green-500 to-teal-500",
         icon: <FiTrendingDown className="w-4 h-4 ml-1" />,
       },

@@ -1,14 +1,11 @@
 /** @format */
 import NextAuth, { type NextAuthOptions, type User } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
-import CredentialsProvider from "next-auth/providers/credentials"
+import Credentials from "next-auth/providers/credentials"
 import axios from "axios"
 import { loginApi, loginGoogleApi } from "@/lib/EndPointApi"
 import type { JWT } from "next-auth/jwt"
 import type { Session } from "next-auth"
-
-// Cache configuration
-const CACHE_TTL = 60 * 5 // 5 minutes cache
 
 interface CustomUser extends User {
   id: string
@@ -22,44 +19,19 @@ interface CustomSession extends Session {
   user: CustomUser
 }
 
-// Enhanced environment variable handling with error caching
-const envCache: Record<string, string> = {}
+// Enhanced environment variable handling
 const getEnvVar = (key: string): string => {
-  if (envCache[key]) return envCache[key]
   const value = process.env[key]
   if (!value) throw new Error(`Missing environment variable: ${key}`)
-  envCache[key] = value
   return value
 }
 
-// Configured axios instance with better error handling
+// Configured axios instance
 const authApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
-  timeout: 10000, // 10 seconds timeout
+  timeout: 10000,
   headers: { "Content-Type": "application/json" },
 })
-
-// Add response interceptor for consistent error handling
-authApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response) {
-      // Handle HTTP errors
-      return Promise.reject(
-        new Error(
-          error.response.data?.error ||
-            error.response.data?.message ||
-            "Authentication failed"
-        )
-      )
-    } else if (error.request) {
-      // Handle no response errors
-      return Promise.reject(new Error("Network error - no response received"))
-    }
-    // Handle other errors
-    return Promise.reject(error)
-  }
-)
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -77,14 +49,10 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: true,
     }),
 
-    CredentialsProvider({
+    Credentials({
       name: "Credentials",
       credentials: {
-        email: {
-          label: "Email",
-          type: "email",
-          placeholder: "user@example.com",
-        },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
@@ -93,13 +61,17 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Email and password are required")
           }
 
-          const { data } = await authApi.post(loginApi, {
+          const response = await authApi.post(loginApi, {
             email: credentials.email,
             password: credentials.password,
           })
+          
 
-          if (!data?.success) {
-            throw new Error(data?.error || "Authentication failed")
+          const data = response.data
+        // console.log(data+" 11111111111111111")
+
+          if (!data.success) {
+            throw new Error(data.message || "Authentication failed")
           }
 
           return {
@@ -111,11 +83,7 @@ export const authOptions: NextAuthOptions = {
           } as CustomUser
         } catch (error) {
           console.error("Credentials auth error:", error)
-          throw new Error(
-            axios.isAxiosError(error)
-              ? error.message
-              : "Invalid credentials. Please try again."
-          )
+          return null
         }
       },
     }),
@@ -123,30 +91,33 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user, account }) {
-      if (user) {
-        token.user = {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          provider: (user as CustomUser)?.provider || account?.provider,
-          googleId: (user as CustomUser)?.googleId,
+      // Initial sign in
+      // console.log(token,user,account+"2222222222222222222222222222")
+      if (user && account) {
+        return {
+          ...token,
+          accessToken: (user as CustomUser).token,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            provider: (user as CustomUser).provider || account.provider,
+            googleId: (user as CustomUser).googleId,
+          },
         }
-        token.token = (user as CustomUser)?.token
-        token.iat = Math.floor(Date.now() / 1000)
-        token.exp = Math.floor(Date.now() / 1000) + 10 * 24 * 60 * 60 // 10 days
       }
       return token
     },
 
     async session({ session, token }) {
-      session.token = token.token as string
+      session.token = token.accessToken as string
       session.user = {
         ...session.user,
         ...token.user,
         id: token.user?.id as string,
-        token: token.token as string,
       }
+      // console.log(session)
       return session
     },
 
@@ -154,50 +125,52 @@ export const authOptions: NextAuthOptions = {
       try {
         if (account?.provider === "google") {
           if (!profile?.email) {
-            throw new Error("Google authentication incomplete - no email found")
+            throw new Error("No email found in Google profile")
           }
 
-          const { data } = await authApi.post(loginGoogleApi, {
+          const response = await authApi.post(loginGoogleApi, {
             email: profile.email,
             name: profile.name || user.name || profile.email.split("@")[0],
             image: profile.picture,
             googleId: profile.sub,
           })
 
-          if (!data?.success) {
-            throw new Error(data?.error || "Google authentication failed")
+          const data = response.data
+
+          if (!data.success) {
+            throw new Error(data.message || "Google authentication failed")
           }
 
-          Object.assign(user, {
-            id: data.data.user.id,
-            token: data.data.token,
-            googleId: profile.sub,
-            provider: "google",
-          })
+          // Update user object with data from your API
+          user.id = data.data.user.id
+          user.token = data.data.token
+          user.googleId = profile.sub
+          user.provider = "google"
         }
+
         return true
       } catch (error) {
-        const errorMessage = axios.isAxiosError(error)
-          ? error.response?.data?.error || error.message
-          : error instanceof Error
-          ? error.message
-          : "Authentication failed"
-
-        return `/login?error=${encodeURIComponent(errorMessage)}`
+        console.error("SignIn callback error:", error)
+        return `/login?error=${encodeURIComponent(
+          axios.isAxiosError(error)
+            ? error.response?.data?.message || error.message
+            : error instanceof Error
+            ? error.message
+            : "Authentication failed"
+        )}`
       }
     },
   },
 
   pages: {
     signIn: "/login",
-    error: "/login", // Unified error page
-    newUser: "/register", // Optional: for new user registration
+    error: "/login",
+    newUser: "/register",
   },
 
   session: {
     strategy: "jwt",
     maxAge: 10 * 24 * 60 * 60, // 10 days
-    updateAge: 24 * 60 * 60, // 24 hours
   },
 
   jwt: {
@@ -207,7 +180,4 @@ export const authOptions: NextAuthOptions = {
 
   secret: getEnvVar("NEXTAUTH_SECRET"),
   debug: process.env.NODE_ENV === "development",
-  useSecureCookies: process.env.NODE_ENV === "production",
 }
-
-export default NextAuth(authOptions)

@@ -10,7 +10,7 @@ type TransactionType =
   | "CREDIT"
   | "CASH"
   | "INCOME"
-  | "EXPENSE"
+  | "EXPENSES"
 
 interface Transaction {
   id: string
@@ -166,7 +166,7 @@ const calculateMetrics = (transactions: Transaction[]) => {
   )
   const expenseTransactions = transactions.filter(
     (t) =>
-      t.type === "EXPENSE" ||
+      t.type === "EXPENSES" ||
       t.type === "DEBIT" ||
       t.type === "TRANSFER" ||
       t.type === "CASH"
@@ -211,40 +211,79 @@ const transactionSlice = createSlice({
   reducers: {
     addTransaction: (state, action: PayloadAction<Transaction>) => {
       const safeSortConfig = getSafeSortConfig(state)
-      const newTransactions = [action.payload, ...state.transactions]
+      const newTransaction = action.payload
+      const newTransactions = [newTransaction, ...state.transactions]
+
+      // Apply current filters to the new transaction
+      const timeFiltered = filterByTimePeriod(
+        [newTransaction],
+        state.filters.timeFilter
+      )
+      const typeFiltered =
+        state.filters.typeFilter === "all"
+          ? timeFiltered
+          : timeFiltered.filter((t) => t.type === state.filters.typeFilter)
+
       const metrics = calculateMetrics(newTransactions)
 
       return {
         ...state,
         transactions: newTransactions,
-        filteredTransactions: sortTransactions(
-          [...state.filteredTransactions, action.payload],
-          safeSortConfig
-        ),
+        filteredTransactions: [
+          ...typeFiltered,
+          ...state.filteredTransactions.filter(
+            (t) => t.id !== newTransaction.id
+          ),
+        ],
         ...metrics,
       }
     },
+
     updateTransaction: (state, action: PayloadAction<Transaction>) => {
+      const safeSortConfig = getSafeSortConfig(state)
+      const updatedTransaction = action.payload
       const newTransactions = state.transactions.map((t) =>
-        t.id === action.payload.id ? action.payload : t
+        t.id === updatedTransaction.id ? updatedTransaction : t
       )
+
+      // Reapply all current filters and sorting
+      const timeFiltered = filterByTimePeriod(
+        newTransactions,
+        state.filters.timeFilter
+      )
+      const typeFiltered =
+        state.filters.typeFilter === "all"
+          ? timeFiltered
+          : timeFiltered.filter((t) => t.type === state.filters.typeFilter)
+      const sorted = sortTransactions(typeFiltered, safeSortConfig)
+
       const metrics = calculateMetrics(newTransactions)
 
       return {
         ...state,
         transactions: newTransactions,
+        filteredTransactions: sorted,
         ...metrics,
       }
     },
+
     deleteTransaction: (state, action: PayloadAction<string>) => {
+      const deletedId = action.payload
       const newTransactions = state.transactions.filter(
-        (t) => t.id !== action.payload
+        (t) => t.id !== deletedId
       )
+
+      // Just remove from filteredTransactions if present
+      const newFiltered = state.filteredTransactions.filter(
+        (t) => t.id !== deletedId
+      )
+
       const metrics = calculateMetrics(newTransactions)
 
       return {
         ...state,
         transactions: newTransactions,
+        filteredTransactions: newFiltered,
         ...metrics,
       }
     },

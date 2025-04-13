@@ -233,10 +233,10 @@ const Sidebar: React.FC<SideBarProps> = ({
     []
   )
 
-  const userInitial = useMemo(
-    () => session?.user?.name?.charAt(0).toUpperCase() || "U",
-    [session?.user?.name]
-  )
+  // const userInitial = useMemo(
+  //   () => session?.user?.name?.charAt(0).toUpperCase() || "U",
+  //   [session?.user?.name]
+  // )
 
   return (
     <>
@@ -296,7 +296,7 @@ const Sidebar: React.FC<SideBarProps> = ({
                 </Link>
                 <button
                   onClick={toggleSidebar}
-                  className="p-1 rounded-full hover:bg-gray-200"
+                  className="p-1 rounded-full cursor-pointer hover:bg-gray-200"
                   aria-label={
                     isCollapsed ? "Expand sidebar" : "Collapse sidebar"
                   }>
@@ -347,9 +347,9 @@ const Sidebar: React.FC<SideBarProps> = ({
                           }
                         }
                       />
-                      {!session?.user?.image && (
+                      {/* {!session?.user?.image && (
                         <span className="text-lg">{userInitial}</span>
-                      )}
+                      )} */}
                     </div>
                   </div>
 
@@ -382,7 +382,7 @@ const Sidebar: React.FC<SideBarProps> = ({
 
               <button
                 onClick={() => setOpen(true)}
-                className={`flex items-center w-full p-3 mt-2 rounded-lg text-gray-700 hover:bg-white hover:shadow-md transition-all duration-300 ${
+                className={`flex cursor-pointer items-center w-full p-3 mt-2 rounded-lg text-gray-700 hover:bg-white hover:shadow-md transition-all duration-300 ${
                   isCollapsed ? "justify-center" : ""
                 }`}
                 aria-label="Sign out">

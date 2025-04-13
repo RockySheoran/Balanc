@@ -49,9 +49,9 @@ const IncomeFilters = () => {
   )
 
   const handleReset = useCallback(() => {
-    console.log("object")
+    // console.log("object")
     dispatch(resetFilters())
-    console.log("3")
+    // console.log("3")
   }, [dispatch])
 
   return (

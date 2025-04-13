@@ -1,7 +1,5 @@
 /**
  * Account Controller with Redis Caching
- * (Only Redis additions - core logic unchanged)
- *
  * @format
  */
 
@@ -11,7 +9,6 @@ import prisma from "../../Config/DataBase.js"
 import { accountSchema } from "../../Validation/AccountValidations.js"
 import { formatError } from "../../helper.js"
 import redisClient from "../../Config/redis/redis.js"
-
 
 const CACHE_TTL = 3600 // 1 hour cache
 
@@ -29,13 +26,10 @@ export const AccountController = {
       }
 
       const userId = req.user.id
-      console.log(userId+"fgrthrtyht")
       const cacheKey = `accounts:${userId}`
 
-      // Redis addition: Check cache first
+      // Check cache first
       const cachedAccounts = await redisClient.get(cacheKey)
-      console.log(cachedAccounts+"cachedAccounts")
-     
       if (cachedAccounts) {
         return res.status(200).json({
           success: true,
@@ -44,6 +38,7 @@ export const AccountController = {
         })
       }
 
+      // Fetch from database if not in cache
       const accounts = await prisma.account.findMany({
         where: { userId },
         select: {
@@ -65,10 +60,12 @@ export const AccountController = {
           data: null,
         })
       }
-      console.log(accounts)
 
-      // Redis addition: Cache results
-      await redisClient.setEx(cacheKey, CACHE_TTL, JSON.stringify(accounts))
+      // Cache results with transaction for reliability
+      const multi = redisClient.multi()
+      multi.set(cacheKey, JSON.stringify(accounts))
+      multi.expire(cacheKey, CACHE_TTL)
+      await multi.exec()
 
       return res.status(200).json({
         success: true,
@@ -86,7 +83,7 @@ export const AccountController = {
   },
 
   /**
-   * Create a new account (with cache invalidation)
+   * Create a new account with cache invalidation
    */
   async createAccount(req: Request, res: Response): Promise<any> {
     try {
@@ -100,6 +97,7 @@ export const AccountController = {
       const userId = req.user.id
       const payload = accountSchema.parse(req.body)
 
+      // Create account in database
       const account = await prisma.account.create({
         data: {
           name: payload.name,
@@ -120,8 +118,21 @@ export const AccountController = {
         },
       })
 
-      // Redis addition: Invalidate cache
-      await redisClient.del(`accounts:${userId}`)
+      // Invalidate cache and update in single transaction
+      const cacheKey = `accounts:${userId}`
+      const multi = redisClient.multi()
+      multi.del(cacheKey)
+
+      // Optionally update cache immediately with new data
+      const currentAccounts = await prisma.account.findMany({
+        where: { userId },
+      })
+      if (currentAccounts.length > 0) {
+        multi.set(cacheKey, JSON.stringify(currentAccounts))
+        multi.expire(cacheKey, CACHE_TTL)
+      }
+
+      await multi.exec()
 
       return res.status(201).json({
         success: true,
@@ -143,7 +154,7 @@ export const AccountController = {
   },
 
   /**
-   * Delete an account (with cache invalidation)
+   * Delete an account with cache invalidation
    */
   async deleteAccount(req: Request, res: Response): Promise<any> {
     try {
@@ -156,8 +167,8 @@ export const AccountController = {
 
       const userId = req.user.id
       const { accountId } = req.body
-      console.log(userId,accountId)
 
+      // Verify account ownership
       const account = await prisma.account.findUnique({
         where: { id: accountId },
       })
@@ -169,25 +180,33 @@ export const AccountController = {
         })
       }
 
-      // await prisma.$transaction([
-      //   prisma.transaction.deleteMany({
-      //     where: { accountId },
-      //   }),
-      //   prisma.account.delete({
-      //     where: { id: accountId },
-      //   }),
-      // ])
-      await prisma.account.delete({
-        where: { id: accountId },
+      // Delete account and related data in transaction
+      await prisma.$transaction([
+        prisma.transaction.deleteMany({
+          where: { accountId },
+        }),
+        prisma.investment.deleteMany({
+          where: { accountId },
+        }),
+        prisma.account.delete({
+          where: { id: accountId },
+        }),
+      ])
+
+      // Invalidate cache and optionally update with fresh data
+      const cacheKey = `accounts:${userId}`
+      const multi = redisClient.multi()
+      multi.del(cacheKey)
+
+      const remainingAccounts = await prisma.account.findMany({
+        where: { userId },
       })
-             await prisma.transaction.deleteMany({
-      where: { accountId },
-      })
-      await prisma.investment.deleteMany({
-        where: { accountId },
-      })
-      // Redis addition: Invalidate cache
-      await redisClient.del(`accounts:${userId}`)
+      if (remainingAccounts.length > 0) {
+        multi.set(cacheKey, JSON.stringify(remainingAccounts))
+        multi.expire(cacheKey, CACHE_TTL)
+      }
+
+      await multi.exec()
 
       return res.status(200).json({
         success: true,
@@ -203,9 +222,72 @@ export const AccountController = {
   },
 
   /**
-   * Update account (commented out as per original)
+   * Update account with cache invalidation
    */
-  // async updateAccount(req: Request, res: Response): Promise<any> {
-  //   ... (original commented code remains exactly the same)
-  // },
+  async updateAccount(req: Request, res: Response): Promise<any> {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        })
+      }
+
+      const userId = req.user.id
+      const { accountId, ...updateData } = req.body
+
+      // Verify account ownership
+      const account = await prisma.account.findUnique({
+        where: { id: accountId },
+      })
+
+      if (!account || account.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          message: "Account not found or unauthorized",
+        })
+      }
+
+      // Update account in database
+      const updatedAccount = await prisma.account.update({
+        where: { id: accountId },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          balance: true,
+          createdAt: true,
+          income: true,
+          totalExpense: true,
+        },
+      })
+
+      // Invalidate cache and update with fresh data
+      const cacheKey = `accounts:${userId}`
+      const multi = redisClient.multi()
+      multi.del(cacheKey)
+
+      const currentAccounts = await prisma.account.findMany({
+        where: { userId },
+      })
+      multi.set(cacheKey, JSON.stringify(currentAccounts))
+      multi.expire(cacheKey, CACHE_TTL)
+
+      await multi.exec()
+
+      return res.status(200).json({
+        success: true,
+        message: "Account updated successfully",
+        data: updatedAccount,
+      })
+    } catch (error) {
+      console.error("Error updating account:", error)
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update account",
+        error: error instanceof Error ? error.message : "Unknown error",
+      })
+    }
+  },
 }

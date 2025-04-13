@@ -27,6 +27,7 @@ import { toast } from "sonner"
 import { SubmitButton } from "../common/SubmitButton"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import { addTransaction } from "@/lib/Redux/features/transactions/transactionsSlice"
+import { updateAccount } from "@/lib/Redux/features/account/accountSlice"
 
 
 // Constants moved outside component
@@ -37,15 +38,15 @@ const CATEGORIES = [
   "Entertainment",
   "Health",
   "Education",
+  "transfer",
   "Other",
 ] as const
 
 const TRANSACTION_TYPES = [
   "TRANSFER",
   "DEBIT",
-  "INVESTMENT",
   "CASH",
-  "EXPENSES",
+  "EXPENSE",
 ] as const
 
 const INITIAL_STATE = {
@@ -87,6 +88,8 @@ export const AddExpenseButton = () => {
       toast.success(formState.message)
       dispatch(addExpense(formState.data.data.transaction))
       dispatch(addTransaction(formState.data.data.transaction))
+      dispatch(updateAccount(formState.data.data.updatedAccount))
+     
       setIsOpen(false)
     }
   }, [formState, dispatch])

@@ -23,18 +23,18 @@ export const accountSlice = createSlice({
 
     // Select single account by ID
     selectAccount: (state, action: PayloadAction<string>) => {
-      const account = state.allAccounts.find((acc) => acc.id === action.payload)
+      const account = state.allAccounts?.find((acc) => acc.id === action.payload)
       state.selectedAccount = account || null
     },
 
     // Add new account
     addAccount: (state, action: PayloadAction<Account>) => {
-      state.allAccounts.push(action.payload)
+      state?.allAccounts?.push(action.payload)
     },
 
     // Update account
     updateAccount: (state, action: PayloadAction<Account>) => {
-      const index = state.allAccounts.findIndex(
+      const index = state.allAccounts?.findIndex(
         (acc) => acc.id === action.payload.id
       )
       if (index !== -1) {
@@ -47,7 +47,7 @@ export const accountSlice = createSlice({
 
     // Delete account
     deleteAccount: (state, action: PayloadAction<string>) => {
-      state.allAccounts = state.allAccounts.filter(
+      state.allAccounts = state.allAccounts?.filter(
         (acc) => acc.id !== action.payload
       )
       if (state.selectedAccount?.id === action.payload) {

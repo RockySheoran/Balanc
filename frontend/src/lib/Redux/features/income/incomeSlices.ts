@@ -44,11 +44,10 @@ const incomeSlice = createSlice({
   name: "income",
   initialState,
   reducers: {
-    addIncome: (state, action: PayloadAction<Omit<Income, "id">>) => {
+    addIncome: (state, action: PayloadAction<Omit<Income>>) => {
       const newIncome = {
-        ...action.payload,
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
+        ...action.payload,    
+        date:action.payload.createdAt,
       }
       state.incomes = [newIncome, ...state.incomes]
       state.filteredIncomes = applyFilters(

@@ -40,7 +40,8 @@ export default function Login() {
   const [state, formAction] = useActionState(loginAction, initialState)
 
   useEffect(() => {
-    if (state.status === 500) {
+    // console.log(state)
+    if (state.status === 401) {
       toast.error(state.message)
     } else if (state.status === 200 && state.data) {
       toast.success(state.message)
@@ -117,6 +118,11 @@ export default function Login() {
               )}
             </button>
           </div>
+            {state.errors?.password && (
+              <p id="password-error" className="mt-1 text-sm text-red-400">
+                {state.errors.password}
+              </p>
+            )}
           <div className="text-right mt-2">
             <Link
               href="/forgot-password"
@@ -124,11 +130,6 @@ export default function Login() {
               Forgot Password?
             </Link>
           </div>
-          {state.errors?.password && (
-            <p id="password-error" className="mt-1 text-sm text-red-400">
-              {state.errors.password}
-            </p>
-          )}
         </div>
 
         <SubmitButton />

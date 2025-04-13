@@ -35,7 +35,7 @@ const COLORS = [
 
 const TRANSACTION_TYPES = {
   INCOME: ["INCOME", "CREDIT"],
-  EXPENSE: ["EXPENSE", "DEBIT", "TRANSFER", "CASH"],
+  EXPENSE: ["EXPENSES", "DEBIT", "TRANSFER", "CASH"],
   INVESTMENT: ["INVESTMENT"],
 }
 
@@ -110,7 +110,7 @@ const TransactionCharts = memo(() => {
       const categoryMap: Record<string, number> = {}
 
       // Process transactions in a single pass
-      transactions.forEach((transaction) => {
+      transactions?.forEach((transaction) => {
         const amount = Math.abs(transaction.amount)
         const date = new Date(transaction.date)
         const monthIndex = months.findIndex(

@@ -23,7 +23,7 @@ interface Transaction {
   type: string
   category: string
   amount: number
-  date: string
+  createdAt: string
 }
 
 interface ExpenseData {
@@ -61,7 +61,7 @@ export const ExpenseTracker = () => {
     const expenseTransactions = transactions
       .filter(
         (t) =>
-          (t.type === "DEBIT" || t.type === "EXPENSE") &&
+          (t.type === "DEBIT" || t.type === "EXPENSES" || t.type == "CASH" || t.type=="TRANSFER") &&
           new Date(t.date) > thirtyDaysAgo
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -149,7 +149,7 @@ export const ExpenseTracker = () => {
                       {transaction.category}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      {formatTransactionDate(transaction.date)}
+                      {formatTransactionDate(transaction.createdAt)}
                     </p>
                   </div>
                   <p className="text-red-500 font-bold">

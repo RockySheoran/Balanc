@@ -388,7 +388,7 @@ const IncomeDashboard = () => {
         </div>
 
         <div className="divide-y divide-gray-100">
-          {recentTransactions?.slice(0,4)?.map((transaction, index) => (
+          {recentTransactions?.slice(0, 4)?.map((transaction, index) => (
             <motion.div
               key={`${transaction.id}-${index}`}
               initial={{ opacity: 0, x: -10 }}
@@ -423,7 +423,7 @@ const IncomeDashboard = () => {
                     {transaction.name}
                   </h4>
                   <p className="text-xs text-gray-500">
-                    {formatDate(transaction.date)} • {transaction.category}
+                    {formatDate(transaction.createdAt)} • {transaction.category}
                   </p>
                 </div>
               </div>

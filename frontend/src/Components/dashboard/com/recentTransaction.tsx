@@ -179,7 +179,7 @@ export const RecentTransaction = () => {
                     <div>
                       <p className="font-medium">{transaction.category}</p>
                       <p className="text-sm text-gray-500">
-                        {formatTransactionDate(transaction.date)}
+                        {formatTransactionDate(transaction.createdAt)}
                       </p>
                     </div>
                   </div>

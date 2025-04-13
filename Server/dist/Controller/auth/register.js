@@ -49,7 +49,7 @@ export const Registration = async (req, res) => {
                 provider: "email",
             },
         });
-        console.log(a);
+        // console.log(a)
         return res.json({ message: "Account created successfully" });
     }
     catch (error) {

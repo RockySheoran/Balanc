@@ -13,6 +13,7 @@ export const verifyEmail = async (req, res) => {
                 // redirect user to front page
                 await prisma.user.update({
                     data: {
+                        verified: true,
                         email_verify_token: null,
                         email_verified_at: new Date().toISOString(),
                     },

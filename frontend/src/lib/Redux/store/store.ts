@@ -34,7 +34,7 @@ const persistConfig = {
   key: "root",
   version: 1,
   storage, // Use our custom storage
-  whitelist: ["user", "transactions"],
+  // whitelist: ["user", "transactions"],
   timeout: 2000,
 }
 

@@ -38,8 +38,8 @@ const LoginForm = dynamic(
 )
 
 export default function LoginPage() {
-  const searchParams = useSearchParams()
-  const error = searchParams.get("error")
+  // const searchParams = useSearchParams()
+  // const error = searchParams.get("error")
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
@@ -50,11 +50,11 @@ export default function LoginPage() {
           </h1>
           <h1 className="text-3xl font-bold">Login</h1>
           <p className="text-gray-600">Welcome back</p>
-          {error && (
+          {/* {error && (
             <p className="text-sm text-red-500 mt-2">
               {decodeURIComponent(error)}
             </p>
-          )}
+          )} */}
         </div>
 
         <Suspense fallback={<div>Loading login form...</div>}>

@@ -198,6 +198,7 @@ const ExpenseTable: React.FC = memo(() => {
             <TableRow>
               <TableHead className="w-[120px] sm:w-[150px]">Date</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="hidden sm:table-cell">
@@ -218,9 +219,10 @@ const ExpenseTable: React.FC = memo(() => {
                     key={expense.id}
                     className="hover:bg-gray-50 transition-colors">
                     <TableCell className="font-medium">
-                      {new Date(expense.date).toLocaleDateString()}
+                      {new Date(expense.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>{expense.name}</TableCell>
+                    <TableCell>{expense.type}</TableCell>
                     <TableCell>
                       <span
                         className="px-2 py-1 rounded-full text-xs"

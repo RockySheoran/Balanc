@@ -25,6 +25,12 @@ export const Login = async (req: Request, res: Response): Promise<any> => {
      error: `Please login using ${user?.provider}`,
    })
  }
+ if (user?.verified !== true) {
+   return res.status(401).json({
+     success: false,
+     error: `Please first verify your email`,
+   })
+ }
     if (!user || user === null) {
       return res.status(422).json({ errors: { email: "User not found" } })
     }
@@ -47,6 +53,7 @@ export const Login = async (req: Request, res: Response): Promise<any> => {
     console.log(token)
     // Return the user data
     return res.status(200).json({
+      success:true,
       message: "Login Successful",
       data: {
         token: `${token}`,
@@ -89,9 +96,16 @@ export const Check_Login = async (
          error: `Please login using ${user?.provider}`,
        })
      }
+
     if (!user || user === null) {
       return res.status(422).json({ errors: { email: "User not found" } })
     }
+     if (user?.verified !== true) {
+       return res.status(401).json({
+         success: false,
+         error: `Please first verify your email`,
+       })
+     }
     // Check if the password is correct
     const isMatch = await bcrypt.compare(payload.password, user.password!)
     if (!isMatch) {

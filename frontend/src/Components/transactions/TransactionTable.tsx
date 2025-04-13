@@ -72,6 +72,9 @@ const TransactionRow = memo(({ transaction }: { transaction: Transaction }) => {
         {new Date(transaction.date).toLocaleDateString()}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+        {transaction.name}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
         {transaction.description}
       </td>
       <td
@@ -256,6 +259,9 @@ const TransactionTableContent = () => {
                 sortConfig={sortConfig}
                 onSort={handleSort}
               />
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Name
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Description
               </th>

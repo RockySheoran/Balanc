@@ -61,7 +61,7 @@ export default function DashboardClient({ session }: SessionProps) {
     session?.token ? "accounts" : null,
     async () => {
       const response = await getAllAccounts({ token: session?.token || "" })
-      if (response?.status !== 200 || !response?.data) {
+      if (response?.status == 404 || !response?.data) {
         toast.error(response?.message || "Failed to fetch accounts")
         return null
       }
@@ -86,7 +86,7 @@ export default function DashboardClient({ session }: SessionProps) {
   const { data: transactionsData, error: transactionsError } = useSWR(
     selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
     async () => {
-      console.log(`objectfffffffffffffffffffffffffffffffffffffffffffffffffffff`)
+     
       const response = await fetchAllTransactions({
         accountId: selectedAccount!.id,
       })

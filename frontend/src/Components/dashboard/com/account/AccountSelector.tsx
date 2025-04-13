@@ -24,6 +24,7 @@ import {
   selectAccount,
   deleteAccount,
   setAccounts,
+  resetSelectedAccount,
 } from "@/lib/Redux/features/account/accountSlice"
 import {
   Select,
@@ -63,6 +64,18 @@ export function AccountSelector() {
   const { allAccounts, selectedAccount, isLoading, error } = useAppSelector(
     (state) => state.account
   )
+  
+  useEffect(() => {
+    if (allAccounts == null) {
+      const timer = setTimeout(() => {
+        dispatch(resetSelectedAccount())
+      }, 5000) // 4 seconds delay
+
+      // Cleanup function to clear the timeout if component unmounts
+      return () => clearTimeout(timer)
+    }
+  }, [allAccounts, dispatch])
+  
   const { token } = useAppSelector((state) => state.user)
   const { pending } = useFormStatus()
 
@@ -70,6 +83,7 @@ export function AccountSelector() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [state, formAction] = useActionState(CreateAccountAction, initialState)
+  const[delteLoading,setDeleteLoding] = useState(false);
 
   // Memoized account type color mapping
   const getTypeColor = useMemo(
@@ -129,7 +143,7 @@ export function AccountSelector() {
     } else if (state.status === 200) {
       toast.success(state.message)
       if (state.data) {
-        dispatch(addAccount(state.data))
+        dispatch(addAccount(state.data.data))
         dispatch(selectAccount(state.data.id))
         setIsCreateDialogOpen(false)
       }
@@ -141,6 +155,7 @@ export function AccountSelector() {
     if (!selectedAccount || !token) return
 
     try {
+      setDeleteLoding(true);
       const response = await deleteAccountAction({
         accountId: selectedAccount.id,
         token,
@@ -160,7 +175,7 @@ export function AccountSelector() {
           }
         }
       } else {
-        throw new Error(response.message || "Failed to delete account")
+        toast.error(response.message || "Failed to delete account")
       }
     } catch (err) {
       toast.error(
@@ -168,12 +183,14 @@ export function AccountSelector() {
       )
     } finally {
       setIsDeleteDialogOpen(false)
+      setDeleteLoding(false)
     }
   }, [selectedAccount, allAccounts, dispatch, token])
 
   // Memoized account options
   const accountOptions = useMemo(
     () =>
+      
       allAccounts?.map((account) => (
         <option
           key={account.id}
@@ -316,7 +333,7 @@ export function AccountSelector() {
                 <Button
                   variant="destructive"
                   onClick={() => setIsDeleteDialogOpen(true)}
-                  disabled={allAccounts.length <= 1}
+                  disabled={allAccounts?.length <= 1}
                   className="w-full sm:w-auto cursor-pointer shadow-md hover:shadow-lg transition-shadow"
                   aria-label="Delete account">
                   <Trash2Icon className="mr-2 h-4 w-4" />
@@ -392,13 +409,15 @@ export function AccountSelector() {
           Select Account
         </h3>
 
-        {error ? (
-          <div
-            className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800"
-            role="alert">
-            <p className="text-red-600 dark:text-red-400">{error}</p>
-          </div>
-        ) : allAccounts?.length === 0 ? (
+        {
+        // error ? (
+        //   <div
+        //     className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800"
+        //     role="alert">
+        //     <p className="text-red-600 dark:text-red-400">{error}</p>
+        //   </div>
+        // ) :
+         allAccounts === null ? (
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 text-center">
             <p className="text-blue-600 dark:text-blue-400">
               No accounts available. Create your first account!

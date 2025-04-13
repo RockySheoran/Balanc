@@ -21,13 +21,13 @@ export const DeleteTransAction = async ({
   token: string
 }): Promise<any> => {
   // Validate input
-  if (!id || typeof id !== "string") {
+  if (!id ) {
     return {
       status: 401,
       message: "Unauthorized - Please login first",
     }
   }
-
+console.log(id,token)
   // Get and verify session
   // const session = (await getServerSession(authOptions)) as Session & {
   //   token?: string
@@ -65,10 +65,11 @@ export const DeleteTransAction = async ({
     // Enhanced error handling
     if (error instanceof AxiosError) {
       // Handle not found
+      console.log(error.response)
       if (error.response?.status === 404) {
         return {
           status: 404,
-          message: "Transaction not found or already deleted",
+          message:error.response?.data.message ,
         }
       }
 

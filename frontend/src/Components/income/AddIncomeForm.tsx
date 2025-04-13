@@ -17,6 +17,7 @@ import { Input } from "../ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Textarea } from "../ui/textarea"
 import { Button } from "../ui/button"
+import { updateAccount } from "@/lib/Redux/features/account/accountSlice"
 
 const AddIncomeForm = () => {
   const dispatch = useAppDispatch()
@@ -57,6 +58,7 @@ const AddIncomeForm = () => {
       })
       dispatch(addIncome(state.data.data.transaction))
       dispatch(addTransaction(state.data.data.transaction))
+      dispatch(updateAccount(state.data.data.updatedAccount))
       setIsOpen(false)
       formRef.current?.reset()
     }
@@ -94,7 +96,7 @@ const AddIncomeForm = () => {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-indigo-600 hover:bg-indigo-700" asChild>
+        <Button className="bg-indigo-600 cursor-pointer hover:bg-indigo-700" asChild>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             Add Income
           </motion.div>
@@ -282,7 +284,7 @@ const AddIncomeForm = () => {
               className="pt-2">
               <Button 
                 type="submit"
-                className={`w-full py-3 text-lg font-medium transition-all duration-300 ${
+                className={`w-full py-3 cursor-pointer text-lg font-medium transition-all duration-300 ${
                   isPending
                     ? "bg-indigo-400 dark:bg-indigo-500 cursor-not-allowed"
                     : "bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 shadow-lg hover:shadow-indigo-200 dark:hover:shadow-indigo-900/30"

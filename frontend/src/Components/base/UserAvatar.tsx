@@ -13,6 +13,7 @@ interface UserAvatarProps {
 }
 
 export default function UserAvatar({ user }: UserAvatarProps) {
+  // console.log(user)
   return (
     <Avatar className="relative h-10 w-10">
       {user?.image ? (
@@ -24,11 +25,13 @@ export default function UserAvatar({ user }: UserAvatarProps) {
           referrerPolicy="no-referrer" // Important for Google images
         />
       ) : (
-        <AvatarFallback className="h-full w-full">
+        <AvatarFallback className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-700">
           {user?.name
             ? user.name
                 .split(" ")
-                .map((part) => part[0])
+                .filter((part) => part.length > 0) // Filter out empty strings
+                .slice(0, 2) // Take first two parts only
+                .map((part) => part[0].toUpperCase()) // Get first letter and uppercase
                 .join("")
             : "U"}
         </AvatarFallback>

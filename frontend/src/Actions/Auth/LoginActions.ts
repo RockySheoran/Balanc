@@ -21,11 +21,23 @@ export async function loginAction(prevState: any, formData: FormData) {
       },
     }
   } catch (error) {
+    // console.log(error.response)
+    if (error instanceof AxiosError) {
+      if (error.response?.status === 401) {
+        console.log(error.response)
+        return {
+          status: 401,
+          message: error.response?.data?.error,
+          errors: error.response?.data?.errors,
+        }
+      }
+    }
     if (error instanceof AxiosError) {
       if (error.response?.status === 422) {
+        // console.log(error.response)
         return {
           status: 422,
-          message: error.response?.data?.message,
+          message: error.response?.data?.error,
           errors: error.response?.data?.errors,
         }
       }
