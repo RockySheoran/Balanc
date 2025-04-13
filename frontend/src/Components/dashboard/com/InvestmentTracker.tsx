@@ -1,7 +1,7 @@
 /** @format */
 "use client"
 
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Line, Pie } from "react-chartjs-2"
 import {
   Chart as ChartJS,
@@ -39,11 +39,10 @@ import { Button } from "@/Components/ui/button"
 import { toast } from "sonner"
 import { Investment } from "@/Components/invest/investment"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
-import axios from "axios"
-import { Stock_API_URL1 } from "@/lib/EndPointApi"
+import axios, { AxiosError } from "axios"
 import { format, formatDistanceToNow } from "date-fns"
 
-// Register ChartJS components once
+// Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -79,6 +78,10 @@ const INTERVAL_OPTIONS = [
   { value: "1mo", label: "1 Month" },
 ] as const
 
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
+const API_RETRY_DELAY = 500 // 0.5 second between retries
+const MAX_RETRIES_PER_KEY = 2 // Max retries per API key
+
 type TimeRange = typeof RANGE_OPTIONS[number]['value']
 type Interval = typeof INTERVAL_OPTIONS[number]['value']
 
@@ -110,6 +113,32 @@ const InvestmentTracker = () => {
   const [apiError, setApiError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [chartData, setChartData] = useState<any[]>([])
+  const activeToastId = useRef<string | null>(null)
+  const apiKeyStatus = useRef<Record<string, {
+    valid: boolean
+    lastUsed: number
+    errorCount: number
+  }>>({})
+
+  // API Keys configuration
+  const API_KEYS = useMemo(() => [
+    process.env.NEXT_PUBLIC_RAPIDAPI1,
+    process.env.NEXT_PUBLIC_RAPIDAPI2,
+    process.env.NEXT_PUBLIC_RAPIDAPI3,
+  ].filter(Boolean) as string[], [])
+
+  // Initialize API key status
+  useEffect(() => {
+    const initialStatus: Record<string, any> = {}
+    API_KEYS.forEach(key => {
+      initialStatus[key] = {
+        valid: true,
+        lastUsed: 0,
+        errorCount: 0
+      }
+    })
+    apiKeyStatus.current = initialStatus
+  }, [API_KEYS])
 
   // Memoized derived values
   const topInvestments = useMemo(() => 
@@ -163,7 +192,7 @@ const InvestmentTracker = () => {
         ...investment,
         performance: investment.buyPrice > 0 ?
           (((investment.currentValue || investment.buyPrice) - investment.buyPrice) / 
-          investment.buyPrice * 100) : 0
+          investment.buyPrice * 100 ): 0
       }))
       .sort((a, b) => b.performance - a.performance)
 
@@ -177,8 +206,42 @@ const InvestmentTracker = () => {
     })
   }, [])
 
-  // Data fetching
-  const fetchStockChartData = useCallback(async (symbol: string) => {
+  // Cache implementation
+  const chartDataCache = useMemo(() => new Map<string, {
+    data: any
+    timestamp: number
+  }>(), [])
+
+  // Get the next available API key
+  const getNextApiKey = useCallback(() => {
+    const sortedKeys = [...API_KEYS].sort((a, b) => {
+      const aStatus = apiKeyStatus.current[a] || { errorCount: 0, lastUsed: 0 }
+      const bStatus = apiKeyStatus.current[b] || { errorCount: 0, lastUsed: 0 }
+      
+      // Prioritize keys with fewer errors
+      if (aStatus.errorCount !== bStatus.errorCount) {
+        return aStatus.errorCount - bStatus.errorCount
+      }
+      
+      // Then prioritize least recently used
+      return aStatus.lastUsed - bStatus.lastUsed
+    })
+
+    return sortedKeys[0]
+  }, [API_KEYS])
+
+  // Enhanced fetch function with automatic key rotation
+  const fetchWithKeyRotation = useCallback(async (
+    symbol: string,
+    attempt = 0
+  ): Promise<any> => {
+    if (attempt >= API_KEYS.length * MAX_RETRIES_PER_KEY) {
+      throw new Error('All API keys exhausted')
+    }
+
+    const apiKey = getNextApiKey()
+    const currentStatus = apiKeyStatus.current[apiKey] || { valid: true, lastUsed: 0, errorCount: 0 }
+
     try {
       const response = await axios.get(
         `https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart`,
@@ -190,58 +253,144 @@ const InvestmentTracker = () => {
             region: symbol.includes(".NS") ? "IN" : "US",
           },
           headers: {
-            "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI1,
+            "x-rapidapi-key": apiKey,
             "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
           },
+          timeout: 8000
         }
       )
 
       if (!response.data?.chart?.result?.[0]) {
-        // toast.error(`No data received for ${symbol}`)
+        throw new Error('Invalid response structure')
       }
-      return response.data
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response) {
-        toast.error(err.response.data.message)
-      } else {
-        toast("An unexpected error occurred")
-      }
-      return null
-    }
-  }, [timeRange, interval])
 
+      // Update key status on success
+      apiKeyStatus.current[apiKey] = {
+        valid: true,
+        lastUsed: Date.now(),
+        errorCount: 0
+      }
+
+      return response.data
+    } catch (error) {
+      // Handle rate limits and errors
+      const isRateLimit = axios.isAxiosError(error) && 
+        (error.response?.status === 429 || error.response?.status === 403)
+
+      // Update key status on failure
+      apiKeyStatus.current[apiKey] = {
+        ...apiKeyStatus.current[apiKey],
+        valid: !isRateLimit,
+        lastUsed: Date.now(),
+        errorCount: (apiKeyStatus.current[apiKey]?.errorCount || 0) + 1
+      }
+
+      if (isRateLimit) {
+        await new Promise(resolve => setTimeout(resolve, API_RETRY_DELAY))
+      }
+
+      // Retry with next key
+      return fetchWithKeyRotation(symbol, attempt + 1)
+    }
+  }, [API_KEYS, timeRange, interval, getNextApiKey])
+
+  // Cached fetch function
+  const fetchStockChartData = useCallback(async (symbol: string) => {
+    const cacheKey = `${symbol}-${timeRange}-${interval}`
+    const cachedData = chartDataCache.get(cacheKey)
+    
+    // Return cached data if valid
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+      return cachedData.data
+    }
+
+    try {
+      const data = await fetchWithKeyRotation(symbol)
+      
+      // Update cache
+      chartDataCache.set(cacheKey, {
+        data,
+        timestamp: Date.now()
+      })
+
+      return data
+    } catch (error) {
+      console.error(`Failed to fetch data for ${symbol}:`, error)
+      throw error
+    }
+  }, [fetchWithKeyRotation, timeRange, interval, chartDataCache])
+
+  // Fetch all investment data
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true)
       setApiError(null)
+      
+      // Clear any existing toast
+      if (activeToastId.current) {
+        toast.dismiss(activeToastId.current)
+      }
+      
+      // Show single loading toast
+      activeToastId.current = toast.loading("Loading investment data...")
 
       if (!hasInvestments) {
         setChartData([])
         calculateSummary([])
+        toast.dismiss(activeToastId.current)
         return
       }
 
-      const allData = await Promise.all(
-        topInvestments.map((inv) => fetchStockChartData(inv.symbol)))
-      const validData = allData.filter(Boolean)
+      // Fetch data for all investments
+      const results = await Promise.allSettled(
+        topInvestments.map(inv => fetchStockChartData(inv.symbol))
+      )
 
-      if (validData.length === 0 && topInvestments.length > 0) {
-        toast.error("No valid chart data received")
-      }
+      const successfulData: any[] = []
+      const failedSymbols: string[] = []
 
-      setChartData(validData)
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulData.push(result.value)
+        } else {
+          failedSymbols.push(topInvestments[index]?.symbol || 'Unknown')
+        }
+      })
+
+      setChartData(successfulData)
       calculateSummary(topInvestments)
       setLastUpdated(new Date())
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to load data"
+
+      // Update toast based on results
+      if (successfulData.length === 0) {
+        toast.error("Failed to load investment data", {
+          id: activeToastId.current
+        })
+      } else if (failedSymbols.length > 0) {
+        toast.warning(`Loaded ${successfulData.length} of ${topInvestments.length} investments`, {
+          id: activeToastId.current,
+          description: failedSymbols.length > 3 ? 
+            `${failedSymbols.length} investments failed` : 
+            `Failed: ${failedSymbols.join(', ')}`
+        })
+      } else {
+        toast.success("Investment data loaded", {
+          id: activeToastId.current
+        })
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load data'
       setApiError(errorMessage)
-      toast.error(errorMessage)
+      toast.error("Failed to load investment data", {
+        id: activeToastId.current,
+        description: errorMessage
+      })
     } finally {
       setLoading(false)
     }
   }, [topInvestments, fetchStockChartData, calculateSummary, hasInvestments])
 
-  // Initial data load
+  // Initial data load and refresh on range/interval change
   useEffect(() => {
     fetchAllData()
   }, [fetchAllData])
@@ -250,28 +399,35 @@ const InvestmentTracker = () => {
   const lineChartData = useMemo(() => {
     if (!hasInvestments || chartData.length === 0) {
       return {
-        labels: ['No Data'],
-        datasets: [{
-          label: 'No Investments',
-          data: [1],
-          borderColor: '#cccccc',
-          backgroundColor: '#f0f0f0',
-          borderWidth: 1
-        }]
+        labels: ["No Data"],
+        datasets: [
+          {
+            label: "No Investments",
+            data: [1],
+            borderColor: "#cccccc",
+            backgroundColor: "#f0f0f0",
+            borderWidth: 1,
+          },
+        ],
       }
     }
 
-    const referenceTimestamps = chartData[0]?.chart?.result?.[0]?.timestamp || []
-    
+    const referenceTimestamps =
+      chartData[0]?.chart?.result?.[0]?.timestamp || []
+
     const formatLabel = (timestamp: number) => {
       const date = new Date(timestamp * 1000)
       switch (timeRange) {
-        case "1d": return format(date, "HH:mm")
-        case "5d": 
-        case "1mo": return format(date, "MMM dd")
+        case "1d":
+          return format(date, "HH:mm")
+        case "5d":
+        case "1mo":
+          return format(date, "MMM dd")
         case "3mo":
-        case "6mo": return format(date, "MMM")
-        default: return format(date, "MMM yyyy")
+        case "6mo":
+          return format(date, "MMM")
+        default:
+          return format(date, "MMM yyyy")
       }
     }
 
@@ -284,7 +440,9 @@ const InvestmentTracker = () => {
         const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
 
         return {
-          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName.length > 15 ? "..." : ""}`,
+          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${
+            meta.shortName.length > 15 ? "..." : ""
+          }`,
           data: quotes.close,
           borderColor: color,
           backgroundColor: `${color}20`,
@@ -297,48 +455,73 @@ const InvestmentTracker = () => {
     }
   }, [chartData, timeRange, hasInvestments])
 
-  const pieChartData = useMemo(() => ({
-    labels: hasInvestments ? 
-      topInvestments.map((inv) => inv.symbol) : 
-      ['No Investments'],
-    datasets: [{
-      data: hasInvestments ? 
-        topInvestments.map(inv => (inv.currentValue || inv.buyPrice) * inv.quantity) : 
-        [1],
-      backgroundColor: hasInvestments ? 
-        topInvestments.map((_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]) : 
-        ['#cccccc'],
-      borderWidth: 1,
-    }],
-  }), [topInvestments, hasInvestments])
+  const pieChartData = useMemo(
+    () => ({
+      labels: hasInvestments
+        ? topInvestments.map((inv) => inv.symbol)
+        : ["No Investments"],
+      datasets: [
+        {
+          data: hasInvestments
+            ? topInvestments.map(
+                (inv) => (inv.currentValue || inv.buyPrice) * inv.quantity
+              )
+            : [1],
+          backgroundColor: hasInvestments
+            ? topInvestments.map(
+                (_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]
+              )
+            : ["#cccccc"],
+          borderWidth: 1,
+        },
+      ],
+    }),
+    [topInvestments, hasInvestments]
+  )
 
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "bottom" as const,
-        labels: { boxWidth: 12, padding: 20, usePointStyle: true },
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => 
-            `${context.dataset.label}: ${hasInvestments ? formatCurrency(context.raw) : 'N/A'}`
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom" as const,
+          labels: {
+            boxWidth: 12,
+            padding: 20,
+            usePointStyle: true,
+            font: {
+              size: window.innerWidth < 768 ? 10 : 12,
+            },
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context: any) =>
+              `${context.dataset.label}: ${
+                hasInvestments ? formatCurrency(context.raw) : "N/A"
+              }`,
+          },
         },
       },
-    },
-    interaction: {
-      mode: "nearest" as const,
-      axis: "x" as const,
-      intersect: false,
-    },
-  }), [formatCurrency, hasInvestments])
+      interaction: {
+        mode: "nearest" as const,
+        axis: "x" as const,
+        intersect: false,
+      },
+    }),
+    [formatCurrency, hasInvestments]
+  )
 
   // Event handlers
   const handleRefresh = useCallback(() => {
+    // Clear cache for current range/interval
+    topInvestments.forEach((inv) => {
+      const cacheKey = `${inv.symbol}-${timeRange}-${interval}`
+      chartDataCache.delete(cacheKey)
+    })
     fetchAllData()
-    toast.success("Refreshing data...")
-  }, [fetchAllData])
+  }, [fetchAllData, topInvestments, timeRange, interval, chartDataCache])
 
   const handleRangeChange = useCallback((value: TimeRange) => {
     setTimeRange(value)
@@ -348,66 +531,86 @@ const InvestmentTracker = () => {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Investment Portfolio</h1>
-        <div className="flex items-center mt-4 md:mt-0 space-x-2">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+            Investment Portfolio
+          </h1>
           {lastUpdated && (
-            <p className="text-xs md:text-sm text-gray-500">
+            <p className="text-xs md:text-sm text-gray-500 mt-1">
               Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
             </p>
           )}
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Select
+            value={timeRange}
+            onValueChange={handleRangeChange}
+            disabled={loading}>
+            <SelectTrigger className="w-full md:w-[150px]">
+              <SelectValue placeholder="Time Range" />
+            </SelectTrigger>
+            <SelectContent>
+              {RANGE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button
             onClick={handleRefresh}
             disabled={loading}
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 md:gap-2"
-          >
+            className="shrink-0">
             {loading ? (
               <FiRefreshCw className="animate-spin h-4 w-4" />
             ) : (
-              <FiRefreshCw className="h-4 w-4" />
+              <>
+                <FiRefreshCw className="h-4 w-4 md:mr-1" />
+                <span className="hidden md:inline">Refresh</span>
+              </>
             )}
-            <span className="hidden md:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
       {/* Status Messages */}
-      <div className="space-y-3 mb-6">
-        {apiError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-yellow-50 border-l-4 border-yellow-500 p-3 md:p-4 rounded"
-          >
-            <div className="flex items-start">
-              <FiAlertTriangle className="flex-shrink-0 h-5 w-5 text-yellow-500 mt-0.5" />
-              <div className="ml-3">
-                <p className="text-sm text-yellow-700">{apiError}</p>
-              </div>
+      {apiError && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-yellow-50 border-l-4 border-yellow-500 p-3 md:p-4 rounded mb-6">
+          <div className="flex items-start">
+            <FiAlertTriangle className="flex-shrink-0 h-5 w-5 text-yellow-500 mt-0.5" />
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">{apiError}</p>
             </div>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
+      )}
 
-        {!hasInvestments && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-red-50 border-l-4 border-red-500 p-3 md:p-4 rounded"
-          >
-            <div className="flex items-start">
-              <FiInfo className="flex-shrink-0 h-5 w-5 text-red-500 mt-0.5" />
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">No investments found</h3>
-                <p className="text-sm text-red-700 mt-1">
-                  Add investments to see your portfolio analysis
-                </p>
-              </div>
+      {!hasInvestments && !loading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-blue-50 border-l-4 border-blue-500 p-3 md:p-4 rounded mb-6">
+          <div className="flex items-start">
+            <FiInfo className="flex-shrink-0 h-5 w-5 text-blue-500 mt-0.5" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                No investments found
+              </h3>
+              <p className="text-sm text-blue-700 mt-1">
+                Add investments to see your portfolio analysis
+              </p>
             </div>
-          </motion.div>
-        )}
-      </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -416,7 +619,9 @@ const InvestmentTracker = () => {
           value={summary.totalInvested}
           icon={<FiDollarSign className="h-5 w-5" />}
           color="blue"
-          description={hasInvestments ? "Across all holdings" : "No investments"}
+          description={
+            hasInvestments ? "Across all holdings" : "No investments"
+          }
           formatValue={formatCurrency}
           loading={loading}
         />
@@ -427,9 +632,9 @@ const InvestmentTracker = () => {
           icon={<FiTrendingUp className="h-5 w-5" />}
           color="green"
           description={
-            hasInvestments ? 
-              `${formatPercentage(summary.profitLossPercentage)}` : 
-              "--"
+            hasInvestments
+              ? `${formatPercentage(summary.profitLossPercentage)}`
+              : "--"
           }
           formatValue={formatCurrency}
           loading={loading}
@@ -439,15 +644,17 @@ const InvestmentTracker = () => {
           title="Profit/Loss"
           value={summary.profitLoss}
           icon={
-            summary.profitLoss >= 0 ? 
-              <FiTrendingUp className="h-5 w-5" /> : 
+            summary.profitLoss >= 0 ? (
+              <FiTrendingUp className="h-5 w-5" />
+            ) : (
               <FiTrendingDown className="h-5 w-5" />
+            )
           }
           color={summary.profitLoss >= 0 ? "green" : "red"}
           description={
-            hasInvestments ? 
-              `${summary.profitLoss >= 0 ? "Profit" : "Loss"}` : 
-              "--"
+            hasInvestments
+              ? `${summary.profitLoss >= 0 ? "Profit" : "Loss"}`
+              : "--"
           }
           percentage={summary.profitLossPercentage}
           formatValue={formatCurrency}
@@ -455,7 +662,7 @@ const InvestmentTracker = () => {
           loading={loading}
         />
 
-        <PerformanceCard 
+        <PerformanceCard
           performer={summary.bestPerformer}
           title={hasInvestments ? "Best Performer" : "Top Holding"}
           icon={<FiArrowUp className="h-5 w-5" />}
@@ -476,9 +683,9 @@ const InvestmentTracker = () => {
                 <Skeleton className="h-full w-full" />
               </div>
             ) : (
-              <Line 
-                data={lineChartData} 
-                options={chartOptions} 
+              <Line
+                data={lineChartData}
+                options={chartOptions}
                 className="h-80"
               />
             )
@@ -490,16 +697,18 @@ const InvestmentTracker = () => {
         />
 
         <ChartSection
-          title={hasInvestments ? "Portfolio Allocation" : "Investment Distribution"}
+          title={
+            hasInvestments ? "Portfolio Allocation" : "Investment Distribution"
+          }
           chart={
             loading ? (
               <div className="h-80 flex items-center justify-center">
                 <Skeleton className="h-full w-full" />
               </div>
             ) : (
-              <Pie 
-                data={pieChartData} 
-                options={chartOptions} 
+              <Pie
+                data={pieChartData}
+                options={chartOptions}
                 className="h-80"
               />
             )
@@ -510,8 +719,8 @@ const InvestmentTracker = () => {
       </div>
 
       {/* Holdings Table */}
-      <HoldingsTable 
-        investments={topInvestments} 
+      <HoldingsTable
+        investments={topInvestments}
         formatCurrency={formatCurrency}
         formatPercentage={formatPercentage}
         hasInvestments={hasInvestments}
@@ -543,28 +752,42 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   percentage,
   formatValue,
   formatPercentage,
-  loading = false
+  loading = false,
 }) => {
   const colorClasses = {
-    blue: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-100" },
-    green: { bg: "bg-green-50", text: "text-green-600", border: "border-green-100" },
+    blue: {
+      bg: "bg-blue-50",
+      text: "text-blue-600",
+      border: "border-blue-100",
+    },
+    green: {
+      bg: "bg-green-50",
+      text: "text-green-600",
+      border: "border-green-100",
+    },
     red: { bg: "bg-red-50", text: "text-red-600", border: "border-red-100" },
-    purple: { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-100" },
+    purple: {
+      bg: "bg-purple-50",
+      text: "text-purple-600",
+      border: "border-purple-100",
+    },
   }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white rounded-lg shadow-sm p-4 border ${colorClasses[color].border} h-full`}
-    >
+      className={`bg-white rounded-lg shadow-sm p-4 border ${colorClasses[color].border} h-full`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm md:text-base font-medium text-gray-600">{title}</h3>
-        <div className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
+        <h3 className="text-sm md:text-base font-medium text-gray-600">
+          {title}
+        </h3>
+        <div
+          className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
           {icon}
         </div>
       </div>
-      
+
       {loading ? (
         <div className="mt-3 space-y-2">
           <Skeleton className="h-7 w-3/4" />
@@ -577,12 +800,17 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
           </p>
           {percentage !== undefined ? (
             <div className="flex items-center mt-1">
-              <span className={`text-sm ${percentage >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <span
+                className={`text-sm ${
+                  percentage >= 0 ? "text-green-600" : "text-red-600"
+                }`}>
                 {formatPercentage?.(percentage) ?? percentage}
               </span>
             </div>
           ) : (
-            <p className="text-xs md:text-sm text-gray-500 mt-1">{description}</p>
+            <p className="text-xs md:text-sm text-gray-500 mt-1">
+              {description}
+            </p>
           )}
         </>
       )}
@@ -607,7 +835,7 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
   color,
   formatPercentage,
   loading = false,
-  hasInvestments = false
+  hasInvestments = false,
 }) => {
   const colorClasses = {
     blue: { bg: "bg-blue-50", text: "text-blue-600" },
@@ -616,22 +844,28 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
     purple: { bg: "bg-purple-50", text: "text-purple-600" },
   }
 
-  const performanceValue = performer && performer.buyPrice > 0 ?
-    (((performer.currentValue || performer.buyPrice) - performer.buyPrice) / performer.buyPrice * 100 ): 0
+  const performanceValue =
+    performer && performer.buyPrice > 0
+      ? (((performer.currentValue || performer.buyPrice) - performer.buyPrice) /
+          performer.buyPrice) *
+        100
+      : 0
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-lg shadow-sm p-4 border border-gray-100 h-full"
-    >
+      className="bg-white rounded-lg shadow-sm p-4 border border-gray-100 h-full">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm md:text-base font-medium text-gray-600">{title}</h3>
-        <div className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
+        <h3 className="text-sm md:text-base font-medium text-gray-600">
+          {title}
+        </h3>
+        <div
+          className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
           {icon}
         </div>
       </div>
-      
+
       {loading ? (
         <div className="mt-3 space-y-2">
           <Skeleton className="h-6 w-3/4" />
@@ -648,10 +882,12 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
               <p className="text-xs md:text-sm text-gray-500 truncate">
                 {performer.name}
               </p>
-              <p className={`mt-1 text-sm md:text-base font-medium ${
-                performanceValue >= 0 ? "text-green-600" : "text-red-600"
-              }`}>
-                {formatPercentage?.(performanceValue) ?? `${performanceValue.toFixed(2)}%`}
+              <p
+                className={`mt-1 text-sm md:text-base font-medium ${
+                  performanceValue >= 0 ? "text-green-600" : "text-red-600"
+                }`}>
+                {formatPercentage?.(performanceValue) ??
+                  `${performanceValue.toFixed(2)}%`}
               </p>
             </>
           ) : (
@@ -682,23 +918,21 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   timeRange,
   onRangeChange,
   hasInvestments = false,
-  loading = false
+  loading = false,
 }) => (
   <motion.div
     initial={{ opacity: 0, x: title.includes("Performance") ? -10 : 10 }}
     animate={{ opacity: 1, x: 0 }}
-    className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-100"
-  >
+    className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-100">
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
       <h3 className="text-base md:text-lg font-semibold text-gray-800">
         {title}
       </h3>
       {timeRange && onRangeChange && (
-        <Select 
-          value={timeRange} 
+        <Select
+          value={timeRange}
           onValueChange={onRangeChange}
-          disabled={!hasInvestments || loading}
-        >
+          disabled={!hasInvestments || loading}>
           <SelectTrigger className="w-[120px]">
             <SelectValue placeholder="Range" />
           </SelectTrigger>
@@ -712,9 +946,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
         </Select>
       )}
     </div>
-    <div className="h-64 md:h-80">
-      {chart}
-    </div>
+    <div className="h-64 md:h-80">{chart}</div>
   </motion.div>
 )
 
@@ -731,13 +963,12 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
   formatCurrency,
   formatPercentage,
   hasInvestments = false,
-  loading = false
+  loading = false,
 }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100"
-  >
+    className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
     <div className="p-4 md:p-6 border-b border-gray-200">
       <h3 className="text-lg md:text-xl font-semibold text-gray-800">
         {hasInvestments ? "Your Holdings" : "Investment Summary"}
@@ -749,13 +980,19 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
         <thead className="bg-gray-50">
           <tr>
             {[
-              "Symbol", "Name", "Purchase Date", "Purchase Price", 
-              "Current Price", "Quantity", "Invested", "Value", "P/L"
+              "Symbol",
+              "Name",
+              "Purchase Date",
+              "Purchase Price",
+              "Current Price",
+              "Quantity",
+              "Invested",
+              "Value",
+              "P/L",
             ].map((header) => (
               <th
                 key={header}
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
-              >
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                 {header}
               </th>
             ))}
@@ -775,9 +1012,12 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
           ) : hasInvestments ? (
             investments.map((investment) => {
               const invested = investment.buyPrice * investment.quantity
-              const currentValue = (investment.currentValue || investment.buyPrice) * investment.quantity
+              const currentValue =
+                (investment.currentValue || investment.buyPrice) *
+                investment.quantity
               const profitLoss = currentValue - invested
-              const profitLossPercentage = invested > 0 ? (profitLoss / invested) * 100 : 0
+              const profitLossPercentage =
+                invested > 0 ? (profitLoss / invested) * 100 : 0
 
               return (
                 <tr key={investment.id} className="hover:bg-gray-50">
@@ -811,15 +1051,15 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
                     <div
                       className={`flex items-center ${
                         profitLoss >= 0 ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
+                      }`}>
                       {profitLoss >= 0 ? (
                         <FiArrowUp className="mr-1 flex-shrink-0" />
                       ) : (
                         <FiArrowDown className="mr-1 flex-shrink-0" />
                       )}
                       <span>
-                        {formatCurrency(profitLoss)} ({formatPercentage(profitLossPercentage)})
+                        {formatCurrency(profitLoss)} (
+                        {formatPercentage(profitLossPercentage)})
                       </span>
                     </div>
                   </td>
@@ -828,7 +1068,9 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
             })
           ) : (
             <tr>
-              <td colSpan={9} className="px-4 py-6 text-center text-sm text-gray-500">
+              <td
+                colSpan={9}
+                className="px-4 py-6 text-center text-sm text-gray-500">
                 No investment data available
               </td>
             </tr>
