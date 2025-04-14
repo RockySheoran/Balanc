@@ -1,6 +1,7 @@
 /** @format */
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit"
 import axios, { AxiosError } from "axios"
+import { useAppDispatch } from "../../store/hooks"
 
 interface Investment {
   id: string
@@ -55,14 +56,12 @@ const initialState: InvestmentState = {
   apiKeyStatus: {},
 }
 
-// API Keys configuration
 const API_KEYS = [
   process.env.NEXT_PUBLIC_RAPIDAPI1,
   process.env.NEXT_PUBLIC_RAPIDAPI2,
   process.env.NEXT_PUBLIC_RAPIDAPI3,
 ].filter(Boolean) as string[]
 
-// Initialize API key status
 API_KEYS.forEach((key) => {
   initialState.apiKeyStatus[key] = {
     valid: true,
@@ -70,23 +69,21 @@ API_KEYS.forEach((key) => {
   }
 })
 
-// Cache and staleness helpers
 const isPriceStale = (timestamp: string): boolean => {
-  return new Date(timestamp) < new Date(Date.now() - 60 * 60 * 1000) // 1 hour
+  return new Date(timestamp) < new Date(Date.now() - 60 * 60 * 1000)
 }
 
 const isDataStale = (timestamp: string | null): boolean => {
   return (
     !timestamp ||
     new Date(timestamp) < new Date(Date.now() - 24 * 60 * 60 * 1000)
-  ) // 24 hours
+  )
 }
 
 const isApiKeyStale = (lastChecked: string): boolean => {
-  return new Date(lastChecked) < new Date(Date.now() - 5 * 60 * 1000) // 5 minutes
+  return new Date(lastChecked) < new Date(Date.now() - 5 * 60 * 1000)
 }
 
-// Enhanced fetch function with automatic key rotation and retry logic
 const fetchCurrentPrice = async (
   symbol: string,
   currentApiKeyIndex: number,
@@ -99,7 +96,6 @@ const fetchCurrentPrice = async (
   while (attempts < API_KEYS.length * 2) {
     const apiKey = API_KEYS[apiKeyIndex]
 
-    // Skip invalid keys unless they're stale
     if (
       !apiKeyStatus[apiKey]?.valid &&
       !isApiKeyStale(apiKeyStatus[apiKey]?.lastChecked)
@@ -121,14 +117,12 @@ const fetchCurrentPrice = async (
             "x-rapidapi-key": apiKey,
             "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
           },
-        
         }
       )
 
       if (
         response.data?.quoteSummary?.result?.[0]?.price?.regularMarketPrice?.raw
       ) {
-        // Mark API key as valid
         apiKeyStatus[apiKey] = {
           valid: true,
           lastChecked: new Date().toISOString(),
@@ -143,8 +137,6 @@ const fetchCurrentPrice = async (
       throw new Error("Invalid API response structure")
     } catch (error) {
       lastError = error as Error
-
-      // Mark key as invalid if rate limited
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 429 || error.response?.status === 403) {
           apiKeyStatus[apiKey] = {
@@ -154,11 +146,8 @@ const fetchCurrentPrice = async (
         }
       }
 
-      // Rotate to next key
       apiKeyIndex = (apiKeyIndex + 1) % API_KEYS.length
       attempts++
-
-      // Add exponential backoff delay between retries
       await new Promise((resolve) =>
         setTimeout(resolve, 200 * Math.pow(2, attempts))
       )
@@ -170,14 +159,12 @@ const fetchCurrentPrice = async (
   )
 }
 
-// Thunks
 export const fetchStockPrice = createAsyncThunk(
   "investments/fetchStockPrice",
   async (symbol: string, { getState, rejectWithValue }) => {
     const state = getState() as { investments: InvestmentState }
     const { priceCache, currentApiKeyIndex, apiKeyStatus } = state.investments
 
-    // Check cache first
     const cachedPrice = priceCache[symbol]
     if (cachedPrice && !isPriceStale(cachedPrice.timestamp)) {
       return {
@@ -196,9 +183,7 @@ export const fetchStockPrice = createAsyncThunk(
       )
       return { symbol, price, apiKeyIndex, fromCache: false }
     } catch (error) {
-      // Fallback to cached price if available
       if (cachedPrice) {
-        console.warn(`Using stale cache for ${symbol} after fetch failure`)
         return {
           symbol,
           price: cachedPrice.price,
@@ -219,38 +204,31 @@ export const addInvestment = createAsyncThunk(
   async (
     investmentData: Omit<
       Investment,
-      "id" | "createdAt" | "updatedAt" | "currentValue" | "lastPriceUpdate"
+               "lastPriceUpdate"
     >,
     { getState, dispatch, rejectWithValue }
   ) => {
     try {
-      // First create the investment with initial values
       const newInvestment: Investment = {
         ...investmentData,
-        id: Math.random().toString(36).substring(2, 9),
-        currentValue: 0, // Temporary value
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      
+       
         lastPriceUpdate: new Date().toISOString(),
-        sellDate: null,
-        sellPrice: null,
+      
       }
+      console.log(newInvestment)
+      
 
-      // Dispatch immediately to show in UI
       dispatch(investmentSlice.actions.addBackendInvestment(newInvestment))
 
-      // Then fetch current price and update
       const priceResult = await dispatch(fetchStockPrice(investmentData.symbol))
+      console.log(priceResult)
       if (fetchStockPrice.fulfilled.match(priceResult)) {
         const updatedInvestment = {
           ...newInvestment,
-          currentValue: priceResult.payload.price ,
+          currentValue: priceResult.payload.price * newInvestment.quantity,
           updatedAt: new Date().toISOString(),
         }
-
-        // Here you would typically make an API call to save to your backend
-        // await saveInvestmentToBackend(updatedInvestment)
-
         return updatedInvestment
       } else {
         throw new Error("Failed to fetch current price")
@@ -268,12 +246,10 @@ export const refreshAllInvestments = createAsyncThunk(
   async (_, { getState, dispatch }) => {
     const state = getState() as { investments: InvestmentState }
 
-    // Only refresh if data is stale
     if (!isDataStale(state.investments.lastFetchTime)) {
       return { skipped: true }
     }
 
-    // Refresh all investments' prices in batches
     const batchSize = 5
     const investments = state.investments.investments
     let failedCount = 0
@@ -285,7 +261,6 @@ export const refreshAllInvestments = createAsyncThunk(
       )
       failedCount += results.filter((r) => r.status === "rejected").length
 
-      // Add delay between batches to avoid rate limiting
       if (i + batchSize < investments.length) {
         await new Promise((resolve) => setTimeout(resolve, 1000))
       }
@@ -311,6 +286,7 @@ const investmentSlice = createSlice({
         (inv) => inv.id === action.payload.id
       )
       if (existingIndex >= 0) {
+
         state.investments[existingIndex] = action.payload
       } else {
         state.investments.push(action.payload)
@@ -367,7 +343,6 @@ const investmentSlice = createSlice({
       .addCase(fetchStockPrice.fulfilled, (state, action) => {
         const { symbol, price, apiKeyIndex, fromCache } = action.payload
 
-        // Update cache if not from cache
         if (!fromCache) {
           state.priceCache[symbol] = {
             price,
@@ -376,7 +351,6 @@ const investmentSlice = createSlice({
           state.currentApiKeyIndex = apiKeyIndex
         }
 
-        // Update investments with this symbol
         state.investments = state.investments.map((inv) => {
           if (inv.symbol === symbol) {
             return {
@@ -400,8 +374,6 @@ const investmentSlice = createSlice({
         state.status = "loading"
       })
       .addCase(addInvestment.fulfilled, (state, action) => {
-        // The investment was already added via addBackendInvestment
-        // Just update it with the final values
         const index = state.investments.findIndex(
           (inv) => inv.id === action.payload.id
         )
@@ -414,7 +386,6 @@ const investmentSlice = createSlice({
       .addCase(addInvestment.rejected, (state, action) => {
         state.status = "failed"
         state.error = action.payload as string
-        // Remove the temporary investment if the operation failed
         if (action.meta.arg) {
           state.investments = state.investments.filter(
             (inv) => inv.symbol !== action.meta.arg.symbol

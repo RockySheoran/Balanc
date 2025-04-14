@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
 import { useFormState, useFormStatus } from "react-dom"
 import { sellInvestment } from "@/Actions/investmentApi/investment-actions"
+import { getStockPrice } from "@/Actions/investmentApi/fetchStockPrice"
 
 
 interface Investment {
@@ -92,9 +93,10 @@ export function SellInvestmentDialog({
     try {
       setPriceLoading(true)
       const price = await getStockPrice(investment.symbol)
+      console.log(price)
       setFormData((prev) => ({
         ...prev,
-        sellPrice: price.price,
+        sellPrice:  price.price,
       }))
       toast.success("Current price updated")
     } catch (error) {
@@ -231,9 +233,9 @@ export function SellInvestmentDialog({
                     id="sellPrice"
                     name="sellPrice"
                     type="number"
-                    step="0.01"
+                    step="0.1"
                     min="0"
-                    value={formData.sellPrice}
+                    value={(formData.sellPrice ).toFixed(2)}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
@@ -334,9 +336,9 @@ export function SellInvestmentDialog({
   )
 }
 
-// Mock function - replace with your actual stock price fetching logic
-async function getStockPrice(symbol: string): Promise<{ price: number }> {
-  console.log(`Fetching price for ${symbol}`)
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  return { price: Math.random() * 100 + 50 } // Random price between 50 and 150
-}
+// // Mock function - replace with your actual stock price fetching logic
+// async function getStockPrice(symbol: string): Promise<{ price: number }> {
+//   console.log(`Fetching price for ${symbol}`)
+//   await new Promise((resolve) => setTimeout(resolve, 500))
+//   return { price: Math.random() * 100 + 50 } // Random price between 50 and 150
+// }

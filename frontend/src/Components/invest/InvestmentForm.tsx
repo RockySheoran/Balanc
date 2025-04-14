@@ -370,7 +370,7 @@ useEffect(() => {
                       name="buyPrice"
                       type="number"
                       min="0.1"
-                      step="0.000001"
+                      step="0.1"
                       value={formData.buyPrice || ""}
                       onChange={(e) =>
                         setFormData({
@@ -387,8 +387,8 @@ useEffect(() => {
                     <Input
                       name="quantity"
                       type="number"
-                      min="0.1"
-                      step="0.1"
+                      min="1"
+                      step="1"
                       value={formData.quantity}
                       onChange={(e) =>
                         setFormData({

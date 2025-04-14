@@ -26,6 +26,7 @@ import {
 } from "@/lib/Redux/features/account/accountSlice"
 import {
   addBackendInvestment,
+  addInvestment,
   clearInvestments,
 } from "@/lib/Redux/features/investmentSlice/investmentSlice"
 
@@ -132,6 +133,7 @@ export default function DashboardClient({ session }: SessionProps) {
         dispatch(clearInvestments())
         data.forEach((inv: any) => {
           dispatch(addBackendInvestment(inv))
+          // dispatch(addInvestment(inv))
         })
         toast.success("Investments loaded successfully")
       },
