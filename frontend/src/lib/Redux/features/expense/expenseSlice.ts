@@ -106,7 +106,7 @@ const expenseSlice = createSlice({
     },
     //
     clearExpense: () => {
-      // Return a completely new state object
+    
       return { ...initialState }
     },
 

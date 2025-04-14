@@ -134,7 +134,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       "x-rapidapi-key": apiKey,
       "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
     },
-    timeout: 10000,
+   
   }), [])
 
   // Enhanced fetch function with retry and key rotation
@@ -159,7 +159,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         const response = await axios({
           ...getApiConfig(apiKey),
           params: {
-            region: symbol.includes(".NS") ? "IN" : "US",
+            region: symbol.includes(".NS") ? "US" : "US",
             symbol,
             range,
             interval,

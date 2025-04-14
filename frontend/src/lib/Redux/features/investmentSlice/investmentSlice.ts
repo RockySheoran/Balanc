@@ -86,7 +86,7 @@ const isApiKeyStale = (lastChecked: string): boolean => {
   return new Date(lastChecked) < new Date(Date.now() - 5 * 60 * 1000) // 5 minutes
 }
 
-// Enhanced fetch function with automatic key rotation
+// Enhanced fetch function with automatic key rotation and retry logic
 const fetchCurrentPrice = async (
   symbol: string,
   currentApiKeyIndex: number,
@@ -97,7 +97,6 @@ const fetchCurrentPrice = async (
   let lastError: Error | null = null
 
   while (attempts < API_KEYS.length * 2) {
-    // Try each key twice
     const apiKey = API_KEYS[apiKeyIndex]
 
     // Skip invalid keys unless they're stale
@@ -122,13 +121,19 @@ const fetchCurrentPrice = async (
             "x-rapidapi-key": apiKey,
             "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
           },
-          timeout: 8000,
+        
         }
       )
 
       if (
         response.data?.quoteSummary?.result?.[0]?.price?.regularMarketPrice?.raw
       ) {
+        // Mark API key as valid
+        apiKeyStatus[apiKey] = {
+          valid: true,
+          lastChecked: new Date().toISOString(),
+        }
+
         return {
           price:
             response.data.quoteSummary.result[0].price.regularMarketPrice.raw,
@@ -153,8 +158,10 @@ const fetchCurrentPrice = async (
       apiKeyIndex = (apiKeyIndex + 1) % API_KEYS.length
       attempts++
 
-      // Add small delay between retries
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      // Add exponential backoff delay between retries
+      await new Promise((resolve) =>
+        setTimeout(resolve, 200 * Math.pow(2, attempts))
+      )
     }
   }
 
@@ -191,6 +198,7 @@ export const fetchStockPrice = createAsyncThunk(
     } catch (error) {
       // Fallback to cached price if available
       if (cachedPrice) {
+        console.warn(`Using stale cache for ${symbol} after fetch failure`)
         return {
           symbol,
           price: cachedPrice.price,
@@ -213,28 +221,40 @@ export const addInvestment = createAsyncThunk(
       Investment,
       "id" | "createdAt" | "updatedAt" | "currentValue" | "lastPriceUpdate"
     >,
-    { getState, rejectWithValue }
+    { getState, dispatch, rejectWithValue }
   ) => {
-    const state = getState() as { investments: InvestmentState }
-
     try {
-      // Fetch current price with API key rotation
-      const { price } = await fetchCurrentPrice(
-        investmentData.symbol,
-        state.investments.currentApiKeyIndex,
-        state.investments.apiKeyStatus
-      )
-
+      // First create the investment with initial values
       const newInvestment: Investment = {
         ...investmentData,
-        currentValue: price * investmentData.quantity, // Calculate total current value
         id: Math.random().toString(36).substring(2, 9),
+        currentValue: 0, // Temporary value
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         lastPriceUpdate: new Date().toISOString(),
+        sellDate: null,
+        sellPrice: null,
       }
 
-      return newInvestment
+      // Dispatch immediately to show in UI
+      dispatch(investmentSlice.actions.addBackendInvestment(newInvestment))
+
+      // Then fetch current price and update
+      const priceResult = await dispatch(fetchStockPrice(investmentData.symbol))
+      if (fetchStockPrice.fulfilled.match(priceResult)) {
+        const updatedInvestment = {
+          ...newInvestment,
+          currentValue: priceResult.payload.price ,
+          updatedAt: new Date().toISOString(),
+        }
+
+        // Here you would typically make an API call to save to your backend
+        // await saveInvestmentToBackend(updatedInvestment)
+
+        return updatedInvestment
+      } else {
+        throw new Error("Failed to fetch current price")
+      }
     } catch (error) {
       return rejectWithValue(
         error instanceof Error ? error.message : "Failed to add investment"
@@ -253,15 +273,25 @@ export const refreshAllInvestments = createAsyncThunk(
       return { skipped: true }
     }
 
-    // Refresh all investments' prices
-    const results = await Promise.allSettled(
-      state.investments.investments.map((inv) =>
-        dispatch(fetchStockPrice(inv.symbol))
-      )
-    )
+    // Refresh all investments' prices in batches
+    const batchSize = 5
+    const investments = state.investments.investments
+    let failedCount = 0
 
-    const failed = results.filter((r) => r.status === "rejected").length
-    return { skipped: false, failed }
+    for (let i = 0; i < investments.length; i += batchSize) {
+      const batch = investments.slice(i, i + batchSize)
+      const results = await Promise.allSettled(
+        batch.map((inv) => dispatch(fetchStockPrice(inv.symbol)))
+      )
+      failedCount += results.filter((r) => r.status === "rejected").length
+
+      // Add delay between batches to avoid rate limiting
+      if (i + batchSize < investments.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+    }
+
+    return { skipped: false, failed: failedCount }
   }
 )
 
@@ -285,11 +315,19 @@ const investmentSlice = createSlice({
       } else {
         state.investments.push(action.payload)
       }
-      state.lastFetchTime = new Date().toISOString()
     },
-    updateAllCurrentValues: (state) => {
-      if (!isDataStale(state.lastFetchTime)) return
-      state.status = "loading"
+    updateInvestmentCurrentValue: (
+      state,
+      action: PayloadAction<{ id: string; currentValue: number }>
+    ) => {
+      const index = state.investments.findIndex(
+        (inv) => inv.id === action.payload.id
+      )
+      if (index >= 0) {
+        state.investments[index].currentValue = action.payload.currentValue
+        state.investments[index].updatedAt = new Date().toISOString()
+        state.investments[index].lastPriceUpdate = new Date().toISOString()
+      }
     },
     deleteInvestment: (state, action: PayloadAction<string>) => {
       state.investments = state.investments.filter(
@@ -310,7 +348,6 @@ const investmentSlice = createSlice({
       state.filters = initialState.filters
       state.priceCache = {}
       state.lastFetchTime = null
-      // state.retryCount = 0
     },
     resetApiKeyStatus: (state, action: PayloadAction<string>) => {
       const apiKey = action.payload
@@ -344,7 +381,7 @@ const investmentSlice = createSlice({
           if (inv.symbol === symbol) {
             return {
               ...inv,
-              currentValue: price * inv.quantity, // Update current value
+              currentValue: price * inv.quantity,
               updatedAt: new Date().toISOString(),
               lastPriceUpdate: new Date().toISOString(),
             }
@@ -363,13 +400,26 @@ const investmentSlice = createSlice({
         state.status = "loading"
       })
       .addCase(addInvestment.fulfilled, (state, action) => {
-        state.investments.push(action.payload)
+        // The investment was already added via addBackendInvestment
+        // Just update it with the final values
+        const index = state.investments.findIndex(
+          (inv) => inv.id === action.payload.id
+        )
+        if (index >= 0) {
+          state.investments[index] = action.payload
+        }
         state.status = "succeeded"
         state.lastFetchTime = new Date().toISOString()
       })
       .addCase(addInvestment.rejected, (state, action) => {
         state.status = "failed"
         state.error = action.payload as string
+        // Remove the temporary investment if the operation failed
+        if (action.meta.arg) {
+          state.investments = state.investments.filter(
+            (inv) => inv.symbol !== action.meta.arg.symbol
+          )
+        }
       })
       .addCase(refreshAllInvestments.pending, (state) => {
         state.status = "loading"
@@ -391,7 +441,7 @@ export const {
   setFilter,
   selectInvestment,
   addBackendInvestment,
-  updateAllCurrentValues,
+  updateInvestmentCurrentValue,
   deleteInvestment,
   resetFilters,
   clearInvestments,

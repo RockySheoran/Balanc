@@ -173,7 +173,7 @@ useEffect(() => {
     }
   }
 
-  const currencySymbol = formData.symbol.endsWith(".NS") ? "INR" : "USD"
+  const currencySymbol = formData.symbol.endsWith(".NS") ? "USD" : "USD"
   const totalInvestment = formData.buyPrice * formData.quantity
 
   return (
@@ -348,7 +348,7 @@ useEffect(() => {
                         </div>
                       ) : (
                         <Input
-                          value={formData.currentPrice.toLocaleString(
+                          value={((formData.currentPrice).toLocaleString(
                             undefined,
                             {
                               style: "currency",
@@ -356,7 +356,7 @@ useEffect(() => {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 6,
                             }
-                          )}
+                          ))}
                           readOnly
                           className="bg-gray-50 font-mono"
                         />
@@ -369,7 +369,7 @@ useEffect(() => {
                     <Input
                       name="buyPrice"
                       type="number"
-                      min="0.000001"
+                      min="0.1"
                       step="0.000001"
                       value={formData.buyPrice || ""}
                       onChange={(e) =>
@@ -387,8 +387,8 @@ useEffect(() => {
                     <Input
                       name="quantity"
                       type="number"
-                      min="0.000001"
-                      step="0.000001"
+                      min="0.1"
+                      step="0.1"
                       value={formData.quantity}
                       onChange={(e) =>
                         setFormData({

@@ -35,7 +35,7 @@ const persistConfig = {
   version: 1,
   storage, // Use our custom storage
   // whitelist: ["user", "transactions"],
-  timeout: 2000,
+  // timeout: 2000,
 }
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

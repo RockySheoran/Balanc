@@ -61,7 +61,7 @@ export const getStockPrice = async (
   try {
     // console.log(options)
     const response = await axios.request<YahooFinanceResponse>(options)
-    // console.log(response)
+    console.log(response)
 
     if (!response.data?.quoteSummary?.result?.[0]?.price) {
       return {
@@ -74,11 +74,15 @@ export const getStockPrice = async (
     }
 
     const priceData = response.data.quoteSummary.result[0].price
+    console.log(priceData)
 
     return {
-      price: priceData.regularMarketPrice.raw,
+      price:
+        priceData.currency == "INR"
+          ? parseFloat((priceData.regularMarketPrice.raw / 85).toFixed(1))
+          : priceData.regularMarketPrice.raw,
       formattedPrice: priceData.regularMarketPrice.fmt,
-      currency: priceData.currency || (symbol.endsWith(".NS") ? "INR" : "USD"),
+      currency: priceData.currency || (symbol.endsWith(".NS") ? "USD" : "USD"),
       symbol: priceData.symbol,
       name: priceData.longName,
       changePercent: priceData.regularMarketChangePercent?.raw,
@@ -90,7 +94,7 @@ export const getStockPrice = async (
     return {
       price: 0,
       formattedPrice: "N/A",
-      currency: symbol.endsWith(".NS") ? "INR" : "USD",
+      currency: symbol.endsWith(".NS") ? "USD" : "USD",
       symbol,
       error: "Failed to fetch stock price",
     }
@@ -144,7 +148,7 @@ export const addInvestmentAction = async (
         (formData.get("buyDate") as string) ||
         new Date().toISOString().split("T")[0],
     }
-    console.log(investmentData)
+    // console.log(object)
 
     // Validate
     if (investmentData.quantity <= 0)

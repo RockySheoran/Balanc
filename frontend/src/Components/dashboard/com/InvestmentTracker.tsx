@@ -376,7 +376,7 @@ const InvestmentTracker = () => {
       }
 
       // Show single loading toast
-      // activeToastId.current = toast.loading("Loading investment data...")  
+      // activeToastId.current = toast.loading("Loading investment data...")
 
       if (!hasInvestments) {
         setChartData([])
@@ -412,7 +412,9 @@ const InvestmentTracker = () => {
         toast.error("Failed to load investment data", {
           id: activeToastId.current,
         })
-        setApiError("Failed to load investment data. Please try again later some time. Api limit reached")
+        setApiError(
+          "Failed to load investment data. Please try again later some time. Api limit reached"
+        )
       } else if (failedSymbols.length > 0) {
         toast.warning(
           `Loaded ${successfulData.length} of ${topInvestments.length} investments`,
@@ -555,10 +557,20 @@ const InvestmentTracker = () => {
         },
         tooltip: {
           callbacks: {
-            label: (context: any) =>
-              `${context.dataset.label}: ${
-                hasInvestments ? formatCurrency(context.raw) : "N/A"
-              }`,
+            label: (context: any) => {
+              const label = context.dataset.label || ""
+              const value = context.parsed.y
+              const currency = context.dataset.label.includes(".NS")
+                ? "INR"
+                : "USD"
+
+              return value !== null
+                ? `${label}: ${new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency,
+                  }).format(value)}`
+                : label
+            },
           },
         },
       },

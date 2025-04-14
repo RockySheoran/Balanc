@@ -148,7 +148,7 @@ const TopPerformers: React.FC<TopPerformersProps> = ({
         <div className="space-y-3">
           {sortedInvestments.slice(0, 4).map((investment, index) => {
             const isPositive = investment.roi > 0
-            const currencySymbol = investment.symbol.includes(".NS") ? "₹" : "$"
+            const currencySymbol = investment.symbol.includes(".NS") ? "$" : "$"
 
             return (
               <div

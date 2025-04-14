@@ -1,6 +1,6 @@
 /** @format */
 "use client"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import dynamic from "next/dynamic"
 import { debounce } from "lodash"
@@ -47,9 +47,13 @@ const TopPerformers = dynamic(() => import("./TopPerformers"), {
   loading: () => <SkeletonLoader className="h-80 w-full rounded-xl" />,
 })
 
-const InvestmentTable = dynamic(() => import("./InvestmentTable"), {
-  loading: () => <SkeletonLoader className="h-64 w-full rounded-xl" />,
-})
+const InvestmentTable = dynamic(
+  () => import("./InvestmentTable").then((mod) => mod.InvestmentTable),
+  {
+    ssr: false,
+    loading: () => <SkeletonLoader className="h-64 w-full rounded-xl" />,
+  }
+)
 
 const InvestmentForm = dynamic(() => import("./InvestmentForm"))
 
@@ -295,10 +299,13 @@ const InvestmentManagement = () => {
             <h2 className="text-lg font-semibold">Your Investments</h2>
           </div>
         </div>
+       <Suspense>
+
         <InvestmentTable
           investments={filteredInvestments}
-          onSelect={(id) => dispatch(selectInvestment(id))}
+          
         />
+       </Suspense>
       </motion.div>
 
       {/* Investment Form Modal */}
