@@ -2,7 +2,6 @@
 
 "use server"
 
-import { authOptions } from "@/app/api/auth/[...nextauth]/options"
 import { CREATE_INVEST_URL } from "@/lib/EndPointApi"
 import axios from "axios"
 
@@ -54,10 +53,9 @@ export const getStockPrice = async (
       symbol: symbol,
     },
     headers: {
-      "x-rapidapi-key": process.env.X_RAPIDAPI_KEY || "",
+      "x-rapidapi-key": process.env.X_RAPIDAPI || "",
       "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
     },
-    timeout: 5000,
   }
 
   try {
@@ -127,23 +125,26 @@ export const addInvestmentAction = async (
 
   try {
     // First get current price
-    const priceData = await getStockPrice(symbol)
-    if (priceData.error) {
-      return { error: priceData.error }
-    }
+    // const priceData = await getStockPrice(symbol)
+    // if (priceData.error) {
+    //   return { error: priceData.error }
+    // }
 
     const investmentData = {
       symbol,
       accountId: formData.get("accountId") as string,
-      name: (formData.get("name") as string) || priceData.name || symbol,
+      // name: (formData.get("name") as string) || priceData.name || symbol,
+      name: formData.get("name") as string,
       type: formData.get("type") as "stock" | "mutual-fund" | "crypto",
       quantity: Number(formData.get("quantity")) || 1,
-      buyPrice: Number(formData.get("buyPrice")) || priceData.price,
-      currentPrice: priceData.price,
+      // buyPrice: Number(formData.get("buyPrice")) || priceData.price,
+      buyPrice: Number(formData.get("buyPrice")),
+      currentPrice: Number(formData.get("currentPrice")),
       buyDate:
         (formData.get("buyDate") as string) ||
         new Date().toISOString().split("T")[0],
     }
+    console.log(investmentData)
 
     // Validate
     if (investmentData.quantity <= 0)

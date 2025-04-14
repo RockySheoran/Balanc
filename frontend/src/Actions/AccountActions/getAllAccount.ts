@@ -1,13 +1,12 @@
 "use server"
-// import { authOptions } from "@/app/api/auth/[...nextauth]/options"
-// import { GetServerSession } from "@/Components/common/getSeverSesstion"
+
 
 
 import { GET_ALL_ACCOUNT_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
 
 
-// import { getServerSession ,Session} from "next-auth"
+
 
 export const getAllAccounts = async({token}: { token: string })=>{
     try {

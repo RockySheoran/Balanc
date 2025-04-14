@@ -1,5 +1,5 @@
 /** @format */
-
+"use server"
 import { registerApi } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
 

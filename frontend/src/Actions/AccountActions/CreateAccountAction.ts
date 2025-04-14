@@ -8,9 +8,7 @@
 
 import { CREATE_ACCOUNT_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
-import { headers } from "next/headers"
-import { getServerSession, Session } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/options"
+
 
 
 

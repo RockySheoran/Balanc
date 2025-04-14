@@ -1,5 +1,5 @@
 /** @format */
-
+"use server"
 import { FORGOT_PASSWORD_URL } from "@/lib/EndPointApi"
 import axios, { AxiosError } from "axios"
 
