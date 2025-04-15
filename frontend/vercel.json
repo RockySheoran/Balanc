@@ -1,8 +1,7 @@
 {
   "functions": {
-    "api/*.js": {
-      "memory": 3008,
-      "maxDuration": 30 // seconds (10s free, 60s pro)
+    "app/api/**/*": {
+      "maxDuration": 30 // All functions can run for a maximum of 5 seconds
     }
   }
 }
