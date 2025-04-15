@@ -80,7 +80,7 @@ export const getStockPrice = async (
       price:
         priceData.currency == "INR"
           ? parseFloat((priceData.regularMarketPrice.raw / 85).toFixed(1))
-          : priceData.regularMarketPrice.raw,
+          : (priceData.regularMarketPrice.raw).toFixed(1),
       formattedPrice: priceData.regularMarketPrice.fmt,
       currency: priceData.currency || (symbol.endsWith(".NS") ? "USD" : "USD"),
       symbol: priceData.symbol,

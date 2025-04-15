@@ -173,7 +173,8 @@ useEffect(() => {
     }
   }
 
-  const currencySymbol = formData.symbol.endsWith(".NS") ? "USD" : "USD"
+  // const currencySymbol = formData.symbol.endsWith(".NS") ? "USD" : "USD"
+  const currencySymbol = "USD"
   const totalInvestment = formData.buyPrice * formData.quantity
 
   return (
@@ -348,15 +349,16 @@ useEffect(() => {
                         </div>
                       ) : (
                         <Input
-                          value={((formData.currentPrice).toLocaleString(
+                          value={formData.currentPrice.toLocaleString(
                             undefined,
                             {
                               style: "currency",
-                              currency: currencySymbol,
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 6,
+                              currency: "USD", // Fixed: Removed extra space after "USD"
+                              currencyDisplay: "symbol", // Ensures the $ symbol is always shown
+                              minimumFractionDigits: 2, // Always shows 2 decimal places
+                              maximumFractionDigits: 2, // Never shows more than 2 decimal places
                             }
-                          ))}
+                          )}
                           readOnly
                           className="bg-gray-50 font-mono"
                         />
@@ -483,8 +485,4 @@ const popularStocks = [
   { symbol: "SOL-USD", name: "Solana" },
   { symbol: "XRP-USD", name: "Ripple" },
 
-  // Indian Mutual Funds (example)
-  { symbol: "MIRAE_EMERGE", name: "Mirae Asset Emerging Bluechip Fund" },
-  { symbol: "AXIS_MIDCAP", name: "Axis Midcap Fund" },
-  { symbol: "PPFAS_LONGTERM", name: "PPFAS Long Term Equity Fund" },
 ]
