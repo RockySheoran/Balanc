@@ -63,7 +63,7 @@ export const authOptions: NextAuthOptions = {
               email: credentials.email,
               password: credentials.password,
             },
-            { timeout: 7000 }
+            { timeout: 30000 }
           )
           
 
@@ -136,7 +136,7 @@ export const authOptions: NextAuthOptions = {
               image: profile.picture,
               googleId: profile.sub,
             },
-            { timeout: 7000 }
+            { timeout: 30000 }
           )
 
           const data = response.data
