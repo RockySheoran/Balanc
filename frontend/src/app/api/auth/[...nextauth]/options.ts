@@ -57,10 +57,14 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Email and password are required")
           }
 
-          const response = await axios.post(loginApi, {
-            email: credentials.email,
-            password: credentials.password,
-          })
+          const response = await axios.post(
+            loginApi,
+            {
+              email: credentials.email,
+              password: credentials.password,
+            },
+            { timeout: 30000 }
+          )
           
 
           const data = response.data
@@ -124,12 +128,16 @@ export const authOptions: NextAuthOptions = {
             throw new Error("No email found in Google profile")
           }
 
-          const response = await axios.post(loginGoogleApi, {
-            email: profile.email,
-            name: profile.name || user.name || profile.email.split("@")[0],
-            image: profile.picture,
-            googleId: profile.sub,
-          })
+          const response = await axios.post(
+            loginGoogleApi,
+            {
+              email: profile.email,
+              name: profile.name || user.name || profile.email.split("@")[0],
+              image: profile.picture,
+              googleId: profile.sub,
+            },
+            { timeout: 30000 }
+          )
 
           const data = response.data
 
