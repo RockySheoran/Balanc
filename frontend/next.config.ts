@@ -4,9 +4,7 @@ import withBundleAnalyzer from "@next/bundle-analyzer"
 
 const nextConfig: NextConfig = {
   reactStrictMode: true, // Recommended to keep true for development
-  trailingSlash: false,
-  productionBrowserSourceMaps: false, // Disable for production
-  // Enable Incremental Static Regeneration (ISR) with Partial Prerendering
+
 
   typescript: {
     ignoreBuildErrors: true,

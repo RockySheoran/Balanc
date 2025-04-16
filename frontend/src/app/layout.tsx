@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: "BALANC",
     template: "%s | BALANC",
   },
-  description: "Next.js with Redux Toolkit and TypeScript",
+  description: "Next.js with Redux Toolkit and TypeScript && A personal management finance app",
   metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
 }
 
