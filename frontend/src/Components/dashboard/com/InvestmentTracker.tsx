@@ -560,7 +560,7 @@ const InvestmentTracker = () => {
             label: (context: any) => {
               const label = context.dataset.label || ""
               const value = context.parsed.y
-              const currency = context.dataset.label.includes(".NS")
+              const currency = context.dataset.label?.includes(".NS")
                 ? "INR"
                 : "USD"
 

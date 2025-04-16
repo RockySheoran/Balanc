@@ -73,6 +73,7 @@ export default function DashboardClient({ session }: SessionProps) {
       shouldRetryOnError: false,
       revalidateOnReconnect: true,
       onSuccess: (data) => {
+        if(!data) return
         dispatch(setAccounts(data))
         if (!selectedAccount && data?.length > 0) {
           dispatch(selectAccount(data[0].id))
@@ -91,8 +92,10 @@ export default function DashboardClient({ session }: SessionProps) {
       const response = await fetchAllTransactions({
         accountId: selectedAccount!.id,
       })
-      if (response.status !== 200) throw new Error(response.message)
-      console.log(response.data)
+        if (response?.status == 404 || !response?.data) {
+          toast.error(response?.message || "Failed to fetch transactions")  
+          return null
+        }
       return response.data
     },
     {
@@ -100,7 +103,8 @@ export default function DashboardClient({ session }: SessionProps) {
       shouldRetryOnError: false,
       revalidateOnReconnect: true,
       onSuccess: (data) => {
-        console.log(data)
+        // console.log(data)
+         if(!data) return
         if (data?.transactions) {
           dispatch(clearTransactions())
           data?.transactions?.forEach((transaction: any) => {
@@ -122,7 +126,10 @@ export default function DashboardClient({ session }: SessionProps) {
       const response = await fetchAllInvestment({
         accountId: selectedAccount!.id,
       })
-      if (response.status !== 200) throw new Error(response.message)
+         if (response?.status == 404 || !response?.data) {
+           toast.error(response?.message || "Failed to fetch investment")
+           return null
+         }
       return response.data.investments
     },
     {
@@ -130,6 +137,7 @@ export default function DashboardClient({ session }: SessionProps) {
       shouldRetryOnError: false,
       revalidateOnReconnect: true,
       onSuccess: (data) => {
+         if (!data) return
         dispatch(clearInvestments())
         data.forEach((inv: any) => {
           dispatch(addBackendInvestment(inv))
@@ -144,13 +152,13 @@ export default function DashboardClient({ session }: SessionProps) {
   // Session effect
   useEffect(() => {
     if (!session) {
-      signOut({ redirect: true, callbackUrl: "/login" })
       dispatch(clearUser())
       dispatch(clearIncome())
       dispatch(clearTransactions())
       dispatch(clearExpense())
       dispatch(clearAccount())
       dispatch(clearInvestments())
+      signOut({ redirect: true, callbackUrl: "/login" })
     } else {
       dispatch(
         setUser({
