@@ -129,8 +129,6 @@ export const authOptions: NextAuthOptions = {
             name: profile.name || user.name || profile.email.split("@")[0],
             image: profile.picture,
             googleId: profile.sub,
-          },{
-            timeout:30000,
           })
 
           const data = response.data
