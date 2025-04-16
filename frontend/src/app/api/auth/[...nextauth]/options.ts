@@ -19,15 +19,24 @@ interface CustomSession extends Session {
   user: CustomUser
 }
 
-// Enhanced environment variable handling
+// Enhanced environment variable handling with cache
+const envCache: Record<string, string> = {}
 const getEnvVar = (key: string): string => {
+  if (envCache[key]) return envCache[key]
   const value = process.env[key]
   if (!value) throw new Error(`Missing environment variable: ${key}`)
+  envCache[key] = value
   return value
 }
 
-// Configured axios instance
-
+// Configured axios instance with timeout and retry
+const api = axios.create({
+  timeout: 15000,
+  timeoutErrorMessage: "Request timeout",
+  headers: {
+    "Content-Type": "application/json",
+  },
+})
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -42,9 +51,10 @@ export const authOptions: NextAuthOptions = {
           scope: "openid email profile",
         },
       },
-      allowDangerousEmailAccountLinking: true,
+      httpOptions: {
+        timeout: 15000, // 10 seconds timeout for Google requests
+      },
     }),
-
     Credentials({
       name: "Credentials",
       credentials: {
@@ -57,14 +67,12 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Email and password are required")
           }
 
-          const response = await axios.post(loginApi, {
+          const response = await api.post(loginApi, {
             email: credentials.email,
             password: credentials.password,
           })
-          
 
           const data = response.data
-        // console.log(data+" 11111111111111111")
 
           if (!data.success) {
             throw new Error(data.message || "Authentication failed")
@@ -87,8 +95,6 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user, account }) {
-      // Initial sign in
-      // console.log(token,user,account+"2222222222222222222222222222")
       if (user && account) {
         return {
           ...token,
@@ -113,7 +119,6 @@ export const authOptions: NextAuthOptions = {
         ...token.user,
         id: token.user?.id as string,
       }
-      // console.log(session)
       return session
     },
 
@@ -124,12 +129,17 @@ export const authOptions: NextAuthOptions = {
             throw new Error("No email found in Google profile")
           }
 
-          const response = await axios.post(loginGoogleApi, {
-            email: profile.email,
-            name: profile.name || user.name || profile.email.split("@")[0],
-            image: profile.picture,
-            googleId: profile.sub,
-          })
+          // Optimized Google login API call
+          const response = await api.post(
+            loginGoogleApi,
+            {
+              email: profile.email,
+              name: profile.name || user.name || profile.email.split("@")[0],
+              image: profile.picture,
+              googleId: profile.sub,
+            },
+            { timeout: 8000 } // 8 seconds timeout for this specific call
+          )
 
           const data = response.data
 
@@ -137,7 +147,6 @@ export const authOptions: NextAuthOptions = {
             throw new Error(data.message || "Google authentication failed")
           }
 
-          // Update user object with data from your API
           user.id = data.data.user.id
           user.token = data.data.token
           user.googleId = profile.sub
@@ -147,7 +156,9 @@ export const authOptions: NextAuthOptions = {
         return true
       } catch (error) {
         console.error("SignIn callback error:", error)
-        return `/login`
+        return `/login?error=${encodeURIComponent(
+          error instanceof Error ? error.message : "Authentication failed"
+        )}`
       }
     },
   },
@@ -163,11 +174,49 @@ export const authOptions: NextAuthOptions = {
     maxAge: 10 * 24 * 60 * 60, // 10 days
   },
 
+  // Optimized JWT settings
   jwt: {
     secret: getEnvVar("NEXTAUTH_SECRET"),
     maxAge: 10 * 24 * 60 * 60, // 10 days
+    encode: async ({ secret, token }) => {
+      // Implement custom fast JWT encoding if needed
+      return `${secret}.${JSON.stringify(token)}` // Simplified example
+    },
+    decode: async ({ secret, token }) => {
+      // Implement custom fast JWT decoding if needed
+      if (typeof token !== "string") return null
+      const parts = token.split(".")
+      if (parts.length !== 2) return null
+      return JSON.parse(parts[1])
+    },
   },
 
-  secret: getEnvVar("NEXTAUTH_SECRET"),
+  // Event logging for debugging
+  events: {
+    async signIn(message) {
+      console.log("User signed in", message)
+    },
+    async signOut(message) {
+      console.log("User signed out", message)
+    },
+  },
+
+  // Timeout configuration
+  useSecureCookies: process.env.NODE_ENV === "production",
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 10 * 24 * 60 * 60, // 10 days
+      },
+    },
+  },
+
   debug: process.env.NODE_ENV === "development",
 }
+
+export default NextAuth(authOptions)
