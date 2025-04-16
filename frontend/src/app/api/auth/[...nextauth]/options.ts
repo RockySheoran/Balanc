@@ -147,13 +147,7 @@ export const authOptions: NextAuthOptions = {
         return true
       } catch (error) {
         console.error("SignIn callback error:", error)
-        return `/login?error=${encodeURIComponent(
-          axios.isAxiosError(error)
-            ? error.response?.data?.message || error.message
-            : error instanceof Error
-            ? error.message
-            : "Authentication failed"
-        )}`
+        return `/login`
       }
     },
   },
