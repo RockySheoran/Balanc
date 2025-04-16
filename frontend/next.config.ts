@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lodash-es", "@heroicons/react", "date-fns"],
     optimizeServerReact: true,
     optimizeCss: true,
-   
+
     proxyTimeout: 30000, // 30 seconds for API routes
   },
 
@@ -99,18 +99,6 @@ const nextConfig: NextConfig = {
       },
     }
 
-    // Add asset compression
-    if (!dev) {
-      config.plugins.push(
-        new (require("compression-webpack-plugin"))({
-          algorithm: "gzip",
-          test: /\.(js|css|html|svg)$/,
-          threshold: 10240,
-          minRatio: 0.8,
-        })
-      )
-    }
-
     return config
   },
 
@@ -127,7 +115,7 @@ const nextConfig: NextConfig = {
   },
 
   // Output configuration
-  output: process.env.NODE_ENV === "production" ? "standalone" : undefined,
+  output: "standalone",
 
   // HTTP headers for security
   headers: async () => {
@@ -166,7 +154,7 @@ const nextConfig: NextConfig = {
       dest: "public",
       register: true,
       skipWaiting: true,
-      disable: process.env.NODE_ENV === "development" as string,
+      disable: process.env.NODE_ENV === ("development" as string),
     },
   }),
 }
