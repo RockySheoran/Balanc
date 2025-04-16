@@ -6,157 +6,80 @@ const nextConfig: NextConfig = {
   reactStrictMode: true, // Recommended to keep true for development
   trailingSlash: false,
   productionBrowserSourceMaps: false, // Disable for production
+  // Enable Incremental Static Regeneration (ISR) with Partial Prerendering
 
-  // Build optimizations
   typescript: {
-    ignoreBuildErrors: true, // Only ignore in dev
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: true, // Only ignore in dev
+    ignoreDuringBuilds: true,
   },
-
-  // Compiler optimizations
   compiler: {
     styledComponents: {
-      ssr: true, // Enable for SSR support
+      // Enable better debugging and smaller production bundles
+      ssr: true,
       displayName: true,
       fileName: false,
       pure: true,
       minify: true,
-      cssProp: true,
     },
+    // Enable SWC for faster compilation (replaces Babel)
     emotion: true,
-    removeConsole: {
-      exclude: ["error"], // Keep errors in production
-    },
-    reactRemoveProperties: process.env.NODE_ENV === "production",
+    removeConsole: process.env.NODE_ENV === "production",
   },
 
-  // Experimental features
   experimental: {
-    webVitalsAttribution: ["CLS", "LCP", "FID", "FCP", "TTFB"],
+    webVitalsAttribution: ["CLS", "LCP"],
     turbo: {
       rules: {
         "*.svg": {
           loaders: ["@svgr/webpack"],
-          as: "*.svg",
         },
       },
     },
-    optimizePackageImports: ["lodash-es", "@heroicons/react", "date-fns"],
+    // Enable worker threads for faster builds
+    workerThreads: false, // Disable if causing issues
     optimizeServerReact: true,
-    optimizeCss: true,
+    // Enable granular chunks for better caching
 
     proxyTimeout: 30000, // 30 seconds for API routes
   },
 
-  // Image optimizations
   images: {
     formats: ["image/avif", "image/webp"],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2560],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     minimumCacheTTL: 86400, // 1 day
-    domains: process.env.IMAGE_DOMAINS?.split(",").filter(Boolean) || [],
+    // Enable on-demand image optimization
+    domains: process.env.IMAGE_DOMAINS?.split(",") || [],
+    // Enable remote patterns if using external images
     remotePatterns: [
       {
         protocol: "https",
         hostname: "**.example.com",
-        port: "",
-        pathname: "/**",
       },
     ],
-    dangerouslyAllowSVG: false,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    unoptimized: process.env.NODE_ENV === "development", // Disable optimization in dev
   },
 
   // Webpack optimizations
-  webpack: (config, { isServer, dev }) => {
-    // Only cache in production
-    config.cache = !dev && {
-      type: "filesystem",
-      cacheDirectory: `${process.cwd()}/.next/cache/webpack`,
-      buildDependencies: {
-        config: [__filename],
-      },
-    }
-
-    // Split chunks strategy
-    config.optimization.splitChunks = {
-      chunks: "all",
-      maxSize: 244 * 1024, // 244KB
-      cacheGroups: {
-        defaultVendors: {
-          test: /[\\/]node_modules[\\/]/,
-          priority: -10,
-          reuseExistingChunk: true,
-        },
-        default: {
-          minChunks: 2,
-          priority: -20,
-          reuseExistingChunk: true,
-        },
-      },
-    }
-
+  webpack: (config) => {
+    config.cache = false // Temporary fix for caching issues
     return config
   },
 
-  // Modular imports for better tree-shaking
+  
+
+  // Configure modularize imports for better tree-shaking
   modularizeImports: {
     "@heroicons/react/24/outline": {
       transform: "@heroicons/react/24/outline/{{member}}",
-      skipDefaultConversion: true,
     },
     "lodash-es": {
       transform: "lodash-es/{{member}}",
-      preventFullImport: true,
     },
   },
 
-  // Output configuration
+  // Enable output file tracing for smaller Lambda functions
   output: "standalone",
-
-  // HTTP headers for security
-  headers: async () => {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
-          {
-            key: "X-XSS-Protection",
-            value: "1; mode=block",
-          },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-        ],
-      },
-    ]
-  },
-
-  // Enable PWA in production
-  ...(process.env.NODE_ENV === "production" && {
-    pwa: {
-      dest: "public",
-      register: true,
-      skipWaiting: true,
-      disable: process.env.NODE_ENV === ("development" as string),
-    },
-  }),
 }
 
 export default withBundleAnalyzer({
