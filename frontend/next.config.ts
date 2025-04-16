@@ -3,8 +3,8 @@ import type { NextConfig } from "next"
 import withBundleAnalyzer from "@next/bundle-analyzer"
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true, // Recommended to keep true for development
-
+  reactStrictMode: false,
+  // Enable Incremental Static Regeneration (ISR) with Partial Prerendering
 
   typescript: {
     ignoreBuildErrors: true,
@@ -37,10 +37,7 @@ const nextConfig: NextConfig = {
     },
     // Enable worker threads for faster builds
     workerThreads: false, // Disable if causing issues
-    optimizeServerReact: true,
     // Enable granular chunks for better caching
-
-    proxyTimeout: 30000, // 30 seconds for API routes
   },
 
   images: {
@@ -64,7 +61,8 @@ const nextConfig: NextConfig = {
     return config
   },
 
-  
+  // Enable production browser source maps
+  productionBrowserSourceMaps: false,
 
   // Configure modularize imports for better tree-shaking
   modularizeImports: {
