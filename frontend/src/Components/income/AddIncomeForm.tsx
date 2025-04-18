@@ -44,7 +44,14 @@ const AddIncomeForm = () => {
 
   // Handle form state changes
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen && formRef.current) {
+      formRef.current.reset()
+    }
+  }, [isOpen])
+
+  // Also modify your success handler to reset the form immediately
+  useEffect(() => {
+    
 
     if (state.status === 500) {
       toast.error(state.message, {
@@ -59,10 +66,15 @@ const AddIncomeForm = () => {
       dispatch(addIncome(state.data.data.transaction))
       dispatch(addTransaction(state.data.data.transaction))
       dispatch(updateAccount(state.data.data.updatedAccount))
+
+      // Reset form immediately
+      if (formRef.current) {
+        formRef.current.reset()
+      }
+
       setIsOpen(false)
-      formRef.current?.reset()
     }
-  }, [state, dispatch, isOpen])
+  }, [state, dispatch])
 
   const handleFormAction = useCallback(
     (formData: FormData) => {

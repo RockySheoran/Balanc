@@ -419,7 +419,7 @@ useEffect(() => {
               </motion.div>
             )}
 
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-2">
+            <div className="flex cursor-pointer flex-col-reverse sm:flex-row justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-2">
               <Button
                 type="button"
                 variant="outline"

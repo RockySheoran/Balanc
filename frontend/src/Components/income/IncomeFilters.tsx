@@ -48,11 +48,11 @@ const IncomeFilters = () => {
     [dispatch]
   )
 
-  const handleReset = useCallback(() => {
+  const handleReset = () => {
     // console.log("object")
     dispatch(resetFilters())
     // console.log("3")
-  }, [dispatch])
+  }
 
   return (
     <motion.div

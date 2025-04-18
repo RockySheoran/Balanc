@@ -82,7 +82,7 @@ export function AccountSelector() {
   // State management
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [state, formAction] = useActionState(CreateAccountAction, initialState)
+  const [state, formAction,isPending] = useActionState(CreateAccountAction, initialState)
   const[delteLoading,setDeleteLoding] = useState(false);
 
   // Memoized account type color mapping
@@ -144,7 +144,7 @@ export function AccountSelector() {
       toast.success(state.message)
       if (state.data) {
         dispatch(addAccount(state.data.data))
-        dispatch(selectAccount(state.data.id))
+        dispatch(selectAccount(state.data.data.id))
         setIsCreateDialogOpen(false)
       }
     }
@@ -160,7 +160,7 @@ export function AccountSelector() {
         accountId: selectedAccount.id,
         token,
       })
-
+  // console.log(response)
       if (response.status === 200) {
         dispatch(deleteAccount(selectedAccount.id))
         toast.success(`Account "${selectedAccount.name}" deleted`)
@@ -307,10 +307,10 @@ export function AccountSelector() {
                   </DialogTrigger>
                   <Button
                     type="submit"
-                    disabled={pending}
+                    disabled={isPending}
                     className="bg-gradient-to-r cursor-pointer from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all"
-                    aria-disabled={pending}>
-                    {pending ? (
+                    aria-disabled={isPending}>
+                    {isPending ? (
                       <span className="flex items-center">
                         <LoadingSpinner />
                         Creating...
@@ -333,7 +333,7 @@ export function AccountSelector() {
                 <Button
                   variant="destructive"
                   onClick={() => setIsDeleteDialogOpen(true)}
-                  disabled={allAccounts?.length <= 1}
+                  disabled={allAccounts?.length < 1}
                   className="w-full sm:w-auto cursor-pointer shadow-md hover:shadow-lg transition-shadow"
                   aria-label="Delete account">
                   <Trash2Icon className="mr-2 h-4 w-4" />
@@ -387,14 +387,17 @@ export function AccountSelector() {
                 <DialogFooter>
                   <Button
                     variant="outline"
+                    className="cursor-pointer"
                     onClick={() => setIsDeleteDialogOpen(false)}>
                     Cancel
                   </Button>
+
                   <Button
+                    className="cursor-pointer"
                     variant="destructive"
                     onClick={handleDeleteAccount}
                     aria-label="Confirm account deletion">
-                    Delete Account
+                    {delteLoading ? "Deleting.... " : "Delete Account"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -410,33 +413,34 @@ export function AccountSelector() {
         </h3>
 
         {
-        // error ? (
-        //   <div
-        //     className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800"
-        //     role="alert">
-        //     <p className="text-red-600 dark:text-red-400">{error}</p>
-        //   </div>
-        // ) :
-         allAccounts === null ? (
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 text-center">
-            <p className="text-blue-600 dark:text-blue-400">
-              No accounts available. Create your first account!
-            </p>
-          </div>
-        ) : (
-          <div className="relative">
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+          // error ? (
+          //   <div
+          //     className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800"
+          //     role="alert">
+          //     <p className="text-red-600 dark:text-red-400">{error}</p>
+          //   </div>
+          // ) :
+          allAccounts === null ? (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 text-center">
+              <p className="text-blue-600 dark:text-blue-400">
+                No accounts available. Create your first account!
+              </p>
             </div>
-            <select
-              value={selectedAccount?.id || ""}
-              onChange={(e) => dispatch(selectAccount(e.target.value))}
-              className="appearance-none block w-full px-4 py-3 pr-10 text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all cursor-pointer"
-              aria-label="Select account">
-              {accountOptions}
-            </select>
-          </div>
-        )}
+          ) : (
+            <div className="relative">
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <select
+                value={selectedAccount?.id || ""}
+                onChange={(e) => dispatch(selectAccount(e.target.value))}
+                className="appearance-none block w-full px-4 py-3 pr-10 text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all cursor-pointer"
+                aria-label="Select account">
+                {accountOptions}
+              </select>
+            </div>
+          )
+        }
       </div>
 
       {/* Account Details Section */}

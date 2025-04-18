@@ -243,7 +243,7 @@ const Sidebar: React.FC<SideBarProps> = ({
       <div className={`${isCollapsed ? "w-20" : "md:w-64"}`}>
         {/* Mobile Navbar with Logo and Hamburger */}
         {isMobile && (
-          <nav className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-sm p-4 flex justify-between items-center">
+          <nav className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-sm px-4 py-2  flex justify-between items-center">
             <Link href="/dashboard" className="flex items-center">
               <h2 className="text-xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 text-transparent bg-clip-text">
                 BALANC
@@ -269,7 +269,7 @@ const Sidebar: React.FC<SideBarProps> = ({
           } transition-all duration-300 ease-in-out ${
             isCollapsed ? "w-20" : "w-64"
           } bg-gradient-to-b from-gray-50 to-gray-100 shadow-xl ${
-            isMobile ? "mt-16" : ""
+            isMobile ? "mt-14" : ""
           }`}
           aria-label="Sidebar">
           <div className="flex flex-col h-full p-4">

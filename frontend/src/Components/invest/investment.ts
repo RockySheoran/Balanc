@@ -8,7 +8,7 @@ export interface Investment {
   name: string
   quantity: number
   buyPrice: number
-  currentPrice?: number
+  currentValue?: number
   buyDate: string
   type: InvestmentType
 }
