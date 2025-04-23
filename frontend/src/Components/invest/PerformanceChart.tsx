@@ -102,15 +102,16 @@ interface PerformanceChartProps {
   investments: Investment[]
 }
 
-// Cache implementation
+// Enhanced cache implementation with TTL and API key tracking
 const chartDataCache = new Map<string, {
   data: YahooChartResponse
   timestamp: number
+  apiKeyUsed: string
 }>()
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
 const API_RETRY_DELAY = 500 // 0.5 seconds between retries
-const MAX_RETRIES_PER_KEY = 2 // Max retries per API key
+const MAX_FAILURES_PER_KEY = 3 // Max failures before temporarily disabling a key
 
 const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] }) => {
   const [chartData, setChartData] = useState<YahooChartResponse[]>([])
@@ -120,10 +121,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
   const [interval, setInterval] = useState<string>('1d')
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [fetchingStatus, setFetchingStatus] = useState<Record<string, boolean>>({})
-  const [currentApiKeyIndex, setCurrentApiKeyIndex] = useState(0)
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, {
-    valid: boolean
-    lastChecked: number
+    failures: number
+    lastUsed: number
   }>>({})
 
   // API Keys configuration
@@ -142,9 +142,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
 
   // Initialize API key status
   useEffect(() => {
-    const initialStatus: Record<string, { valid: boolean; lastChecked: number }> = {}
+    const initialStatus: Record<string, { failures: number; lastUsed: number }> = {}
     API_KEYS.forEach(key => {
-      initialStatus[key] = { valid: true, lastChecked: 0 }
+      initialStatus[key] = { failures: 0, lastUsed: 0 }
     })
     setApiKeyStatus(initialStatus)
   }, [API_KEYS])
@@ -159,130 +159,136 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     timeout: 5000 // 5 second timeout
   }), [])
 
-  // Get next valid API key with smart rotation
-  const getNextValidKey = useCallback(() => {
-    // First try the current key if it's still valid
-    const currentKey = API_KEYS[currentApiKeyIndex]
-    if (apiKeyStatus[currentKey]?.valid) {
-      return { key: currentKey, index: currentApiKeyIndex }
-    }
+  // Get the best available API key
+  const getBestApiKey = useCallback(() => {
+    // Sort keys by least failures and least recently used
+    const sortedKeys = API_KEYS
+      .filter(key => apiKeyStatus[key]?.failures < MAX_FAILURES_PER_KEY)
+      .sort((a, b) => {
+        // Prefer keys with fewer failures
+        if (apiKeyStatus[a].failures !== apiKeyStatus[b].failures) {
+          return apiKeyStatus[a].failures - apiKeyStatus[b].failures
+        }
+        // Then prefer keys used least recently
+        return apiKeyStatus[a].lastUsed - apiKeyStatus[b].lastUsed
+      })
 
-    // Find the next valid key
-    for (let i = 1; i <= API_KEYS.length; i++) {
-      const nextIndex = (currentApiKeyIndex + i) % API_KEYS.length
-      const nextKey = API_KEYS[nextIndex]
-      
-      // Skip invalid keys unless their status is stale (>5 minutes old)
-      if (apiKeyStatus[nextKey]?.valid || 
-          Date.now() - apiKeyStatus[nextKey]?.lastChecked > 300000) {
-        return { key: nextKey, index: nextIndex }
-      }
-    }
+    return sortedKeys[0] || API_KEYS[0] // Fallback to first key if all are failing
+  }, [API_KEYS, apiKeyStatus])
 
-    // If all keys are exhausted, return the first one
-    return { key: API_KEYS[0], index: 0 }
-  }, [API_KEYS, currentApiKeyIndex, apiKeyStatus])
-
-  // Enhanced fetch function with immediate key rotation on failure
-
-  // Track API key failures
-  const [failedKeys, setFailedKeys] = useState<Record<string, number>>({});
-  const MAX_FAILURES_PER_KEY = 2; // Max failures before blacklisting a key
-
-  // Enhanced fetch function with immediate key rotation on any error
+  // Enhanced fetch function with smart caching and key rotation
   const fetchStockChartData = useCallback(async (symbol: string) => {
     // Skip if investment is sold
-    const investment = investments.find(inv => inv.symbol === symbol);
+    const investment = investments.find(inv => inv.symbol === symbol)
     if (investment?.sellPrice !== null && investment?.sellPrice !== undefined) {
-      return null;
+      return null
     }
 
-    const cacheKey = `${symbol}-${range}-${interval}`;
-    const cachedData = chartDataCache.get(cacheKey);
+    const cacheKey = `${symbol}-${range}-${interval}`
+    const cachedData = chartDataCache.get(cacheKey)
     
+    // Return cached data if it exists and is fresh
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
-      return cachedData.data;
+      return cachedData.data
     }
 
-    setFetchingStatus(prev => ({ ...prev, [symbol]: true }));
+    setFetchingStatus(prev => ({ ...prev, [symbol]: true }))
 
-    let currentKeyIndex = 0;
-    let lastError: Error | null = null;
-
-    // Try all available keys once
-    for (let i = 0; i < API_KEYS.length; i++) {
-      const apiKey = API_KEYS[currentKeyIndex];
-      
-      // Skip keys that have failed too many times
-      if (failedKeys[apiKey] >= MAX_FAILURES_PER_KEY) {
-        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-        continue;
-      }
-
-      try {
-        const response = await axios({
-          ...getApiConfig(apiKey),
-          params: {
-            region: symbol.includes(".NS") ? "IN" : "US",
-            symbol,
-            range,
-            interval,
-          },
-          timeout: 5000
-        });
-
-        if (!response.data?.chart?.result?.[0]) {
-          throw new Error(`Invalid data structure for ${symbol}`);
-        }
-
-        // Update cache
-        chartDataCache.set(cacheKey, {
-          data: response.data,
-          timestamp: Date.now()
-        });
-
-        // Reset failure count for this key
-        setFailedKeys(prev => ({ ...prev, [apiKey]: 0 }));
-
-        return response.data;
-      } catch (err) {
-        lastError = err as AxiosError;
-        
-        // Mark this key as failed
-        setFailedKeys(prev => ({
-          ...prev,
-          [apiKey]: (prev[apiKey] || 0) + 1
-        }));
-
-        // Immediately try next key without delay
-        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-      } finally {
-        setFetchingStatus(prev => ({ ...prev, [symbol]: false }));
-      }
-    }
-
-    throw lastError || new Error(`Failed to fetch data for ${symbol} after trying all API keys`);
-  }, [API_KEYS, range, interval, investments, failedKeys, getApiConfig]);  // Fetch all investment data with error handling
-
-  const fetchAllData = useCallback(async () => {
-    if (investments.length === 0) return
+    const apiKey = getBestApiKey()
+    let retryCount = 0
+    let lastError: Error | null = null
 
     try {
-      setLoading(true)
+      const response = await axios({
+        ...getApiConfig(apiKey),
+        params: {
+          region: symbol.includes(".NS") ? "IN" : "US",
+          symbol,
+          range,
+          interval,
+        },
+        timeout: 5000
+      })
+
+      if (!response.data?.chart?.result?.[0]) {
+        throw new Error(`Invalid data structure for ${symbol}`)
+      }
+
+      // Update cache
+      chartDataCache.set(cacheKey, {
+        data: response.data,
+        timestamp: Date.now(),
+        apiKeyUsed: apiKey
+      })
+
+      // Update API key status
+      setApiKeyStatus(prev => ({
+        ...prev,
+        [apiKey]: {
+          failures: 0, // Reset failures on success
+          lastUsed: Date.now()
+        }
+      }))
+
+      return response.data
+    } catch (err) {
+      lastError = err as AxiosError
+      
+      // Handle rate limiting (status 429)
+      if (axios.isAxiosError(err) && err.response?.status === 429) {
+        // Mark this key as failed
+        setApiKeyStatus(prev => ({
+          ...prev,
+          [apiKey]: {
+            failures: prev[apiKey].failures + 1,
+            lastUsed: Date.now()
+          }
+        }))
+
+        // If we have another key to try, do so immediately
+        if (API_KEYS.length > 1) {
+          retryCount++
+          if (retryCount < API_KEYS.length) {
+            // Try again with a different key
+            return fetchStockChartData(symbol)
+          }
+        }
+      }
+
+      throw lastError
+    } finally {
+      setFetchingStatus(prev => ({ ...prev, [symbol]: false }))
+    }
+  }, [API_KEYS, range, interval, investments, getApiConfig, getBestApiKey])
+
+  // Fetch data for new investments only
+  const fetchNewData = useCallback(async (currentData: YahooChartResponse[]) => {
+    if (investments.length === 0) return []
+
+    try {
       setError(null)
 
-      // Only fetch data for investments that haven't been sold
-      const activeInvestments = investments.filter(inv => inv.sellPrice === null || inv.sellPrice === undefined)
-      
-      // Process in batches to avoid overwhelming the API
+      // Get symbols we already have data for
+      const existingSymbols = new Set(currentData.map(data => 
+        data.chart.result[0]?.meta.symbol
+      ))
+
+      // Only fetch data for new investments that haven't been sold
+      const newInvestments = investments.filter(inv => 
+        !existingSymbols.has(inv.symbol) && 
+        (inv.sellPrice === null || inv.sellPrice === undefined)
+      )
+
+      if (newInvestments.length === 0) return currentData
+
       const BATCH_SIZE = 3
-      const successfulData: YahooChartResponse[] = []
+      const successfulData: YahooChartResponse[] = [...currentData]
       const errors: string[] = []
 
-      for (let i = 0; i < activeInvestments.length; i += BATCH_SIZE) {
-        const batch = activeInvestments.slice(i, i + BATCH_SIZE)
+      for (let i = 0; i < newInvestments.length; i += BATCH_SIZE) {
+        const batch = newInvestments.slice(i, i + BATCH_SIZE)
         const batchResults = await Promise.allSettled(
-          batch.map(inv => fetchStockChartData(inv.symbol)))  
+          batch.map(inv => fetchStockChartData(inv.symbol))
         
         batchResults.forEach((result, index) => {
           if (result.status === "fulfilled" && result.value) {
@@ -294,32 +300,54 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         })
 
         // Add delay between batches
-        if (i + BATCH_SIZE < activeInvestments.length) {
+        if (i + BATCH_SIZE < newInvestments.length) {
           await new Promise(resolve => setTimeout(resolve, 500))
         }
       }
 
-      setChartData(successfulData)
-      setLastRefresh(new Date())
-      
       if (errors.length > 0) {
         toast.warning(`Partial data loaded. ${errors.length} investments failed.`)
-      } else if (successfulData.length > 0) {
-        toast.success("Chart data updated")
       }
+
+      return successfulData
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load chart data'
       setError(errorMessage)
       toast.error(errorMessage)
-    } finally {
-      setLoading(false)
+      return currentData
     }
   }, [investments, fetchStockChartData])
 
-  // Initial data fetch and refresh on range/interval change
+  // Initial data fetch
   useEffect(() => {
-    fetchAllData()
-  }, [fetchAllData])
+    const fetchInitialData = async () => {
+      try {
+        setLoading(true)
+        const initialData = await fetchNewData([])
+        setChartData(initialData)
+        setLastRefresh(new Date())
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchInitialData()
+  }, [fetchNewData])
+
+  // Update data when investments change (only fetch new ones)
+  useEffect(() => {
+    if (!loading && chartData.length > 0) {
+      const updateData = async () => {
+        const updatedData = await fetchNewData(chartData)
+        if (updatedData.length !== chartData.length) {
+          setChartData(updatedData)
+          setLastRefresh(new Date())
+        }
+      }
+      
+      updateData()
+    }
+  }, [investments, loading, chartData, fetchNewData])
 
   // Date formatting based on range
   const formatDate = useCallback((timestamp: number) => {
@@ -362,7 +390,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
             above: `${COLOR_PALETTE[index % COLOR_PALETTE.length]}10`,
           },
         }
-      }).filter(Boolean), // Filter out any null datasets
+      }).filter(Boolean),
     }
   }, [chartData, investments, formatDate, range])
 
@@ -450,8 +478,24 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       const cacheKey = `${inv.symbol}-${range}-${interval}`
       chartDataCache.delete(cacheKey)
     })
-    fetchAllData()
-  }, [fetchAllData, investments, range, interval])
+    
+    // Reset API key failures to give them another chance
+    setApiKeyStatus(prev => {
+      const newStatus = {...prev}
+      Object.keys(newStatus).forEach(key => {
+        newStatus[key] = { ...newStatus[key], failures: 0 }
+      })
+      return newStatus
+    })
+
+    setLoading(true)
+    fetchNewData([]).then(data => {
+      setChartData(data)
+      setLastRefresh(new Date())
+    }).finally(() => {
+      setLoading(false)
+    })
+  }, [fetchNewData, investments, range, interval])
 
   const handleRangeChange = useCallback((value: string) => {
     setRange(value)
@@ -472,7 +516,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     return (
       <div className="w-full h-[500px] bg-white rounded-lg shadow-sm p-4 border border-gray-100 flex flex-col items-center justify-center gap-4">
         <p className="text-red-500">{error}</p>
-        <Button onClick={fetchAllData} variant="outline">
+        <Button onClick={handleRefresh} variant="outline">
           Retry
         </Button>
       </div>
