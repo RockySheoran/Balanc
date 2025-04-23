@@ -11,4 +11,6 @@ export interface Investment {
   currentValue?: number
   buyDate: string
   type: InvestmentType
+  sellPrice?: number
+  sellDate?: string
 }

@@ -161,7 +161,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         const response = await axios({
           ...getApiConfig(apiKey),
           params: {
-            region: symbol.includes(".NS") ? "US" : "US",
+            region: symbol.includes(".NS") ? "INR" : "US",
             symbol,
             range,
             interval,
@@ -169,7 +169,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         })
 
         if (!response.data?.chart?.result?.[0]) {
-          // throw new Error(`Invalid data structure for ${symbol}`)
+          throw new Error(`Invalid data structure for ${symbol}`)
         }
 
         // Update cache
@@ -210,7 +210,8 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       setError(null)
 
       const results = await Promise.allSettled(
-        investments.map(inv => fetchStockChartData(inv.symbol)))
+        investments.map(inv =>inv.sellPrice !== null? fetchStockChartData(inv.symbol) : Promise.resolve(null))
+      )
       
       const successfulData: YahooChartResponse[] = []
       const errors: string[] = []
