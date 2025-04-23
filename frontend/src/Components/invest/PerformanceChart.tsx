@@ -125,6 +125,8 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     process.env.NEXT_PUBLIC_RAPIDAPI1,
     process.env.NEXT_PUBLIC_RAPIDAPI2,
     process.env.NEXT_PUBLIC_RAPIDAPI3,
+    process.env.NEXT_PUBLIC_RAPIDAPI4,
+    process.env.NEXT_PUBLIC_RAPIDAPI5,
   ].filter(Boolean) as string[], [])
 
   const getApiConfig = useCallback((apiKey: string) => ({

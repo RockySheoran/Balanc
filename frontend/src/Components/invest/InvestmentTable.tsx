@@ -15,7 +15,6 @@ import { Input } from "@/Components/ui/input"
 import { format } from "date-fns"
 import { SellInvestmentDialog } from "./SellStockDialog"
 
-
 interface Investment {
   id: string
   symbol: string
@@ -24,20 +23,19 @@ interface Investment {
   buyPrice: number
   currentValue?: number
   buyDate: string
+  sellPrice?: number
+  sellDate?: string
 }
 
 interface InvestmentTableProps {
   investments: Investment[]
-  
 }
 
 export function InvestmentTable({
   investments = [],
-
 }: InvestmentTableProps) {
   const [currentPage, setCurrentPage] = useState(1)
-  const [selectedInvestment, setSelectedInvestment] =
-    useState<Investment | null>(null)
+  const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null)
   const itemsPerPage = 10
 
   // Calculate pagination values
@@ -72,8 +70,8 @@ export function InvestmentTable({
     return value ? `$${value.toFixed(2)}` : "N/A"
   }
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "MMM dd, yyyy")
+  const formatDate = (dateString?: string) => {
+    return dateString ? format(new Date(dateString), "MMM dd, yyyy") : "N/A"
   }
 
   const getProfitLossColor = (value: number) => {
@@ -83,9 +81,21 @@ export function InvestmentTable({
       : "text-red-600 dark:text-red-400"
   }
 
-  const handleSellSuccess = () => {
-    // You would typically refresh the investments data here
-    console.log("Investment sold successfully")
+  
+
+  const calculateProfitLoss = (investment: Investment) => {
+    if (investment.sellPrice) {
+      return ((investment.sellPrice - investment.buyPrice) * investment.quantity)
+    }
+    if (investment.currentValue) {
+      return ((investment.currentValue - investment.buyPrice) * investment.quantity)
+    }
+    return 0
+  }
+
+  const calculateROI = (investment: Investment) => {
+    const profitLoss = calculateProfitLoss(investment)
+    return (profitLoss / (investment.buyPrice * investment.quantity)) * 100
   }
 
   return (
@@ -95,25 +105,23 @@ export function InvestmentTable({
           <TableRow>
             <TableHead>Symbol</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead>Date</TableHead>
+            <TableHead>Buy Date</TableHead>
+            <TableHead>Sell Date</TableHead>
             <TableHead>Quantity</TableHead>
             <TableHead>Buy Price</TableHead>
+            <TableHead>Sell Price</TableHead>
             <TableHead>Current Price</TableHead>
             <TableHead>P/L</TableHead>
             <TableHead>ROI</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {paginatedInvestments.map((investment) => {
-            const profitLoss =
-              (investment.currentValue || 0 - investment.buyPrice) *
-              investment.quantity
-            const roi = investment.currentValue
-              ? ((investment.currentValue - investment.buyPrice) /
-                  investment.buyPrice) *
-                100
-              : 0
+            const profitLoss = calculateProfitLoss(investment)
+            const roi = calculateROI(investment)
+            const isSold = !!investment.sellPrice
 
             return (
               <TableRow key={investment.id}>
@@ -122,33 +130,44 @@ export function InvestmentTable({
                 </TableCell>
                 <TableCell>{investment.name}</TableCell>
                 <TableCell>{formatDate(investment.buyDate)}</TableCell>
+                <TableCell>{formatDate(investment.sellDate)}</TableCell>
                 <TableCell>{investment.quantity}</TableCell>
                 <TableCell>{formatCurrency(investment.buyPrice)}</TableCell>
+                <TableCell>{formatCurrency(investment.sellPrice)}</TableCell>
                 <TableCell
                   className={getProfitLossColor(
-                    investment.currentValue || 0 - investment.buyPrice
-                  )}>
+                    (investment.currentValue || 0) - investment.buyPrice
+                  )}
+                >
                   {formatCurrency(investment.currentValue)}
                 </TableCell>
                 <TableCell className={getProfitLossColor(profitLoss)}>
                   {formatCurrency(profitLoss)}
                 </TableCell>
                 <TableCell className={getProfitLossColor(roi)}>
-                  {investment.currentValue ? `${roi.toFixed(2)}%` : "N/A"}
+                  {roi.toFixed(2)}%
                 </TableCell>
-                <TableCell className="flex gap-2">
-                  {/* <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onSelect(investment.id)}>
-                    View
-                  </Button> */}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setSelectedInvestment(investment)}>
-                    Sell
-                  </Button>
+                <TableCell>
+                  {isSold ? (
+                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs">
+                      Sold
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-xs">
+                      Holding
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {!isSold && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setSelectedInvestment(investment)}
+                    >
+                      Sell
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             )
@@ -163,14 +182,16 @@ export function InvestmentTable({
             <Button
               variant="outline"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}>
+              disabled={currentPage === 1}
+            >
               Previous
             </Button>
             <Button
               variant="outline"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="ml-3">
+              className="ml-3"
+            >
               Next
             </Button>
           </div>
@@ -194,7 +215,8 @@ export function InvestmentTable({
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}>
+                disabled={currentPage === 1}
+              >
                 First
               </Button>
               {pageRange.map((page) => (
@@ -202,7 +224,8 @@ export function InvestmentTable({
                   key={page}
                   variant={currentPage === page ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setCurrentPage(page)}>
+                  onClick={() => setCurrentPage(page)}
+                >
                   {page}
                 </Button>
               ))}
@@ -210,7 +233,8 @@ export function InvestmentTable({
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}>
+                disabled={currentPage === totalPages}
+              >
                 Last
               </Button>
             </div>
@@ -223,7 +247,7 @@ export function InvestmentTable({
         investment={selectedInvestment}
         open={!!selectedInvestment}
         onOpenChange={(open) => !open && setSelectedInvestment(null)}
-        onSuccess={handleSellSuccess}
+        
       />
     </div>
   )

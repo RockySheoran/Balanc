@@ -144,6 +144,8 @@ const InvestmentTracker = () => {
         process.env.NEXT_PUBLIC_RAPIDAPI1,
         process.env.NEXT_PUBLIC_RAPIDAPI2,
         process.env.NEXT_PUBLIC_RAPIDAPI3,
+        process.env.NEXT_PUBLIC_RAPIDAPI4,
+        process.env.NEXT_PUBLIC_RAPIDAPI5,
       ].filter(Boolean) as string[],
     []
   )

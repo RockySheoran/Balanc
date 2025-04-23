@@ -1,30 +1,34 @@
 /** @format */
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { ZodError } from "zod";
+import { investmentSchema } from "../../Validation/investmentValidation.js";
+import { formatError } from "../../helper.js";
+import { createClient } from "redis";
+import prisma from "../../Config/DataBase.js";
+import redisClient from "../../Config/redis/redis.js";
 
-import { Request, Response } from "express"
-import { PrismaClient } from "@prisma/client"
+// Cache TTL (1 hour)
+const CACHE_TTL_SECONDS = 60 * 60;
 
-import { ZodError } from "zod"
-import { investmentSchema } from "../../Validation/investmentValidation.js"
-import { formatError } from "../../helper.js"
-
-const prisma = new PrismaClient()
-
-// 🎯 Create Investment
+// 🎯 Create Investment (with cache invalidation)
 export const createInvestment = async (
   req: Request,
   res: Response
-): Promise<any> => {
+): Promise<void> => {
   try {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: "Unauthorized",
-      })
+      });
+      return;
     }
-    const userId = req.user?.id
-    const data = req.body
-    // console.log(data)
-    // const payload = await investmentSchema.parse(data)
+
+    const userId = req.user.id;
+    const data = req.body;
+    // const payload = await investmentSchema.parse(data);
+
     const investment = await prisma.investment.create({
       data: {
         accountId: data.accountId,
@@ -36,144 +40,169 @@ export const createInvestment = async (
         quantity: data.quantity,
         buyDate: new Date(data.buyDate),
         buyPrice: data.currentPrice,
-        sellPrice: data.sellPrice ? data.sellPrice : null,
+        sellPrice: data.sellPrice || null,
         sellDate: null,
-
         currentValue: data.currentPrice,
       },
-    })
-    console.log(investment)
+    });
+
+    // Invalidate cache for this account's investments
+    const cacheKey = `investments:${data.accountId}`;
+    await redisClient.del(cacheKey);
+
     res.status(201).json({
       message: "Investment created successfully",
-      data: {
-        investment,
-      },
-    })
+      data: { investment },
+    });
   } catch (error) {
     if (error instanceof ZodError) {
-      const errors = await formatError(error)
-      return res.status(422).json({ message: "Invalid Data", errors })
+      const errors = await formatError(error);
+      res.status(422).json({ message: "Invalid Data", errors });
+      return;
     }
-    console.log(error)
-    res.status(500).json({ error: (error as Error).message })
+    console.error(error);
+    res.status(500).json({ error: (error as Error).message });
   }
-}
+};
 
-// 📈 Get All Investments
+// 📈 Get All Investments (with Redis caching)
 export const getAllInvestments = async (
   req: Request,
   res: Response
-): Promise<any> => {
+): Promise<void> => {
   try {
-    
-    const {accountId }=req.body
-    console.log(accountId)
-    // await prisma.investment.deleteMany({
-    //   where: { accountId },
-    // })
+    const { accountId } = req.body;
+    if (!accountId) {
+      res.status(400).json({ message: "Account ID is required" });
+      return;
+    }
+
+    const cacheKey = `investments:${accountId}`;
+
+    // Check cache first
+    const cachedInvestments = await redisClient.get(cacheKey);
+    if (cachedInvestments) {
+      res.status(200).json({
+        message: "Investments retrieved from cache",
+        data: { investments: JSON.parse(cachedInvestments) },
+      });
+      return;
+    }
+
+    // Cache miss - fetch from database
     const investments = await prisma.investment.findMany({
-      where: { accountId: accountId },
+      where: { accountId },
       orderBy: { createdAt: "desc" },
-    })
-    // console.log(investments)
-    res.status(200).json({ message: "Data Found", data:{investments} })
+    });
+
+    // Cache the result
+    await redisClient.setEx(
+      cacheKey,
+      CACHE_TTL_SECONDS,
+      JSON.stringify(investments)
+    );
+
+    res.status(200).json({
+      message: "Data retrieved from database",
+      data: { investments },
+    });
   } catch (error) {
-    console.log(error)
-    res
-      .status(500)
-      .json({ message: "Data not Found", error: (error as Error).message })
+    console.error(error);
+    res.status(500).json({
+      message: "Data not Found",
+      error: (error as Error).message,
+    });
   }
-}
+};
 
-
-
-// �� delete Investment
-export const deleteInvestment = async (req: Request, res: Response) :Promise<any> => {
+// 🗑️ Delete Investment (with cache invalidation)
+export const deleteInvestment = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: "Unauthorized",
-      })
+      });
+      return;
     }
-    const userId = req.user?.id
 
+    const userId = req.user.id;
     const investment = await prisma.investment.findUnique({
       where: { id },
-    })
+    });
 
     if (!investment || investment.userId !== userId) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Investment not found or unauthorized",
-      })
+      });
+      return;
     }
 
-    await prisma.investment.delete({
-      where: { id },
-    })
+    await prisma.investment.delete({ where: { id } });
+
+    // Invalidate cache for this account's investments
+    const cacheKey = `investments:${investment.accountId}`;
+    await redisClient.del(cacheKey);
 
     res.status(200).json({
       success: true,
       message: "Investment deleted successfully",
-    })
+    });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       error: (error as Error).message,
-    })
+    });
   }
-}
+};
 
-// ✏️ Update Investment
-// export const updateInvestment = async (req: Request, res: Response) => {
-//   try {
-//     const { id } = req.params
-//     if (!req.user) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Unauthorized",
-//       })
-//     }
-//     const userId = req.user?.id
-//     const data = req.body
+// ✏️ Update Investment (with cache invalidation)
+export const updateInvestment = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const data = req.body;
+    const investment = await prisma.investment.findUnique({
+      where: { id: data.id },
+    });
 
-//     const payload = await investmentSchema.parse(data)
-//     const investment = await prisma.investment.findUnique({
-//       where: { id },
-//     })
+    if (!investment) {
+      res.status(404).json({
+        success: false,
+        message: "Investment not found or unauthorized",
+      });
+      return;
+    }
 
-//     if (!investment || investment.userId !== userId) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Investment not found or unauthorized",
-//       })
-//     }
+    const updatedInvestment = await prisma.investment.update({
+      where: { id: data.id },
+      data: {
+        sellDate: data.sellDate ? new Date(data.sellDate) : null,
+        sellPrice: data.sellPrice || null,
+      },
+    });
 
+    // Invalidate cache for this account's investments
+    const cacheKey = `investments:${investment.accountId}`;
+    await redisClient.del(cacheKey);
 
-//     const updatedInvestment = await prisma.investment.update({
-//       where: { id },
-//       data: {
-//         name: payload.name,
-//         type: payload.type,
-//         amount: payload.amount,
-//         quantity: payload.quantity,
-//         buyDate: payload.buyDate,
-//         sellDate: payload.sellDate,
-//         currentValue: payload.currentValue,
-//       },
-//     })
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Investment updated successfully",
-//       investment: updatedInvestment,
-//     })
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       error: (error as Error).message,
-//     })
-//   }
-// }
+    res.status(200).json({
+      success: true,
+      message: "Investment updated successfully",
+      investment: updatedInvestment,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message,
+    });
+  }
+};

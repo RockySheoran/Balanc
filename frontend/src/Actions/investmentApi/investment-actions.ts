@@ -2,6 +2,9 @@
 
 "use server"
 
+import { UPDATE_INVEST_URL } from "@/lib/EndPointApi"
+import axios from "axios"
+import { stat } from "fs"
 import { revalidatePath } from "next/cache"
 
 export async function sellInvestment(prevState: any, formData: FormData) {
@@ -26,23 +29,26 @@ export async function sellInvestment(prevState: any, formData: FormData) {
     if (Object.keys(errors).length > 0) {
       return { success: false, errors }
     }
+    const data   = {
+      id: investmentId,
+      sellPrice: sellPrice,
+      quantitySold: quantitySold,
+      sellDate: sellDate,
+    }
 
-    // Here you would typically:
-    // 1. Verify the investment exists
-    // 2. Check available quantity
-    // 3. Process the sale in your database
-    // 4. Create a transaction record
+        const response = await axios.post(UPDATE_INVEST_URL, data )
+        console.log("Investment sold successfully:", response.data)
+        
+          return { status :200 ,success: true, message: "Investment sold successfully" ,investment: response.data.investment}
+      
 
-    // Mock processing delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // In a real app, you would return the updated investment data
-    revalidatePath("/investments") // Revalidate the investments page
 
-    return { success: true, message: "Investment sold successfully" }
+    
   } catch (error) {
     console.error("Error selling investment:", error)
     return {
+      status: 500,
       success: false,
       message: "Failed to sell investment",
       errors: {

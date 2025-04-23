@@ -18,6 +18,9 @@ import { Loader2, RefreshCw } from "lucide-react"
 import { useFormState, useFormStatus } from "react-dom"
 import { sellInvestment } from "@/Actions/investmentApi/investment-actions"
 import { getStockPrice } from "@/Actions/investmentApi/fetchStockPrice"
+import { useAppDispatch } from "@/lib/Redux/store/hooks"
+import { updateSellPrice } from "@/lib/Redux/features/investmentSlice/investmentSlice"
+
 
 
 interface Investment {
@@ -34,16 +37,19 @@ interface SellInvestmentDialogProps {
   investment: Investment | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: () => void
+  
 }
 
 const initialState = {
+  status: 0,
+  success: false,
   message: "",
   errors: {
     sellPrice: [],
     sellDate: [],
     quantitySold: [],
   },
+  investment: undefined,
 }
 
 function SubmitButton() {
@@ -66,14 +72,15 @@ export function SellInvestmentDialog({
   investment,
   open,
   onOpenChange,
-  onSuccess,
+ 
 }: SellInvestmentDialogProps) {
+  const dispatch = useAppDispatch()
   const [priceLoading, setPriceLoading] = useState(false)
   const [state, formAction] = useActionState(sellInvestment, initialState)
   const [formData, setFormData] = useState({
     sellPrice: 0,
     sellDate: new Date().toISOString().split("T")[0],
-    quantitySold: 1,
+    quantitySold: investment?.quantity || 1,
   })
 
   // Initialize form when investment changes
@@ -106,24 +113,43 @@ export function SellInvestmentDialog({
       setPriceLoading(false)
     }
   }
+  
 
-  const handleSubmit = (formData: FormData) => {
-    // if (!investment) return
+     useEffect(() => {
+    if (state?.success || state?.status === 200) {
+      // console.log(state)
+      toast.success(state?.message || "Investment sold successfully")
+      dispatch(updateSellPrice({
+                   id:state?.investment.id,
+                   sellPrice: state?.investment.sellPrice,
+                    sellDate: state?.investment.sellDate,
+      }));
+      onOpenChange(false)
+      
+    }
+    if (state?.status === 500) {
+      toast.error(state?.message || "Failed to process sale")
+      
+    }
+  }, [state, dispatch])
 
-    // formAction(formData)
-    //   .then((result) => {
-    //     if (result?.success) {
-    //       toast.success("Investment sold successfully")
-    //       onOpenChange(false)
-    //       onSuccess?.()
-    //     } else if (result?.errors) {
-    //       toast.error("Please fix the errors in the form")
-    //     }
-    //   })
-    //   .catch(() => {
-    //     toast.error("Failed to process sale")
-    //   })
-  }
+  // const handleSubmit = (formData: FormData) => {
+  //   // if (!investment) return
+
+  //   // formAction(formData)
+  //   //   .then((result) => {
+  //   //     if (result?.success) {
+  //   //       toast.success("Investment sold successfully")
+  //   //       onOpenChange(false)
+  //   //       onSuccess?.()
+  //   //     } else if (result?.errors) {
+  //   //       toast.error("Please fix the errors in the form")
+  //   //     }
+  //   //   })
+  //   //   .catch(() => {
+  //   //     toast.error("Failed to process sale")
+  //   //   })
+  // }
 
   const calculateProfitLoss = () => {
     if (!investment) return 0
@@ -199,18 +225,19 @@ export function SellInvestmentDialog({
                     id="quantitySold"
                     name="quantitySold"
                     type="number"
-                    min="1"
-                    max={investment.quantity}
+                    readOnly
+                    // min="1"
+                    // max={investment.quantity}
                     value={formData.quantitySold}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        quantitySold: Math.min(
-                          Number(e.target.value),
-                          investment.quantity
-                        ),
-                      })
-                    }
+                    // onChange={(e) =>
+                    //   setFormData({
+                    //     ...formData,
+                    //     quantitySold: Math.min(
+                    //       Number(e.target.value),
+                    //       investment.quantity
+                    //     ),
+                    //   })
+                    // }
                   />
                   {state?.errors?.quantitySold?.map((error, index) => (
                     <p key={index} className="text-sm text-red-500 mt-1">
@@ -235,7 +262,7 @@ export function SellInvestmentDialog({
                     type="number"
                     step="0.1"
                     min="0"
-                    value={(formData.sellPrice ).toFixed(2)}
+                    value={(formData.sellPrice)}
                     onChange={(e) =>
                       setFormData({
                         ...formData,

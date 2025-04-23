@@ -136,15 +136,19 @@ export default function DashboardClient({ session }: SessionProps) {
       revalidateOnFocus: false,
       shouldRetryOnError: false,
       revalidateOnReconnect: true,
-      onSuccess: (data) => {
-         if (!data) return
-        dispatch(clearInvestments())
-        data.forEach((inv: any) => {
-          dispatch(addBackendInvestment(inv))
-          // dispatch(addInvestment(inv))
-        })
-        toast.success("Investments loaded successfully")
-      },
+      onSuccess: async (data) => {
+               if (!data) return
+              dispatch(clearInvestments())
+              for (const inv of data) {
+                try {
+                  const result = await dispatch(addInvestment(inv)).unwrap();
+                  console.log('Investment added successfully:', result);
+                } catch (error) {
+                  console.error('Failed to add investment:', error);
+                }
+              }
+              toast.success("Investments loaded successfully")
+            },
       onError: (err) => toast.error("Failed to load investments"),
     }
   )

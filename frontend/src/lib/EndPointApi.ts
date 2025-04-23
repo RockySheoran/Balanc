@@ -20,6 +20,7 @@ export const ALL_TRANSACTION_URL = `${Api}/api/transaction/transactions`
 export const DELETE_TRANSACTION_URL = `${Api}/api/transaction/deleteTransaction` 
 export const CREATE_INVEST_URL = `${Api}/api/investments/createInvestment` 
 export const ALL_INVEST_URL = `${Api}/api/investments/getAllInvestments` 
+export const UPDATE_INVEST_URL = `${Api}/api/investments/updateInvestment` 
 // Ensure ALPHA_VANTAGE_API_KEY is declared or imported before using it
 
 

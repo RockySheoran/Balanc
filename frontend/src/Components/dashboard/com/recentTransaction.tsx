@@ -153,9 +153,9 @@ export const RecentTransaction = () => {
               Recent Transactions
             </h2>
             <Link
-              href="/transations"
+              href="/transactions"
               className="flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-              prefetch={false}>
+              prefetch={true}>
               See All <FiArrowRight className="ml-1" />
             </Link>
           </div>
