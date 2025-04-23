@@ -103,6 +103,7 @@ interface PortfolioSummary {
   profitLossPercentage: number
   bestPerformer: Investment | null
   worstPerformer: Investment | null
+  totalSold: number
 }
 
 const DEFAULT_SUMMARY: PortfolioSummary = {
@@ -112,6 +113,7 @@ const DEFAULT_SUMMARY: PortfolioSummary = {
   profitLossPercentage: 0,
   bestPerformer: null,
   worstPerformer: null,
+  totalSold: 0,
 }
 
 const InvestmentTracker = () => {
@@ -137,6 +139,12 @@ const InvestmentTracker = () => {
     >
   >({})
 
+  // Filter out sold investments
+  const activeInvestments = useMemo(
+    () => investments.filter((inv) => !inv.sellPrice),
+    [investments]
+  )
+
   // API Keys configuration
   const API_KEYS = useMemo(
     () =>
@@ -146,6 +154,11 @@ const InvestmentTracker = () => {
         process.env.NEXT_PUBLIC_RAPIDAPI3,
         process.env.NEXT_PUBLIC_RAPIDAPI4,
         process.env.NEXT_PUBLIC_RAPIDAPI5,
+        process.env.NEXT_PUBLIC_RAPIDAPI6,
+        process.env.NEXT_PUBLIC_RAPIDAPI7,
+        process.env.NEXT_PUBLIC_RAPIDAPI8,
+        process.env.NEXT_PUBLIC_RAPIDAPI9,
+        process.env.NEXT_PUBLIC_RAPIDAPI10,
       ].filter(Boolean) as string[],
     []
   )
@@ -166,13 +179,16 @@ const InvestmentTracker = () => {
   // Memoized derived values
   const topInvestments = useMemo(
     () =>
-      [...investments]
+      [...activeInvestments]
         .sort((a, b) => b.buyPrice * b.quantity - a.buyPrice * a.quantity)
         .slice(0, 5),
-    [investments]
+    [activeInvestments]
   )
 
-  const hasInvestments = useMemo(() => investments.length > 0, [investments])
+  const hasInvestments = useMemo(
+    () => activeInvestments.length > 0,
+    [activeInvestments]
+  )
 
   // Formatting utilities
   const formatCurrency = useCallback(
@@ -193,28 +209,28 @@ const InvestmentTracker = () => {
 
   // Portfolio calculations
   const calculateSummary = useCallback((investments: Investment[]) => {
-    if (investments.length === 0) {
-      setSummary(DEFAULT_SUMMARY)
-      return
-    }
+    const activeInvestments = investments.filter((inv) => !inv.sellPrice)
+    const soldInvestments = investments.filter((inv) => inv.sellPrice)
 
-    const totalInvested = investments.reduce(
+    const totalInvested = activeInvestments.reduce(
       (sum, investment) => sum + investment.buyPrice * investment.quantity,
       0
     )
 
-    const currentValue = investments.reduce(
+    const currentValue = activeInvestments.reduce(
       (sum, investment) =>
-        sum +
-        (investment.currentValue || investment.buyPrice) * investment.quantity,
+        sum + (investment.sellPrice !== undefined ? (investment.currentValue || investment.buyPrice) * investment.quantity : 0), 0)
+
+    const totalSold = soldInvestments.reduce(
+      (sum, investment) => sum + (investment.sellPrice? investment.sellPrice-investment.buyPrice  : 0) * investment.quantity,
       0
     )
 
-    const profitLoss = currentValue - totalInvested
+    const profitLoss = currentValue - totalInvested + totalSold
     const profitLossPercentage =
       totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0
 
-    const performers = investments
+    const performers = activeInvestments
       .map((investment) => ({
         ...investment,
         performance:
@@ -234,6 +250,7 @@ const InvestmentTracker = () => {
       profitLossPercentage,
       bestPerformer: performers[0] || null,
       worstPerformer: performers[performers.length - 1] || null,
+      totalSold,
     })
   }, [])
 
@@ -250,96 +267,35 @@ const InvestmentTracker = () => {
     []
   )
 
-  // Get the next available API key
+  // Get the next available API key with smart rotation
   const getNextApiKey = useCallback(() => {
-    const sortedKeys = [...API_KEYS].sort((a, b) => {
+    // Filter out invalid keys (those with too many errors)
+    const validKeys = API_KEYS.filter(
+      (key) => (apiKeyStatus.current[key]?.errorCount || 0) < MAX_RETRIES_PER_KEY
+    )
+
+    if (validKeys.length === 0) {
+      return null // No valid keys left
+    }
+
+    // Sort by least recently used and then by error count
+    return [...validKeys].sort((a, b) => {
       const aStatus = apiKeyStatus.current[a] || { errorCount: 0, lastUsed: 0 }
       const bStatus = apiKeyStatus.current[b] || { errorCount: 0, lastUsed: 0 }
 
-      // Prioritize keys with fewer errors
-      if (aStatus.errorCount !== bStatus.errorCount) {
-        return aStatus.errorCount - bStatus.errorCount
+      // First sort by last used time (oldest first)
+      if (aStatus.lastUsed !== bStatus.lastUsed) {
+        return aStatus.lastUsed - bStatus.lastUsed
       }
 
-      // Then prioritize least recently used
-      return aStatus.lastUsed - bStatus.lastUsed
-    })
-
-    return sortedKeys[0]
+      // Then by error count (fewest errors first)
+      return aStatus.errorCount - bStatus.errorCount
+    })[0]
   }, [API_KEYS])
 
-  // Enhanced fetch function with automatic key rotation
-  const fetchWithKeyRotation = useCallback(
-    async (symbol: string, attempt = 0): Promise<any> => {
-      if (attempt >= API_KEYS.length * MAX_RETRIES_PER_KEY) {
-        throw new Error("All API keys exhausted")
-      }
-
-      const apiKey = getNextApiKey()
-      const currentStatus = apiKeyStatus.current[apiKey] || {
-        valid: true,
-        lastUsed: 0,
-        errorCount: 0,
-      }
-
-      try {
-        const response = await axios.get(
-          `https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart`,
-          {
-            params: {
-              symbol,
-              range: timeRange,
-              interval,
-              region: symbol.includes(".NS") ? "IN" : "US",
-            },
-            headers: {
-              "x-rapidapi-key": apiKey,
-              "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
-            },
-            timeout: 8000,
-          }
-        )
-
-        if (!response.data?.chart?.result?.[0]) {
-          throw new Error("Invalid response structure")
-        }
-
-        // Update key status on success
-        apiKeyStatus.current[apiKey] = {
-          valid: true,
-          lastUsed: Date.now(),
-          errorCount: 0,
-        }
-
-        return response.data
-      } catch (error) {
-        // Handle rate limits and errors
-        const isRateLimit =
-          axios.isAxiosError(error) &&
-          (error.response?.status === 429 || error.response?.status === 403)
-
-        // Update key status on failure
-        apiKeyStatus.current[apiKey] = {
-          ...apiKeyStatus.current[apiKey],
-          valid: !isRateLimit,
-          lastUsed: Date.now(),
-          errorCount: (apiKeyStatus.current[apiKey]?.errorCount || 0) + 1,
-        }
-
-        if (isRateLimit) {
-          await new Promise((resolve) => setTimeout(resolve, API_RETRY_DELAY))
-        }
-
-        // Retry with next key
-        return fetchWithKeyRotation(symbol, attempt + 1)
-      }
-    },
-    [API_KEYS, timeRange, interval, getNextApiKey]
-  )
-
-  // Cached fetch function
+  // Enhanced fetch function with smart key rotation and error handling
   const fetchStockChartData = useCallback(
-    async (symbol: string) => {
+    async (symbol: string): Promise<any> => {
       const cacheKey = `${symbol}-${timeRange}-${interval}`
       const cachedData = chartDataCache.get(cacheKey)
 
@@ -348,47 +304,101 @@ const InvestmentTracker = () => {
         return cachedData.data
       }
 
-      try {
-        const data = await fetchWithKeyRotation(symbol)
+      let attempts = 0
+      const maxAttempts = API_KEYS.length * MAX_RETRIES_PER_KEY
 
-        // Update cache
-        chartDataCache.set(cacheKey, {
-          data,
-          timestamp: Date.now(),
-        })
+      while (attempts < maxAttempts) {
+        const apiKey = getNextApiKey()
+        if (!apiKey) {
+          throw new Error("All API keys exhausted")
+        }
 
-        return data
-      } catch (error) {
-        console.error(`Failed to fetch data for ${symbol}:`, error)
-        throw error
+        try {
+          const response = await axios.get(
+            `https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart`,
+            {
+              params: {
+                symbol,
+                range: timeRange,
+                interval,
+                region: symbol.includes(".NS") ? "IN" : "US",
+              },
+              headers: {
+                "x-rapidapi-key": apiKey,
+                "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
+              },
+              timeout: 8000,
+            }
+          )
+
+          if (!response.data?.chart?.result?.[0]) {
+            throw new Error("Invalid response structure")
+          }
+
+          // Update key status on success
+          apiKeyStatus.current[apiKey] = {
+            valid: true,
+            lastUsed: Date.now(),
+            errorCount: 0,
+          }
+
+          // Update cache
+          chartDataCache.set(cacheKey, {
+            data: response.data,
+            timestamp: Date.now(),
+          })
+
+          return response.data
+        } catch (error) {
+          attempts++
+          const isRateLimit =
+            axios.isAxiosError(error) &&
+            (error.response?.status === 429 || error.response?.status === 403)
+
+          // Update key status on failure
+          if (apiKeyStatus.current[apiKey]) {
+            apiKeyStatus.current[apiKey] = {
+              ...apiKeyStatus.current[apiKey],
+              valid: !isRateLimit,
+              lastUsed: Date.now(),
+              errorCount: (apiKeyStatus.current[apiKey].errorCount || 0) + 1,
+            }
+          }
+
+          if (isRateLimit) {
+            await new Promise((resolve) => setTimeout(resolve, API_RETRY_DELAY))
+          }
+
+          // If this was our last attempt, throw the error
+          if (attempts >= maxAttempts) {
+            throw error
+          }
+        }
       }
+
+      throw new Error("Failed to fetch data after multiple attempts")
     },
-    [fetchWithKeyRotation, timeRange, interval, chartDataCache]
+    [API_KEYS, timeRange, interval, chartDataCache, getNextApiKey]
   )
 
-  // Fetch all investment data
+  // Fetch all investment data with error handling
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true)
       setApiError(null)
 
-      // Clear any existing toast
       if (activeToastId.current) {
         toast.dismiss(activeToastId.current)
       }
 
-      // Show single loading toast
-      // activeToastId.current = toast.loading("Loading investment data...")
-
       if (!hasInvestments) {
         setChartData([])
         calculateSummary([])
-        toast.dismiss(activeToastId.current)
         setInitialLoadComplete(true)
         return
       }
 
-      // Fetch data for all investments
+      // Only fetch data for active investments
       const results = await Promise.allSettled(
         topInvestments.map((inv) => fetchStockChartData(inv.symbol))
       )
@@ -405,18 +415,15 @@ const InvestmentTracker = () => {
       })
 
       setChartData(successfulData)
-      calculateSummary(investments) // Use all investments for summary
+      calculateSummary(investments) // Calculate summary for all investments (including sold ones)
       setLastUpdated(new Date())
       setInitialLoadComplete(true)
 
-      // Update toast based on results
       if (successfulData.length === 0) {
+        setApiError("Failed to load investment data. API limit may be reached.")
         toast.error("Failed to load investment data", {
           id: activeToastId.current,
         })
-        setApiError(
-          "Failed to load investment data. Please try again later some time. Api limit reached"
-        )
       } else if (failedSymbols.length > 0) {
         toast.warning(
           `Loaded ${successfulData.length} of ${topInvestments.length} investments`,
@@ -582,7 +589,7 @@ const InvestmentTracker = () => {
         intersect: false,
       },
     }),
-    [formatCurrency, hasInvestments]
+    []
   )
 
   // Event handlers
@@ -679,7 +686,7 @@ const InvestmentTracker = () => {
             <FiInfo className="flex-shrink-0 h-5 w-5 text-blue-500 mt-0.5" />
             <div className="ml-3">
               <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                No investments found
+                No active investments found
               </h3>
               <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                 Add investments to see your portfolio analysis
@@ -697,7 +704,7 @@ const InvestmentTracker = () => {
           icon={<FiDollarSign className="h-5 w-5" />}
           color="blue"
           description={
-            hasInvestments ? "Across all holdings" : "No investments"
+            hasInvestments ? "Across active holdings" : "No investments"
           }
           formatValue={formatCurrency}
           loading={showLoadingState}
@@ -718,7 +725,7 @@ const InvestmentTracker = () => {
         />
 
         <SummaryCard
-          title="Profit/Loss"
+          title="Net Profit/Loss"
           value={summary.profitLoss}
           icon={
             summary.profitLoss >= 0 ? (
@@ -730,7 +737,7 @@ const InvestmentTracker = () => {
           color={summary.profitLoss >= 0 ? "green" : "red"}
           description={
             hasInvestments
-              ? `${summary.profitLoss >= 0 ? "Profit" : "Loss"}`
+              ? `Includes ${formatCurrency(summary.totalSold)} from sold investments`
               : "--"
           }
           percentage={summary.profitLossPercentage}
@@ -796,17 +803,17 @@ const InvestmentTracker = () => {
 
       {/* Holdings Table */}
       <HoldingsTable
-        investments={topInvestments}
+        investments={investments} // Show all investments including sold ones
         formatCurrency={formatCurrency}
         formatPercentage={formatPercentage}
-        hasInvestments={hasInvestments}
+        hasInvestments={investments.length > 0} // Check all investments, not just active ones
         loading={showLoadingState}
       />
     </div>
   )
 }
 
-// Sub-components
+// Sub-components (keep the same as before)
 interface SummaryCardProps {
   title: string
   value: number
@@ -939,7 +946,7 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
   }
 
   const performanceValue =
-    performer && performer.buyPrice > 0
+    performer && performer.buyPrice > 0 && !performer.sellPrice
       ? (((performer.currentValue || performer.buyPrice) - performer.buyPrice) /
           performer.buyPrice) *
         100
@@ -1088,7 +1095,7 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
     className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700">
     <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
       <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-200">
-        {hasInvestments ? "Your Holdings" : "Investment Summary"}
+        Your Holdings
       </h3>
     </div>
 
@@ -1106,6 +1113,7 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
               "Invested",
               "Value",
               "P/L",
+              "Status",
             ].map((header) => (
               <th
                 key={header}
@@ -1119,7 +1127,7 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
           {loading ? (
             Array.from({ length: 3 }).map((_, i) => (
               <tr key={`skeleton-${i}`}>
-                {Array.from({ length: 9 }).map((_, j) => (
+                {Array.from({ length: 10 }).map((_, j) => (
                   <td key={`skeleton-${i}-${j}`} className="px-4 py-3">
                     <Skeleton className="h-4 w-full dark:bg-gray-700" />
                   </td>
@@ -1128,10 +1136,12 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
             ))
           ) : hasInvestments ? (
             investments.map((investment) => {
+              const isSold = !!investment.sellPrice
               const invested = investment.buyPrice * investment.quantity
-              const currentValue =
-                (investment.currentValue || investment.buyPrice) *
-                investment.quantity
+              const currentValue = isSold
+                ? investment.sellPrice! * investment.quantity
+                : (investment.currentValue || investment.buyPrice) *
+                  investment.quantity
               const profitLoss = currentValue - invested
               const profitLossPercentage =
                 invested > 0 ? (profitLoss / invested) * 100 : 0
@@ -1139,7 +1149,9 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
               return (
                 <tr
                   key={investment.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                    isSold ? "opacity-70" : ""
+                  }`}>
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {investment.symbol}
                   </td>
@@ -1153,7 +1165,9 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
                     {formatCurrency(investment.buyPrice)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    {investment.currentValue
+                    {isSold
+                      ? formatCurrency(investment.sellPrice!)
+                      : investment.currentValue
                       ? formatCurrency(investment.currentValue)
                       : "--"}
                   </td>
@@ -1184,13 +1198,23 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
                       </span>
                     </div>
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        isSold
+                          ? "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                          : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"
+                      }`}>
+                      {isSold ? "Sold" : "Active"}
+                    </span>
+                  </td>
                 </tr>
               )
             })
           ) : (
             <tr>
               <td
-                colSpan={9}
+                colSpan={10}
                 className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                 No investment data available
               </td>

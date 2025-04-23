@@ -109,6 +109,8 @@ const chartDataCache = new Map<string, {
 }>()
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
+const API_RETRY_DELAY = 500 // 0.5 seconds between retries
+const MAX_RETRIES_PER_KEY = 2 // Max retries per API key
 
 const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] }) => {
   const [chartData, setChartData] = useState<YahooChartResponse[]>([])
@@ -119,6 +121,10 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [fetchingStatus, setFetchingStatus] = useState<Record<string, boolean>>({})
   const [currentApiKeyIndex, setCurrentApiKeyIndex] = useState(0)
+  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, {
+    valid: boolean
+    lastChecked: number
+  }>>({})
 
   // API Keys configuration
   const API_KEYS = useMemo(() => [
@@ -127,7 +133,21 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     process.env.NEXT_PUBLIC_RAPIDAPI3,
     process.env.NEXT_PUBLIC_RAPIDAPI4,
     process.env.NEXT_PUBLIC_RAPIDAPI5,
+    process.env.NEXT_PUBLIC_RAPIDAPI6,
+    process.env.NEXT_PUBLIC_RAPIDAPI7,
+    process.env.NEXT_PUBLIC_RAPIDAPI8,
+    process.env.NEXT_PUBLIC_RAPIDAPI9,
+    process.env.NEXT_PUBLIC_RAPIDAPI10,
   ].filter(Boolean) as string[], [])
+
+  // Initialize API key status
+  useEffect(() => {
+    const initialStatus: Record<string, { valid: boolean; lastChecked: number }> = {}
+    API_KEYS.forEach(key => {
+      initialStatus[key] = { valid: true, lastChecked: 0 }
+    })
+    setApiKeyStatus(initialStatus)
+  }, [API_KEYS])
 
   const getApiConfig = useCallback((apiKey: string) => ({
     method: "GET",
@@ -136,72 +156,114 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       "x-rapidapi-key": apiKey,
       "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
     },
-   
+    timeout: 5000 // 5 second timeout
   }), [])
 
-  // Enhanced fetch function with retry and key rotation
-  const fetchStockChartData = useCallback(async (symbol: string) => {
-    const cacheKey = `${symbol}-${range}-${interval}`
-    const cachedData = chartDataCache.get(cacheKey)
-    
-    // Return cached data if valid
-    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
-      return cachedData.data
+  // Get next valid API key with smart rotation
+  const getNextValidKey = useCallback(() => {
+    // First try the current key if it's still valid
+    const currentKey = API_KEYS[currentApiKeyIndex]
+    if (apiKeyStatus[currentKey]?.valid) {
+      return { key: currentKey, index: currentApiKeyIndex }
     }
 
-    let attempts = 0
-    let lastError: Error | null = null
-    let apiKeyIndex = currentApiKeyIndex
+    // Find the next valid key
+    for (let i = 1; i <= API_KEYS.length; i++) {
+      const nextIndex = (currentApiKeyIndex + i) % API_KEYS.length
+      const nextKey = API_KEYS[nextIndex]
+      
+      // Skip invalid keys unless their status is stale (>5 minutes old)
+      if (apiKeyStatus[nextKey]?.valid || 
+          Date.now() - apiKeyStatus[nextKey]?.lastChecked > 300000) {
+        return { key: nextKey, index: nextIndex }
+      }
+    }
 
-    while (attempts < API_KEYS.length * 2) { // Try each key twice
-      const apiKey = API_KEYS[apiKeyIndex]
-      setFetchingStatus(prev => ({ ...prev, [symbol]: true }))
+    // If all keys are exhausted, return the first one
+    return { key: API_KEYS[0], index: 0 }
+  }, [API_KEYS, currentApiKeyIndex, apiKeyStatus])
+
+  // Enhanced fetch function with immediate key rotation on failure
+
+  // Track API key failures
+  const [failedKeys, setFailedKeys] = useState<Record<string, number>>({});
+  const MAX_FAILURES_PER_KEY = 2; // Max failures before blacklisting a key
+
+  // Enhanced fetch function with immediate key rotation on any error
+  const fetchStockChartData = useCallback(async (symbol: string) => {
+    // Skip if investment is sold
+    const investment = investments.find(inv => inv.symbol === symbol);
+    if (investment?.sellPrice !== null && investment?.sellPrice !== undefined) {
+      return null;
+    }
+
+    const cacheKey = `${symbol}-${range}-${interval}`;
+    const cachedData = chartDataCache.get(cacheKey);
+    
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+      return cachedData.data;
+    }
+
+    setFetchingStatus(prev => ({ ...prev, [symbol]: true }));
+
+    let currentKeyIndex = 0;
+    let lastError: Error | null = null;
+
+    // Try all available keys once
+    for (let i = 0; i < API_KEYS.length; i++) {
+      const apiKey = API_KEYS[currentKeyIndex];
+      
+      // Skip keys that have failed too many times
+      if (failedKeys[apiKey] >= MAX_FAILURES_PER_KEY) {
+        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+        continue;
+      }
 
       try {
         const response = await axios({
           ...getApiConfig(apiKey),
           params: {
-            region: symbol.includes(".NS") ? "INR" : "US",
+            region: symbol.includes(".NS") ? "IN" : "US",
             symbol,
             range,
             interval,
-          }
-        })
+          },
+          timeout: 5000
+        });
 
         if (!response.data?.chart?.result?.[0]) {
-          throw new Error(`Invalid data structure for ${symbol}`)
+          throw new Error(`Invalid data structure for ${symbol}`);
         }
 
         // Update cache
         chartDataCache.set(cacheKey, {
           data: response.data,
           timestamp: Date.now()
-        })
+        });
 
-        // Update current API key index if successful
-        setCurrentApiKeyIndex(apiKeyIndex)
-        
-        return response.data
+        // Reset failure count for this key
+        setFailedKeys(prev => ({ ...prev, [apiKey]: 0 }));
+
+        return response.data;
       } catch (err) {
-        lastError = err as Error
+        lastError = err as AxiosError;
         
-        // Rotate API key on failure
-        apiKeyIndex = (apiKeyIndex + 1) % API_KEYS.length
-        attempts++
-        
-        // Add delay between retries
-        if (attempts < API_KEYS.length * 2) {
-          await new Promise(resolve => setTimeout(resolve, 500))
-        }
+        // Mark this key as failed
+        setFailedKeys(prev => ({
+          ...prev,
+          [apiKey]: (prev[apiKey] || 0) + 1
+        }));
+
+        // Immediately try next key without delay
+        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
       } finally {
-        setFetchingStatus(prev => ({ ...prev, [symbol]: false }))
+        setFetchingStatus(prev => ({ ...prev, [symbol]: false }));
       }
     }
 
-    throw lastError || new Error(`Failed to fetch data for ${symbol} after ${attempts} attempts`)
-  }, [API_KEYS, currentApiKeyIndex, getApiConfig, range, interval])
+    throw lastError || new Error(`Failed to fetch data for ${symbol} after trying all API keys`);
+  }, [API_KEYS, range, interval, investments, failedKeys, getApiConfig]);  // Fetch all investment data with error handling
 
-  // Fetch all investment data with error handling
   const fetchAllData = useCallback(async () => {
     if (investments.length === 0) return
 
@@ -209,25 +271,32 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       setLoading(true)
       setError(null)
 
-      const results = await Promise.allSettled(
-        investments.map(inv =>inv.sellPrice !== null? fetchStockChartData(inv.symbol) : Promise.resolve(null))
-      )
+      // Only fetch data for investments that haven't been sold
+      const activeInvestments = investments.filter(inv => inv.sellPrice === null || inv.sellPrice === undefined)
       
+      // Process in batches to avoid overwhelming the API
+      const BATCH_SIZE = 3
       const successfulData: YahooChartResponse[] = []
       const errors: string[] = []
 
-      results.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          successfulData.push(result.value)
-        } else {
-          const symbol = investments[index]?.symbol || 'Unknown'
-          errors.push(`${symbol}: ${result.reason.message}`)
-          console.error(`Failed to fetch ${symbol}:`, result.reason)
-        }
-      })
+      for (let i = 0; i < activeInvestments.length; i += BATCH_SIZE) {
+        const batch = activeInvestments.slice(i, i + BATCH_SIZE)
+        const batchResults = await Promise.allSettled(
+          batch.map(inv => fetchStockChartData(inv.symbol)))  
+        
+        batchResults.forEach((result, index) => {
+          if (result.status === "fulfilled" && result.value) {
+            successfulData.push(result.value)
+          } else if (result.status === "rejected") {
+            const symbol = batch[index]?.symbol || 'Unknown'
+            errors.push(`${symbol}: ${result.reason.message}`)
+          }
+        })
 
-      if (successfulData.length === 0) {
-        // throw new Error('No data could be loaded. ' + errors.join('; '))
+        // Add delay between batches
+        if (i + BATCH_SIZE < activeInvestments.length) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
       }
 
       setChartData(successfulData)
@@ -235,7 +304,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       
       if (errors.length > 0) {
         toast.warning(`Partial data loaded. ${errors.length} investments failed.`)
-      } else {
+      } else if (successfulData.length > 0) {
         toast.success("Chart data updated")
       }
     } catch (err) {
@@ -277,7 +346,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         const result = data.chart.result[0]
         const meta = result.meta
         const quotes = result.indicators.quote[0]
-        const inv = investments.find(i => i.symbol === meta.symbol) || investments[index]
+        const inv = investments.find(i => i.symbol === meta.symbol)
 
         return {
           label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName.length > 15 ? "..." : ""}`,
@@ -293,7 +362,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
             above: `${COLOR_PALETTE[index % COLOR_PALETTE.length]}10`,
           },
         }
-      }),
+      }).filter(Boolean), // Filter out any null datasets
     }
   }, [chartData, investments, formatDate, range])
 
@@ -481,7 +550,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
-            No chart data available
+            {investments.some(inv => inv.sellPrice === null) 
+              ? "No chart data available" 
+              : "All investments have been sold"}
           </div>
         )}
       </div>

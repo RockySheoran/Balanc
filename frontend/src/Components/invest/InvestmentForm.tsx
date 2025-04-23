@@ -1,45 +1,45 @@
-/** @format */
-"use client"
-import React, { useState, useEffect, useMemo, useActionState } from "react"
-import { useFormStatus } from "react-dom"
-import { motion } from "framer-motion"
-import { Button } from "@/Components/ui/button"
+"use client";
+import React, { useState, useEffect, useMemo, useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { motion } from "framer-motion";
+import { Button } from "@/Components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/Components/ui/dialog"
-import { Input } from "@/Components/ui/input"
-import { Label } from "@/Components/ui/label"
+} from "@/Components/ui/dialog";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/Components/ui/select"
-import { Card, CardContent } from "@/Components/ui/card"
-import { Loader2, Search } from "lucide-react"
-import { addInvestmentAction, getStockPrice } from "@/Actions/investmentApi/fetchStockPrice"
-import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
-import { toast } from "sonner"
-import { addBackendInvestment } from "@/lib/Redux/features/investmentSlice/investmentSlice"
+} from "@/Components/ui/select";
+import { Card, CardContent } from "@/Components/ui/card";
+import { Loader2, Search } from "lucide-react";
+import { addInvestmentAction, ApiResponse, getStockPrice } from "@/Actions/investmentApi/fetchStockPrice";
+import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks";
+import { toast } from "sonner";
+import { addBackendInvestment } from "@/lib/Redux/features/investmentSlice/investmentSlice";
 
-
+export type InvestmentType = "STOCK" | "MUTUAL_FUND" | "CRYPTO";
 interface InvestmentFormProps {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
 }
 
 const SubmitButton = () => {
-  const { pending } = useFormStatus()
+  const { pending } = useFormStatus();
   return (
     <Button
       type="submit"
       disabled={pending}
-      className="w-full sm:w-auto min-w-[120px]">
+      className="w-full sm:w-auto min-w-[120px]"
+    >
       {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -49,34 +49,13 @@ const SubmitButton = () => {
         "Add Investment"
       )}
     </Button>
-  )
-}
-const initialState = {
-  message: "",
-  status: 0,
-  errors: {},
-  data: {},
-}
+  );
+};
 
 const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
-  const { selectedAccount } = useAppSelector((state) => state.account)
-  const [state, formAction] = useActionState(addInvestmentAction, initialState)
-  const { token } = useAppSelector((state) => state.user)
-useEffect(() => {
-  if (state?.success) {
-    toast.success("Investment added successfully!")
-    console.log("Investment added successfully:", state.data)
-    console.log(state.data.data.investment + "gerrthty")
-    dispatch(addBackendInvestment(state.data.data.investment))
-
-    onClose()
-  } else if (state?.success === false) {
-    toast.error(state.message || "Investment addition failed")
-    console.error("Investment addition failed:", state.errors)
-    // console.error('Error:', state.error)
-  }
-}, [state])
-  const dispatch = useAppDispatch()
+  const { selectedAccount } = useAppSelector((state) => state.account);
+  const { token } = useAppSelector((state) => state.user);
+  const dispatch = useAppDispatch();
 
   const [formData, setFormData] = useState({
     accountId: selectedAccount?.id || "",
@@ -86,43 +65,48 @@ useEffect(() => {
     buyPrice: 0,
     currentPrice: 0,
     buyDate: new Date().toISOString().split("T")[0],
-    type: "STOCK" as "STOCK" | "CRYPTO" | "MUTUAL_FUND",
-  })
+    type: "STOCK" as InvestmentType,
+  });
 
-  const [searchTerm, setSearchTerm] = useState("")
-  const [priceLoading, setPriceLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [priceLoading, setPriceLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "indian" | "international" | "crypto" | "mf"
-  >("all")
+  >("all");
 
-  // Memoized filtered stocks
-  const filteredStocks = useMemo(() => {
-    let result = popularStocks
+  // Handle form submission response
+  const [state, formAction] = useActionState(addInvestmentAction, null);
 
-    // Apply category filter
-    if (selectedCategory !== "all") {
-      result = result.filter((stock) => {
-        if (selectedCategory === "indian") return stock.symbol.endsWith(".NS")
-        if (selectedCategory === "international")
-          return !stock.symbol.endsWith(".NS") && !stock.symbol.includes("-USD")
-        if (selectedCategory === "crypto") return stock.symbol.includes("-USD")
-        if (selectedCategory === "mf") return stock.name.includes("Fund")
-        return true
-      })
+  useEffect(() => {
+    if (!state) return;
+
+    switch (state.status) {
+      case 200:
+        toast.success(state.message || "Investment added successfully!");
+        dispatch(addBackendInvestment(state.data?.data?.investment));
+        onClose();
+        break;
+      case 400:
+        // Display validation errors
+        if (state.errors) {
+          Object.entries(state.errors).forEach(([field, messages]) => {
+            const message = Array.isArray(messages) ? messages.join(", ") : messages;
+            toast.error(`${field}: ${message}`);
+          });
+        } else {
+          toast.error(state.message || "Validation failed");
+        }
+        break;
+      case 401:
+        toast.error(state.message || "Please login again");
+        break;
+      case 500:
+        toast.error(state.message || "Server error occurred");
+        break;
+      default:
+        toast.error(state.message || "An error occurred");
     }
-
-    // Apply search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(
-        (stock) =>
-          stock.symbol.toLowerCase().includes(term) ||
-          stock.name.toLowerCase().includes(term)
-      )
-    }
-
-    return result
-  }, [searchTerm, selectedCategory])
+  }, [state, dispatch, onClose]);
 
   // Reset form when opening/closing
   useEffect(() => {
@@ -135,16 +119,46 @@ useEffect(() => {
         buyPrice: 0,
         currentPrice: 0,
         buyDate: new Date().toISOString().split("T")[0],
-        type: "STOCK" as "STOCK" | "CRYPTO" | "MUTUAL_FUND",
-      })
-      setSearchTerm("")
-      setSelectedCategory("all")
+        type: "STOCK",
+      });
+      setSearchTerm("");
+      setSelectedCategory("all");
     }
-  }, [open, selectedAccount?.id])
+  }, [open, selectedAccount?.id]);
 
+  // Filter stocks based on search and category
+  const filteredStocks = useMemo(() => {
+    let result = popularStocks;
+
+    // Apply category filter
+    if (selectedCategory !== "all") {
+      result = result.filter((stock) => {
+        if (selectedCategory === "indian") return stock.symbol.endsWith(".NS");
+        if (selectedCategory === "international")
+          return !stock.symbol.endsWith(".NS") && !stock.symbol.includes("-USD");
+        if (selectedCategory === "crypto") return stock.symbol.includes("-USD");
+        if (selectedCategory === "mf") return stock.name.includes("Fund");
+        return true;
+      });
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(
+        (stock) =>
+          stock.symbol.toLowerCase().includes(term) ||
+          stock.name.toLowerCase().includes(term)
+      );
+    }
+
+    return result;
+  }, [searchTerm, selectedCategory]);
+
+  // Handle stock selection
   const handleStockSelect = async (symbol: string) => {
-    const selectedStock = popularStocks.find((stock) => stock.symbol === symbol)
-    if (!selectedStock) return
+    const selectedStock = popularStocks.find((stock) => stock.symbol === symbol);
+    if (!selectedStock) return;
 
     setFormData((prev) => ({
       ...prev,
@@ -155,27 +169,26 @@ useEffect(() => {
         : selectedStock.name.includes("Fund")
         ? "MUTUAL_FUND"
         : "STOCK",
-    }))
+    }));
 
-    setPriceLoading(true)
+    setPriceLoading(true);
     try {
-      const price = await getStockPrice(selectedStock.symbol)
+      const price = await getStockPrice(selectedStock.symbol);
       setFormData((prev) => ({
         ...prev,
         currentPrice: price.price,
         buyPrice: price.price,
-      }))
+      }));
     } catch (error) {
-      console.error("Failed to fetch stock price:", error)
-      toast.error("Failed to fetch current price")
+      console.error("Failed to fetch stock price:", error);
+      toast.error("Failed to fetch current price");
     } finally {
-      setPriceLoading(false)
+      setPriceLoading(false);
     }
-  }
+  };
 
-  // const currencySymbol = formData.symbol.endsWith(".NS") ? "USD" : "USD"
-  const currencySymbol = "USD"
-  const totalInvestment = formData.buyPrice * formData.quantity
+  const currencySymbol = "USD";
+  const totalInvestment = formData.buyPrice * formData.quantity;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -184,7 +197,8 @@ useEffect(() => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="p-1 sm:p-6">
+          className="p-1 sm:p-6"
+        >
           <div className="flex justify-between items-start mb-4">
             <DialogHeader className="text-left p-0">
               <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -198,7 +212,9 @@ useEffect(() => {
 
           <form
             action={(formData) => formAction({ formData, token: token || "" })}
-            className="space-y-4">
+            className="space-y-4"
+          >
+            {/* Hidden fields for form submission */}
             <input type="hidden" name="symbol" value={formData.symbol} />
             <input type="hidden" name="accountId" value={formData.accountId} />
             <input type="hidden" name="name" value={formData.name} />
@@ -207,6 +223,7 @@ useEffect(() => {
               name="currentPrice"
               value={formData.currentPrice}
             />
+            <input type="hidden" name="type" value={formData.type} />
 
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 space-y-2">
@@ -215,8 +232,9 @@ useEffect(() => {
                   name="type"
                   value={formData.type}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, type: value as any })
-                  }>
+                    setFormData({ ...formData, type: value as InvestmentType })
+                  }
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -238,6 +256,7 @@ useEffect(() => {
                     setFormData({ ...formData, buyDate: e.target.value })
                   }
                   className="w-full"
+                  max={new Date().toISOString().split("T")[0]}
                 />
               </div>
             </div>
@@ -258,7 +277,8 @@ useEffect(() => {
 
                 <Select
                   value={selectedCategory}
-                  onValueChange={(value) => setSelectedCategory(value as any)}>
+                  onValueChange={(value) => setSelectedCategory(value as any)}
+                >
                   <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Filter" />
                   </SelectTrigger>
@@ -283,7 +303,8 @@ useEffect(() => {
                           className={`p-2 rounded hover:bg-accent cursor-pointer transition-colors ${
                             formData.symbol === stock.symbol ? "bg-accent" : ""
                           }`}
-                          onClick={() => handleStockSelect(stock.symbol)}>
+                          onClick={() => handleStockSelect(stock.symbol)}
+                        >
                           <div className="flex justify-between items-center">
                             <div className="font-medium truncate pr-2">
                               {stock.symbol}
@@ -318,7 +339,8 @@ useEffect(() => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 transition={{ duration: 0.3 }}
-                className="space-y-4">
+                className="space-y-4"
+              >
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Symbol</Label>
@@ -349,16 +371,12 @@ useEffect(() => {
                         </div>
                       ) : (
                         <Input
-                          value={formData.currentPrice.toLocaleString(
-                            undefined,
-                            {
-                              style: "currency",
-                              currency: "USD", // Fixed: Removed extra space after "USD"
-                              currencyDisplay: "symbol", // Ensures the $ symbol is always shown
-                              minimumFractionDigits: 2, // Always shows 2 decimal places
-                              maximumFractionDigits: 2, // Never shows more than 2 decimal places
-                            }
-                          )}
+                          value={formData.currentPrice.toLocaleString(undefined, {
+                            style: "currency",
+                            currency: "USD",
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                           readOnly
                           className="bg-gray-50 font-mono"
                         />
@@ -371,8 +389,8 @@ useEffect(() => {
                     <Input
                       name="buyPrice"
                       type="number"
-                      min="0.1"
-                      step="0.1"
+                      min="0.00000001"
+                      step="0.00000001"
                       value={formData.buyPrice || ""}
                       onChange={(e) =>
                         setFormData({
@@ -389,8 +407,8 @@ useEffect(() => {
                     <Input
                       name="quantity"
                       type="number"
-                      min="1"
-                      step="1"
+                      min="0.00000001"
+                      step="0.00000001"
                       value={formData.quantity}
                       onChange={(e) =>
                         setFormData({
@@ -419,12 +437,13 @@ useEffect(() => {
               </motion.div>
             )}
 
-            <div className="flex cursor-pointer flex-col-reverse sm:flex-row justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="w-full sm:w-auto">
+                className="w-full sm:w-auto"
+              >
                 Cancel
               </Button>
               <SubmitButton />
@@ -433,11 +452,10 @@ useEffect(() => {
         </motion.div>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
-export default InvestmentForm
-
+export default InvestmentForm;
 
 const popularStocks = [
   // Indian Stocks (NSE)
@@ -484,5 +502,6 @@ const popularStocks = [
   { symbol: "BNB-USD", name: "Binance Coin" },
   { symbol: "SOL-USD", name: "Solana" },
   { symbol: "XRP-USD", name: "Ripple" },
+];
 
-]
+

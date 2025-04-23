@@ -4,8 +4,26 @@
 
 import { CREATE_INVEST_URL } from "@/lib/EndPointApi"
 import axios from "axios"
+import { z } from "zod";
+export type InvestmentType = "STOCK" | "MUTUAL_FUND" | "CRYPTO";
 
+export interface InvestmentFormData {
+  symbol: string;
+  accountId: string;
+  name: string;
+  type: InvestmentType;
+  quantity: number;
+  buyPrice: number;
+  currentPrice: number;
+  buyDate: string;
+}
 
+export interface ApiResponse {
+  status: number;
+  message?: string;
+  errors?: Record<string, string[]>;
+  data?: any;
+}
 interface YahooFinanceResponse {
   quoteSummary: {
     result: Array<{
@@ -102,104 +120,113 @@ export const getStockPrice = async (
 }
 
 // Updated investment action with better error handling
+
 export const addInvestmentAction = async (
   prevState: any,
   payload: { formData: FormData; token: string }
-): Promise<{
-  status?: number
-  message?: string
-  errors?: Record<string, string[]>
-  success?: boolean
-  error?: string
-  data?: any
-}> => {
-   const { formData, token } = payload
-   console.log(token)
-  // const session = await getServerSession(authOptions)
+): Promise<ApiResponse> => {
+  const { formData, token } = payload;
+
+  // Authentication check
   if (!token) {
     return {
       status: 401,
       message: "Unauthorized - Please login first",
-      errors: {},
-    }
+    };
   }
 
-  const symbol = formData.get("symbol") as string
-  if (!symbol) return { error: "Symbol is required" }
+  // Extract and validate data
+  const rawData = {
+    symbol: formData.get("symbol"),
+    accountId: formData.get("accountId"),
+    name: formData.get("name"),
+    type: formData.get("type"),
+    quantity: formData.get("quantity"),
+    buyPrice: formData.get("buyPrice"),
+    currentPrice: formData.get("currentPrice"),
+    buyDate: formData.get("buyDate"),
+  };
+
+  const schema = z.object({
+    symbol: z.string().min(1, "Symbol is required"),
+    accountId: z.string().min(1, "Account is required"),
+    name: z.string().min(1, "Name is required"),
+    type: z.enum(["STOCK", "MUTUAL_FUND", "CRYPTO"]),
+    quantity: z.coerce
+      .number()
+      .positive("Quantity must be greater than 0")
+      .min(0.00000001, "Quantity must be greater than 0"), // For crypto
+    buyPrice: z.coerce
+      .number()
+      .positive("Buy price must be greater than 0")
+      .min(0.00000001, "Buy price must be greater than 0"),
+    currentPrice: z.coerce.number().nonnegative("Current price cannot be negative"),
+    buyDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  });
 
   try {
-    // First get current price
-    // const priceData = await getStockPrice(symbol)
-    // if (priceData.error) {
-    //   return { error: priceData.error }
-    // }
+    // Validate data
+    const validatedData = schema.parse(rawData);
 
-    const investmentData = {
-      symbol,
-      accountId: formData.get("accountId") as string,
-      // name: (formData.get("name") as string) || priceData.name || symbol,
-      name: formData.get("name") as string,
-      type: formData.get("type") as "stock" | "mutual-fund" | "crypto",
-      quantity: Number(formData.get("quantity")) || 1,
-      // buyPrice: Number(formData.get("buyPrice")) || priceData.price,
-      buyPrice: Number(formData.get("buyPrice")),
-      currentPrice: Number(formData.get("currentPrice")),
-      buyDate:
-        (formData.get("buyDate") as string) ||
-        new Date().toISOString().split("T")[0],
-    }
-    // console.log(object)
-
-    // Validate
-    if (investmentData.quantity <= 0)
-      return { error: "Quantity must be positive" }
-    if (investmentData.buyPrice <= 0)
-      return { error: "Buy price must be positive" }
-
-    // Save to database (example with Prisma)
-    // await prisma.investment.create({ data: investmentData })
-    console.log("Creating investment:", investmentData)
-
-    const response = await axios.post(CREATE_INVEST_URL, investmentData, {
+    // API call
+    const response = await axios.post(CREATE_INVEST_URL, validatedData, {
       headers: {
-        Authorization: `${token}`,
+        Authorization: token,
         "Content-Type": "application/json",
       },
-    })
-    console.log(response.data)
+    });
 
-  
     return {
-      success: true,
+      status: 200,
       data: response.data,
-    }
+      message: "Investment added successfully",
+    };
   } catch (error) {
-    console.error("Error in addInvestmentAction:", error)
-
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to add investment",
+    // Handle validation errors
+    if (error instanceof z.ZodError) {
+      return {
+        status: 400,
+        errors: error.flatten().fieldErrors,
+        message: "Validation failed",
+      };
     }
+
+    // Handle API errors
+    if (axios.isAxiosError(error)) {
+      return {
+        status: error.response?.status || 500,
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to add investment",
+      };
+    }
+
+    // Handle unexpected errors
+    return {
+      status: 500,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
   }
-}
-
-// Utility function to refresh multiple stock prices
-export const refreshStockPrices = async (symbols: string[]) => {
-  const results = await Promise.all(
-    symbols.map(async (symbol) => {
-      const data = await getStockPrice(symbol)
-      if (!data.error) {
-        // Update database (example with Prisma)
-        // await prisma.investment.updateMany({
-        //   where: { symbol },
-        //   data: { currentPrice: data.price }
-        // })
-      }
-      return { ...data }
-    })
-  )
+};
 
 
-  return results
-}
+// // Utility function to refresh multiple stock prices
+// export const refreshStockPrices = async (symbols: string[]) => {
+//   const results = await Promise.all(
+//     symbols.map(async (symbol) => {
+//       const data = await getStockPrice(symbol)
+//       if (!data.error) {
+//         // Update database (example with Prisma)
+//         // await prisma.investment.updateMany({
+//         //   where: { symbol },
+//         //   data: { currentPrice: data.price }
+//         // })
+//       }
+//       return { ...data }
+//     })
+//   )
+
+
+//   return results
+// }

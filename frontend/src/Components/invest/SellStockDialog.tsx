@@ -131,7 +131,7 @@ export function SellInvestmentDialog({
       toast.error(state?.message || "Failed to process sale")
       
     }
-  }, [state, dispatch])
+  }, [state, dispatch, onOpenChange])
 
   // const handleSubmit = (formData: FormData) => {
   //   // if (!investment) return

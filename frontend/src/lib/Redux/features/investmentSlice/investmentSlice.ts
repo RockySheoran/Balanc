@@ -54,6 +54,11 @@ const API_KEYS = [
   process.env.NEXT_PUBLIC_RAPIDAPI3,
   process.env.NEXT_PUBLIC_RAPIDAPI4,
   process.env.NEXT_PUBLIC_RAPIDAPI5,
+  process.env.NEXT_PUBLIC_RAPIDAPI6,
+  process.env.NEXT_PUBLIC_RAPIDAPI7,
+  process.env.NEXT_PUBLIC_RAPIDAPI8,
+  process.env.NEXT_PUBLIC_RAPIDAPI9,
+  process.env.NEXT_PUBLIC_RAPIDAPI10,
 ].filter(Boolean) as string[];
 
 // Initialize state
