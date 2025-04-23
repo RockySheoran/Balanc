@@ -288,7 +288,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       for (let i = 0; i < newInvestments.length; i += BATCH_SIZE) {
         const batch = newInvestments.slice(i, i + BATCH_SIZE)
         const batchResults = await Promise.allSettled(
-          batch.map(inv => fetchStockChartData(inv.symbol))
+          batch.map(inv => fetchStockChartData(inv.symbol)))
         
         batchResults.forEach((result, index) => {
           if (result.status === "fulfilled" && result.value) {
