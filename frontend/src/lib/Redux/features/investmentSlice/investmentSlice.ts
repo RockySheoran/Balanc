@@ -160,6 +160,7 @@ export const fetchStockPrice = createAsyncThunk(
     }
 
     const { priceCache, currentApiKeyIndex, apiKeyStatus } = state;
+    console.log( priceCache, currentApiKeyIndex, apiKeyStatus )
 
     // Check cache first
     const cachedPrice = priceCache[symbol];
@@ -171,6 +172,7 @@ export const fetchStockPrice = createAsyncThunk(
         fromCache: true,
       };
     }
+    console.log("11111111111111111111111")
 
     let lastError: Error | null = null;
     let currentKeyIndex = currentApiKeyIndex;
@@ -186,8 +188,9 @@ export const fetchStockPrice = createAsyncThunk(
       currentKeyIndex = index;
 
       try {
+        console.log(symbol, key)
         const price = await fetchStockPriceFromApi(symbol, key);
-
+console.log(price)
         // Update API key status on success
         apiKeyStatus[key] = {
           valid: true,
@@ -259,13 +262,14 @@ export const addInvestment = createAsyncThunk(
 
     try {
       const priceResult = await dispatch(fetchStockPrice(investmentData.symbol));
-console.log(priceResult)
+         console.log(priceResult)
       if (fetchStockPrice.fulfilled.match(priceResult)) {
-        return {
-          ...newInvestment,
-          currentValue: priceResult.payload.price * newInvestment.quantity,
-          updatedAt: new Date().toISOString(),
-        };
+        dispatch(investmentSlice.actions.updateInvestmentCurrentValue({
+          id: newInvestment.id,
+          currentValue: priceResult.payload.price,
+       
+        }));
+        return;
       }
       throw new Error("Price fetch failed");
     } catch (error) {
@@ -361,6 +365,7 @@ const investmentSlice = createSlice({
       state,
       action: PayloadAction<{ id: string; currentValue: number }>
     ) => {
+      console.log(action.payload)
       const index = state.investments.findIndex(
         (inv) => inv.id === action.payload.id
       );
@@ -368,7 +373,7 @@ const investmentSlice = createSlice({
         state.investments[index] = {
           ...state.investments[index],
           currentValue: action.payload.currentValue,
-          updatedAt: new Date().toISOString(),
+        
           lastPriceUpdate: new Date().toISOString(),
         };
       }
