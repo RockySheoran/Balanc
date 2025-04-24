@@ -45,6 +45,7 @@
     "framer-motion": "^12.6.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.482.0",
+    "luxon": "^3.6.1",
     "next": "^15.2.5",
     "next-auth": "^4.24.11",
     "next-redux-wrapper": "^8.1.0",

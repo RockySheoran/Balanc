@@ -436,9 +436,7 @@ const InvestmentTracker = () => {
           }
         )
       } else {
-        toast.success("Investment data loaded successfully", {
-          id: activeToastId.current,
-        })
+        toast.success("Investment data loaded successfully")
       }
     } catch (error) {
       const errorMessage =
@@ -547,6 +545,8 @@ const InvestmentTracker = () => {
     }),
     [topInvestments, hasInvestments]
   )
+
+  // console.log(pieChartData)
 
   const chartOptions = useMemo(
     () => ({
@@ -781,7 +781,7 @@ const InvestmentTracker = () => {
             hasInvestments={hasInvestments}
             loading={showLoadingState}
           />
-
+          
           <ChartSection
             title={
               hasInvestments

@@ -1,6 +1,5 @@
-/** @format */
 "use client"
-import React, { useEffect, useState, useMemo, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Line } from "react-chartjs-2"
 import {
   Chart as ChartJS,
@@ -14,15 +13,13 @@ import {
   Filler,
   TimeScale,
 } from "chart.js"
-import zoomPlugin from "chartjs-plugin-zoom"
-import annotationPlugin from "chartjs-plugin-annotation"
-import axios, { AxiosError } from "axios"
 import { Skeleton } from "@/Components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { Button } from "@/Components/ui/button"
 import { RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { Investment } from "./investment"
+import { DateTime } from "luxon"
 
 ChartJS.register(
   CategoryScale,
@@ -33,41 +30,10 @@ ChartJS.register(
   Tooltip,
   Legend,
   Filler,
-  TimeScale,
-  zoomPlugin,
-  annotationPlugin
+  TimeScale
 )
 
-interface YahooChartResponse {
-  chart: {
-    result: {
-      meta: {
-        currency: string
-        symbol: string
-        exchangeName: string
-        fullExchangeName: string
-        instrumentType: string
-        regularMarketPrice: number
-        regularMarketTime: number
-        chartPreviousClose: number
-        previousClose: number
-        shortName: string
-      }
-      timestamp: number[]
-      indicators: {
-        quote: {
-          low: number[]
-          high: number[]
-          close: number[]
-          open: number[]
-          volume: number[]
-        }[]
-      }
-    }[]
-    error: null
-  }
-}
-
+// Constants
 const COLOR_PALETTE = [
   "#3e95cd", "#8e5ea2", "#3cba9f", "#e8c3b9", 
   "#c45850", "#4dc9f6", "#f67019", "#f53794",
@@ -98,33 +64,60 @@ const INTERVAL_OPTIONS = [
   { value: '1mo', label: '1 Month' },
 ] as const
 
+const DEFAULT_RANGE = '1mo'
+const DEFAULT_INTERVAL = '1d'
+
 interface PerformanceChartProps {
   investments: Investment[]
 }
 
-// Enhanced cache implementation with TTL and API key tracking
-const chartDataCache = new Map<string, {
-  data: YahooChartResponse
-  timestamp: number
-  apiKeyUsed: string
-}>()
+// Cache implementation
+class ChartDataCache {
+  private cache: Map<string, { data: any; timestamp: number }> = new Map()
 
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
-const API_RETRY_DELAY = 500 // 0.5 seconds between retries
-const MAX_FAILURES_PER_KEY = 3 // Max failures before temporarily disabling a key
+  get(key: string) {
+    const item = this.cache.get(key)
+    if (!item) return null
+    if (Date.now() - item.timestamp > CACHE_TTL) {
+      this.cache.delete(key)
+      return null
+    }
+    return item.data
+  }
+
+  set(key: string, data: any) {
+    this.cache.set(key, { data, timestamp: Date.now() })
+  }
+
+  delete(key: string) {
+    this.cache.delete(key)
+  }
+
+  clear() {
+    this.cache.clear()
+  }
+}
+
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const API_RETRY_DELAY = 1000 // 1 second
+const MAX_RETRIES = 3
+const MAX_CONCURRENT_REQUESTS = 3
 
 const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] }) => {
-  const [chartData, setChartData] = useState<YahooChartResponse[]>([])
+  // State
+  const [chartData, setChartData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [range, setRange] = useState<string>('1mo')
-  const [interval, setInterval] = useState<string>('1d')
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-  const [fetchingStatus, setFetchingStatus] = useState<Record<string, boolean>>({})
-  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, {
-    failures: number
-    lastUsed: number
-  }>>({})
+  const [range, setRange] = useState<string>(DEFAULT_RANGE)
+  const [interval, setInterval] = useState<string>(DEFAULT_INTERVAL)
+  const [lastRefresh, setLastRefresh] = useState<DateTime | null>(null)
+  
+  // Refs
+  const cache = useRef(new ChartDataCache())
+  const activeRequests = useRef<Set<string>>(new Set())
+  const requestQueue = useRef<Array<() => Promise<void>>>([])
+  const isMounted = useRef(true)
+  const apiKeyStatus = useRef<Record<string, { failures: number; lastUsed: number }>>({})
 
   // API Keys configuration
   const API_KEYS = useMemo(() => [
@@ -133,11 +126,6 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     process.env.NEXT_PUBLIC_RAPIDAPI3,
     process.env.NEXT_PUBLIC_RAPIDAPI4,
     process.env.NEXT_PUBLIC_RAPIDAPI5,
-    process.env.NEXT_PUBLIC_RAPIDAPI6,
-    process.env.NEXT_PUBLIC_RAPIDAPI7,
-    process.env.NEXT_PUBLIC_RAPIDAPI8,
-    process.env.NEXT_PUBLIC_RAPIDAPI9,
-    process.env.NEXT_PUBLIC_RAPIDAPI10,
   ].filter(Boolean) as string[], [])
 
   // Initialize API key status
@@ -146,227 +134,213 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     API_KEYS.forEach(key => {
       initialStatus[key] = { failures: 0, lastUsed: 0 }
     })
-    setApiKeyStatus(initialStatus)
-  }, [API_KEYS])
+    apiKeyStatus.current = initialStatus
 
-  const getApiConfig = useCallback((apiKey: string) => ({
-    method: "GET",
-    baseURL: "https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart",
-    headers: {
-      "x-rapidapi-key": apiKey,
-      "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
-    },
-    timeout: 5000 // 5 second timeout
-  }), [])
+    return () => {
+      isMounted.current = false
+    }
+  }, [API_KEYS])
 
   // Get the best available API key
   const getBestApiKey = useCallback(() => {
-    // Sort keys by least failures and least recently used
-    const sortedKeys = API_KEYS
-      .filter(key => apiKeyStatus[key]?.failures < MAX_FAILURES_PER_KEY)
+    const availableKeys = Object.entries(apiKeyStatus.current)
+      .filter(([_, status]) => status.failures < MAX_RETRIES)
       .sort((a, b) => {
         // Prefer keys with fewer failures
-        if (apiKeyStatus[a].failures !== apiKeyStatus[b].failures) {
-          return apiKeyStatus[a].failures - apiKeyStatus[b].failures
+        if (a[1].failures !== b[1].failures) {
+          return a[1].failures - b[1].failures
         }
-        // Then prefer keys used least recently
-        return apiKeyStatus[a].lastUsed - apiKeyStatus[b].lastUsed
+        // Then prefer least recently used
+        return a[1].lastUsed - b[1].lastUsed
       })
 
-    return sortedKeys[0] || API_KEYS[0] // Fallback to first key if all are failing
-  }, [API_KEYS, apiKeyStatus])
+    return availableKeys[0]?.[0] || null
+  }, [])
 
-  // Enhanced fetch function with smart caching and key rotation
-  const fetchStockChartData = useCallback(async (symbol: string) => {
-    // Skip if investment is sold
-    const investment = investments.find(inv => inv.symbol === symbol)
-    if (investment?.sellPrice !== null && investment?.sellPrice !== undefined) {
-      return null
-    }
-
-    const cacheKey = `${symbol}-${range}-${interval}`
-    const cachedData = chartDataCache.get(cacheKey)
-    
-    // Return cached data if it exists and is fresh
-    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
-      return cachedData.data
-    }
-
-    setFetchingStatus(prev => ({ ...prev, [symbol]: true }))
-
-    const apiKey = getBestApiKey()
-    let retryCount = 0
-    let lastError: Error | null = null
-
-    try {
-      const response = await axios({
-        ...getApiConfig(apiKey),
-        params: {
-          region: symbol.includes(".NS") ? "IN" : "US",
-          symbol,
-          range,
-          interval,
-        },
-        timeout: 5000
-      })
-
-      if (!response.data?.chart?.result?.[0]) {
-        throw new Error(`Invalid data structure for ${symbol}`)
+  // Process the request queue
+  const processQueue = useCallback(() => {
+    while (requestQueue.current.length > 0 && activeRequests.current.size < MAX_CONCURRENT_REQUESTS) {
+      const task = requestQueue.current.shift()
+      if (task) {
+        const requestId = Date.now().toString()
+        activeRequests.current.add(requestId)
+        task().finally(() => {
+          activeRequests.current.delete(requestId)
+          processQueue()
+        })
       }
+    }
+  }, [])
 
-      // Update cache
-      chartDataCache.set(cacheKey, {
-        data: response.data,
-        timestamp: Date.now(),
-        apiKeyUsed: apiKey
-      })
+  // Enhanced fetch function with queue management
+  const fetchStockChartData = useCallback(async (symbol: string): Promise<any> => {
+    const cacheKey = `${symbol}-${range}-${interval}`
+    const cachedData = cache.current.get(cacheKey)
+    if (cachedData) return cachedData
 
-      // Update API key status
-      setApiKeyStatus(prev => ({
-        ...prev,
-        [apiKey]: {
-          failures: 0, // Reset failures on success
-          lastUsed: Date.now()
+    return new Promise((resolve, reject) => {
+      const executeRequest = async () => {
+        const apiKey = getBestApiKey()
+        if (!apiKey) {
+          reject(new Error('No available API keys'))
+          return
         }
-      }))
 
-      return response.data
-    } catch (err) {
-      lastError = err as AxiosError
-      
-      // Handle rate limiting (status 429)
-      if (axios.isAxiosError(err) && err.response?.status === 429) {
-        // Mark this key as failed
-        setApiKeyStatus(prev => ({
-          ...prev,
-          [apiKey]: {
-            failures: prev[apiKey].failures + 1,
+        try {
+          // Update API key status
+          apiKeyStatus.current[apiKey] = {
+            ...apiKeyStatus.current[apiKey],
             lastUsed: Date.now()
           }
-        }))
 
-        // If we have another key to try, do so immediately
-        if (API_KEYS.length > 1) {
-          retryCount++
-          if (retryCount < API_KEYS.length) {
-            // Try again with a different key
-            return fetchStockChartData(symbol)
+          const params = new URLSearchParams({
+            symbol,
+            range,
+            interval,
+            region: symbol.includes('.NS') ? 'IN' : 'US'
+          })
+
+          const response = await fetch(`https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart?${params}`, {
+            method: 'GET',
+            headers: {
+              'x-rapidapi-key': apiKey,
+              'x-rapidapi-host': 'yahoo-finance166.p.rapidapi.com'
+            }
+          })
+
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+
+          const data = await response.json()
+          if (!data?.chart?.result?.[0]) throw new Error('Invalid data structure')
+
+          // Update cache
+          cache.current.set(cacheKey, data)
+
+          // Reset failure count for this key
+          apiKeyStatus.current[apiKey] = {
+            ...apiKeyStatus.current[apiKey],
+            failures: 0
           }
+
+          resolve(data)
+        } catch (error) {
+          // Update failure count for this key
+          if (apiKeyStatus.current[apiKey]) {
+            apiKeyStatus.current[apiKey] = {
+              ...apiKeyStatus.current[apiKey],
+              failures: (apiKeyStatus.current[apiKey].failures || 0) + 1
+            }
+          }
+
+          reject(error)
         }
       }
 
-      throw lastError
-    } finally {
-      setFetchingStatus(prev => ({ ...prev, [symbol]: false }))
-    }
-  }, [API_KEYS, range, interval, investments, getApiConfig, getBestApiKey])
+      requestQueue.current.push(executeRequest)
+      processQueue()
+    })
+  }, [range, interval, getBestApiKey, processQueue])
 
-  // Fetch data for new investments only
-  const fetchNewData = useCallback(async (currentData: YahooChartResponse[]) => {
-    if (investments.length === 0) return []
+  // Fetch data for all active investments
+  const fetchData = useCallback(async () => {
+    if (!isMounted.current) return
 
     try {
+      setLoading(true)
       setError(null)
 
-      // Get symbols we already have data for
-      const existingSymbols = new Set(currentData.map(data => 
-        data.chart.result[0]?.meta.symbol
-      ))
+      // Only fetch for active investments
+      const activeInvestments = investments.filter(inv => !inv.sellPrice)
+      if (activeInvestments.length === 0) {
+        setChartData([])
+        setLastRefresh(DateTime.now())
+        return
+      }
 
-      // Only fetch data for new investments that haven't been sold
-      const newInvestments = investments.filter(inv => 
-        !existingSymbols.has(inv.symbol) && 
-        (inv.sellPrice === null || inv.sellPrice === undefined)
-      )
-
-      if (newInvestments.length === 0) return currentData
-
+      // Process in batches to avoid overwhelming the API
       const BATCH_SIZE = 3
-      const successfulData: YahooChartResponse[] = [...currentData]
+      const successfulData: any[] = []
       const errors: string[] = []
 
-      for (let i = 0; i < newInvestments.length; i += BATCH_SIZE) {
-        const batch = newInvestments.slice(i, i + BATCH_SIZE)
+      for (let i = 0; i < activeInvestments.length; i += BATCH_SIZE) {
+        const batch = activeInvestments.slice(i, i + BATCH_SIZE)
         const batchResults = await Promise.allSettled(
           batch.map(inv => fetchStockChartData(inv.symbol)))
         
         batchResults.forEach((result, index) => {
-          if (result.status === "fulfilled" && result.value) {
+          if (result.status === 'fulfilled') {
             successfulData.push(result.value)
-          } else if (result.status === "rejected") {
+          } else {
             const symbol = batch[index]?.symbol || 'Unknown'
-            errors.push(`${symbol}: ${result.reason.message}`)
+            errors.push(`${symbol}: ${result.reason instanceof Error ? result.reason.message : 'Failed to load'}`)
           }
         })
 
-        // Add delay between batches
-        if (i + BATCH_SIZE < newInvestments.length) {
-          await new Promise(resolve => setTimeout(resolve, 500))
+        // Add delay between batches if needed
+        if (i + BATCH_SIZE < activeInvestments.length) {
+          await new Promise(resolve => setTimeout(resolve, API_RETRY_DELAY))
         }
+      }
+
+      if (successfulData.length > 0) {
+        setChartData(successfulData)
+        setLastRefresh(DateTime.now())
       }
 
       if (errors.length > 0) {
-        toast.warning(`Partial data loaded. ${errors.length} investments failed.`)
+        setError(`Failed to load ${errors.length} investments`)
+        toast.warning(
+          `Loaded ${successfulData.length} of ${activeInvestments.length} investments`,
+          {
+            description: errors.length > 3 
+              ? `${errors.length} investments failed to load` 
+              : `Failed to load: ${errors.join(', ')}`
+          }
+        )
+      } else if (successfulData.length > 0) {
+        toast.success('Investment data loaded successfully')
       }
-
-      return successfulData
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load chart data'
-      setError(errorMessage)
-      toast.error(errorMessage)
-      return currentData
-    }
-  }, [investments, fetchStockChartData])
-
-  // Initial data fetch
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        setLoading(true)
-        const initialData = await fetchNewData([])
-        setChartData(initialData)
-        setLastRefresh(new Date())
-      } finally {
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to fetch data')
+      toast.error('Failed to load investment data')
+    } finally {
+      if (isMounted.current) {
         setLoading(false)
       }
     }
+  }, [investments, fetchStockChartData])
 
-    fetchInitialData()
-  }, [fetchNewData])
-
-  // Update data when investments change (only fetch new ones)
+  // Initial data fetch and refresh on range/interval change
   useEffect(() => {
-    if (!loading && chartData.length > 0) {
-      const updateData = async () => {
-        const updatedData = await fetchNewData(chartData)
-        if (updatedData.length !== chartData.length) {
-          setChartData(updatedData)
-          setLastRefresh(new Date())
-        }
-      }
-      
-      updateData()
-    }
-  }, [investments, loading, chartData, fetchNewData])
+    fetchData()
+  }, [fetchData])
 
-  // Date formatting based on range
+  // Date formatting
   const formatDate = useCallback((timestamp: number) => {
-    const date = new Date(timestamp * 1000)
+    const date = DateTime.fromSeconds(timestamp)
     switch (range) {
-      case '1d': return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      case '5d':
-      case '1mo': return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
-      case '3mo':
-      case '6mo': return date.toLocaleDateString([], { month: 'short' })
-      default: return date.toLocaleDateString([], { year: 'numeric', month: 'short' })
+      case '1d': return date.toFormat('HH:mm')
+      case '5d': return date.toFormat('MMM dd')
+      case '1mo': return date.toFormat('MMM dd')
+      case '3mo': return date.toFormat('MMM')
+      case '6mo': return date.toFormat('MMM')
+      default: return date.toFormat('MMM yyyy')
     }
   }, [range])
 
-  // Prepare chart data
+  // Prepare chart data - normalize all datasets to same timestamps
   const chartDataConfig = useMemo(() => {
     if (chartData.length === 0) return { labels: [], datasets: [] }
 
-    const referenceTimestamps = chartData[0]?.chart?.result?.[0]?.timestamp || []
+    // Find the dataset with the most data points to use as reference
+    const referenceData = chartData.reduce((prev, current) => {
+      const prevLength = prev?.chart?.result?.[0]?.timestamp?.length || 0
+      const currentLength = current?.chart?.result?.[0]?.timestamp?.length || 0
+      return currentLength > prevLength ? current : prev
+    })
+
+    const referenceTimestamps = referenceData?.chart?.result?.[0]?.timestamp || []
+    const referenceQuotes = referenceData?.chart?.result?.[0]?.indicators?.quote?.[0]
     
     return {
       labels: referenceTimestamps.map(formatDate),
@@ -375,19 +349,26 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         const meta = result.meta
         const quotes = result.indicators.quote[0]
         const inv = investments.find(i => i.symbol === meta.symbol)
+        const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
+
+        // Align data points with reference timestamps
+        const alignedData = referenceTimestamps.map((ts, i) => {
+          const idx = result.timestamp.indexOf(ts)
+          return idx !== -1 ? quotes.close[idx] : null
+        })
 
         return {
           label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName.length > 15 ? "..." : ""}`,
-          data: quotes.close,
-          borderColor: COLOR_PALETTE[index % COLOR_PALETTE.length],
-          backgroundColor: `${COLOR_PALETTE[index % COLOR_PALETTE.length]}20`,
+          data: alignedData,
+          borderColor: color,
+          backgroundColor: `${color}20`,
           borderWidth: 2,
           pointRadius: range === '1d' ? 3 : 0,
           pointHoverRadius: 5,
           tension: 0.1,
           fill: {
             target: "origin",
-            above: `${COLOR_PALETTE[index % COLOR_PALETTE.length]}10`,
+            above: `${color}10`,
           },
         }
       }).filter(Boolean),
@@ -410,7 +391,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       },
       title: {
         display: true,
-        text: `Investment Performance (${RANGE_OPTIONS.find(r => r.value === range)?.label})`,
+        text: `Performance (${RANGE_OPTIONS.find(r => r.value === range)?.label})`,
         font: { size: 16, weight: "bold" },
       },
       tooltip: {
@@ -420,7 +401,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
           label: (context: any) => {
             const label = context.dataset.label || ""
             const value = context.parsed.y
-            const currency = context.dataset.label.includes(".NS") ? "INR" : "USD"
+            const currency = context.dataset.label?.includes(".NS") ? "INR" : "USD"
             
             return value !== null 
               ? `${label}: ${new Intl.NumberFormat("en-US", {
@@ -429,17 +410,6 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
                 }).format(value)}`
               : label
           },
-        },
-      },
-      zoom: {
-        zoom: {
-          wheel: { enabled: true },
-          pinch: { enabled: true },
-          mode: "xy" as const,
-        },
-        pan: {
-          enabled: true,
-          mode: "xy" as const,
         },
       },
     },
@@ -476,26 +446,10 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
     // Clear cache for current range/interval
     investments.forEach(inv => {
       const cacheKey = `${inv.symbol}-${range}-${interval}`
-      chartDataCache.delete(cacheKey)
+      cache.current.delete(cacheKey)
     })
-    
-    // Reset API key failures to give them another chance
-    setApiKeyStatus(prev => {
-      const newStatus = {...prev}
-      Object.keys(newStatus).forEach(key => {
-        newStatus[key] = { ...newStatus[key], failures: 0 }
-      })
-      return newStatus
-    })
-
-    setLoading(true)
-    fetchNewData([]).then(data => {
-      setChartData(data)
-      setLastRefresh(new Date())
-    }).finally(() => {
-      setLoading(false)
-    })
-  }, [fetchNewData, investments, range, interval])
+    fetchData()
+  }, [fetchData, investments, range, interval])
 
   const handleRangeChange = useCallback((value: string) => {
     setRange(value)
@@ -530,7 +484,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
           <h3 className="text-lg font-semibold">Investment Performance</h3>
           {lastRefresh && (
             <p className="text-xs text-muted-foreground">
-              Last updated: {lastRefresh.toLocaleString()}
+              Last updated: {lastRefresh.toLocaleString(DateTime.DATETIME_MED)}
             </p>
           )}
         </div>
@@ -575,9 +529,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
             size="sm" 
             variant="ghost"
             className="h-8 w-8 p-0"
-            disabled={Object.values(fetchingStatus).some(Boolean)}
+            disabled={loading}
           >
-            <RefreshCw className={`h-4 w-4 ${Object.values(fetchingStatus).some(Boolean) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -586,7 +540,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         {chartData.length > 0 ? (
           <>
             <Line options={chartOptions} data={chartDataConfig} />
-            {(loading || Object.values(fetchingStatus).some(Boolean)) && (
+            {loading && (
               <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
                 <RefreshCw className="h-8 w-8 animate-spin" />
               </div>
@@ -594,7 +548,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
-            {investments.some(inv => inv.sellPrice === null) 
+            {investments.some(inv => !inv.sellPrice) 
               ? "No chart data available" 
               : "All investments have been sold"}
           </div>
@@ -608,7 +562,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
           )}
         </div>
         <div className="text-xs text-muted-foreground text-right">
-          Tip: Scroll to zoom, drag to pan. Click legend items to toggle visibility.
+          Tip: Click legend items to toggle visibility.
         </div>
       </div>
     </div>

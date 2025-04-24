@@ -46,20 +46,21 @@ const STALE_PRICE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
 const STALE_DATA_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 const API_KEY_CHECK_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 const API_RETRY_DELAY_BASE_MS = 200;
-const MAX_API_RETRIES = 2; // Max retries per API key before switching
-
-const API_KEYS = [
-  process.env.NEXT_PUBLIC_RAPIDAPI1,
-  process.env.NEXT_PUBLIC_RAPIDAPI2,
-  process.env.NEXT_PUBLIC_RAPIDAPI3,
-  process.env.NEXT_PUBLIC_RAPIDAPI4,
-  process.env.NEXT_PUBLIC_RAPIDAPI5,
-  process.env.NEXT_PUBLIC_RAPIDAPI6,
-  process.env.NEXT_PUBLIC_RAPIDAPI7,
-  process.env.NEXT_PUBLIC_RAPIDAPI8,
-  process.env.NEXT_PUBLIC_RAPIDAPI9,
-  process.env.NEXT_PUBLIC_RAPIDAPI10,
-].filter(Boolean) as string[];
+const MAX_API_RETRIES = 3; // Increased retries to attempt more keys
+const API_KEYS = (
+  [
+    process.env.NEXT_PUBLIC_RAPIDAPI1,
+    process.env.NEXT_PUBLIC_RAPIDAPI2,
+    process.env.NEXT_PUBLIC_RAPIDAPI3,
+    process.env.NEXT_PUBLIC_RAPIDAPI4,
+    process.env.NEXT_PUBLIC_RAPIDAPI5,
+    process.env.NEXT_PUBLIC_RAPIDAPI6,
+    process.env.NEXT_PUBLIC_RAPIDAPI7,
+    process.env.NEXT_PUBLIC_RAPIDAPI8,
+    process.env.NEXT_PUBLIC_RAPIDAPI9,
+    process.env.NEXT_PUBLIC_RAPIDAPI10,
+  ].filter(Boolean) as string[]
+).filter(Boolean) as string[];
 
 // Initialize state
 const initialState: InvestmentState = {
@@ -76,12 +77,16 @@ const initialState: InvestmentState = {
   lastFetchTime: null,
   currentApiKeyIndex: 0,
   apiKeyStatus: Object.fromEntries(
-    API_KEYS.map(key => [key, { valid: true, lastChecked: new Date(0).toISOString() }])
+    API_KEYS.map((key) => [
+      key,
+      { valid: true, lastChecked: new Date(0).toISOString() },
+    ])
   ),
 };
 
 // Helper functions
-const isStale = (timestamp: string, thresholdMs: number): boolean => {
+const isStale = (timestamp: string | undefined | null, thresholdMs: number): boolean => {
+  if (!timestamp) return true;
   return new Date(timestamp) < new Date(Date.now() - thresholdMs);
 };
 
@@ -92,10 +97,10 @@ const getNextValidApiKey = (
   for (let i = 0; i < API_KEYS.length; i++) {
     const index = (currentIndex + i) % API_KEYS.length;
     const key = API_KEYS[index];
-    
+
     // Skip invalid keys unless their status is stale
     if (
-      apiKeyStatus[key]?.valid || 
+      apiKeyStatus[key]?.valid ||
       isStale(apiKeyStatus[key]?.lastChecked, API_KEY_CHECK_THRESHOLD_MS)
     ) {
       return { key, index };
@@ -118,8 +123,8 @@ const fetchStockPriceFromApi = async (
           symbol,
         },
         headers: {
-          "x-rapidapi-key": apiKey,
-          "x-rapidapi-host": "yahoo-finance166.p.rapidapi.com",
+          "X-RapidAPI-Key": apiKey,
+          "X-RapidAPI-Host": "yahoo-finance166.p.rapidapi.com",
         },
         timeout: 5000, // 5 second timeout
       }
@@ -133,10 +138,10 @@ const fetchStockPriceFromApi = async (
     return price;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      const message = error.response?.status === 429 
-        ? "Rate limit exceeded" 
-        : error.response?.status === 403 
-          ? "Forbidden" 
+      const message = error.response?.status === 429
+        ? "Rate limit exceeded"
+        : error.response?.status === 403
+          ? "Forbidden"
           : error.message;
       throw new Error(message);
     }
@@ -149,7 +154,7 @@ export const fetchStockPrice = createAsyncThunk(
   "investments/fetchStockPrice",
   async (symbol: string, { getState, rejectWithValue }) => {
     const state = (getState() as RootState).investment;
-    
+
     if (!state) {
       return rejectWithValue("Investments state not initialized");
     }
@@ -170,8 +175,10 @@ export const fetchStockPrice = createAsyncThunk(
     let lastError: Error | null = null;
     let currentKeyIndex = currentApiKeyIndex;
     let attempts = 0;
+    let successful = false;
+    let successfulApiKeyIndex = currentApiKeyIndex;
 
-    while (attempts < API_KEYS.length * MAX_API_RETRIES) {
+    while (attempts < API_KEYS.length * MAX_API_RETRIES && !successful) {
       const keyInfo = getNextValidApiKey(currentKeyIndex, apiKeyStatus);
       if (!keyInfo) break;
 
@@ -180,12 +187,14 @@ export const fetchStockPrice = createAsyncThunk(
 
       try {
         const price = await fetchStockPriceFromApi(symbol, key);
-        
+
         // Update API key status on success
         apiKeyStatus[key] = {
           valid: true,
           lastChecked: new Date().toISOString(),
         };
+        successful = true;
+        successfulApiKeyIndex = index;
 
         return {
           symbol,
@@ -196,13 +205,14 @@ export const fetchStockPrice = createAsyncThunk(
       } catch (error) {
         lastError = error as Error;
         attempts++;
-        
+
         // Mark key as invalid if rate limited or forbidden
         if (error instanceof Error && (error.message.includes("Rate limit") || error.message.includes("Forbidden"))) {
           apiKeyStatus[key] = {
             valid: false,
             lastChecked: new Date().toISOString(),
           };
+          console.warn(`API key ${key.slice(-4)} marked as invalid due to: ${error.message}`);
         }
 
         // Exponential backoff
@@ -210,8 +220,8 @@ export const fetchStockPrice = createAsyncThunk(
       }
     }
 
-    // Fallback to stale cache if available
-    if (cachedPrice) {
+    // If all attempts failed, fallback to stale cache if available
+    if (!successful && cachedPrice) {
       return {
         symbol,
         price: cachedPrice.price,
@@ -221,9 +231,15 @@ export const fetchStockPrice = createAsyncThunk(
       };
     }
 
-    return rejectWithValue(
-      lastError?.message || "Failed to fetch price after all attempts"
-    );
+    // If no successful fetch and no stale cache, reject
+    if (!successful) {
+      return rejectWithValue(
+        lastError?.message || "Failed to fetch price after all valid API keys were tried"
+      );
+    }
+
+    // If we succeeded at some point, the fulfilled case will handle the state update
+    return { symbol, price: -1, apiKeyIndex: successfulApiKeyIndex, fromCache: false }; // Dummy return to satisfy TS, actual value handled in fulfilled
   }
 );
 
@@ -235,7 +251,6 @@ export const addInvestment = createAsyncThunk(
   ) => {
     const newInvestment: Investment = {
       ...investmentData,
-    
       lastPriceUpdate: new Date().toISOString(),
     };
 
@@ -244,11 +259,11 @@ export const addInvestment = createAsyncThunk(
 
     try {
       const priceResult = await dispatch(fetchStockPrice(investmentData.symbol));
-      
+console.log(priceResult)
       if (fetchStockPrice.fulfilled.match(priceResult)) {
         return {
           ...newInvestment,
-          currentValue: priceResult.payload.price ,
+          currentValue: priceResult.payload.price * newInvestment.quantity,
           updatedAt: new Date().toISOString(),
         };
       }
@@ -269,12 +284,12 @@ export const refreshAllInvestments = createAsyncThunk(
     const state = (getState() as RootState).investment;
 
     // Skip if data isn't stale
-    if (!state || !isStale(state.lastFetchTime || "", STALE_DATA_THRESHOLD_MS)) {
+    if (!state || !isStale(state.lastFetchTime, STALE_DATA_THRESHOLD_MS)) {
       return { skipped: true };
     }
 
     const batchSize = 5;
-    const investments = state.investments;
+    const investments = state.investments.filter(inv => inv.type === "STOCK"); // Only refresh stock prices
     let failedCount = 0;
 
     // Process in batches with delay between them
@@ -317,9 +332,9 @@ const investmentSlice = createSlice({
         state.investments.push(action.payload);
       }
     },
-    
+
     updateSellPrice: (
-      state, 
+      state,
       action: PayloadAction<{
         id: string;
         sellPrice: number | null;
@@ -327,8 +342,8 @@ const investmentSlice = createSlice({
       }>
     ) => {
       const { id, sellPrice, sellDate } = action.payload;
-      const index = state.investments.findIndex(inv => inv.id === id);
-      
+      const index = state.investments.findIndex((inv) => inv.id === id);
+
       if (index >= 0) {
         state.investments[index] = {
           ...state.investments[index],
@@ -336,8 +351,6 @@ const investmentSlice = createSlice({
           sellDate,
           updatedAt: new Date().toISOString(),
         };
-        // console.log("Updated investment:", state.investments[index]);
-        
         // If we're updating the currently selected investment, update that too
         if (state.selectedInvestment?.id === id) {
           state.selectedInvestment = state.investments[index];
@@ -379,6 +392,13 @@ const investmentSlice = createSlice({
       state.filters = initialState.filters;
       state.priceCache = {};
       state.lastFetchTime = null;
+      state.currentApiKeyIndex = 0;
+      state.apiKeyStatus = Object.fromEntries(
+        API_KEYS.map((key) => [
+          key,
+          { valid: true, lastChecked: new Date(0).toISOString() },
+        ])
+      );
     },
     resetApiKeyStatus: (state, action: PayloadAction<string>) => {
       const apiKey = action.payload;
@@ -408,13 +428,15 @@ const investmentSlice = createSlice({
         }
 
         // Update investments efficiently
-        state.investments = state.investments.map(inv => 
-          inv.symbol === symbol ? {
-            ...inv,
-            currentValue: price * inv.quantity,
-            updatedAt: new Date().toISOString(),
-            lastPriceUpdate: new Date().toISOString(),
-          } : inv
+        state.investments = state.investments.map((inv) =>
+          inv.symbol === symbol && inv.type === "STOCK"
+            ? {
+              ...inv,
+              currentValue: price * inv.quantity,
+              updatedAt: new Date().toISOString(),
+              lastPriceUpdate: new Date().toISOString(),
+            }
+            : inv
         );
 
         state.status = "succeeded";
@@ -441,19 +463,23 @@ const investmentSlice = createSlice({
         state.lastFetchTime = new Date().toISOString();
       })
       .addCase(addInvestment.rejected, (state, action) => {
-        const { message, investment } = action.payload as { message: string; investment?: Investment };
+        const { message, investment } = action.payload as {
+          message: string;
+          investment?: Investment;
+        };
         state.status = "failed";
-        state.error = (action.payload as { message?: string })?.message || "Unknown error";
-        
+        state.error = message || "Unknown error";
+
         // If we have the investment data in the payload, keep it
-        if ((action.payload as { investment?: Investment })?.investment) {
+        if (investment) {
           const existingIndex = state.investments.findIndex(
-            inv => inv.id === (action.payload as { investment: Investment }).investment.id
+            (inv) => inv.id === investment.id
           );
           if (existingIndex >= 0) {
-            state.investments[existingIndex] = (action.payload as { investment: Investment }).investment;
+            state
+            state.investments[existingIndex] = investment;
           } else {
-            state.investments.push((action.payload as { investment: Investment }).investment);
+            state.investments.push(investment);
           }
         }
       });
