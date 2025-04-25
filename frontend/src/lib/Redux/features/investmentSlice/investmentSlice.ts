@@ -50,7 +50,7 @@ interface InvestmentState {
 // Constants
 const STALE_PRICE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
 const API_RETRY_DELAY_MS = 1000;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 2;
 const KEY_COOLDOWN_DURATION_MS = 60 * 60 * 1000; // 1 hour cooldown for failed keys
 
 // Helper function to safely load API keys
@@ -248,7 +248,7 @@ export const addInvestment = createAsyncThunk(
       const priceResult = await dispatch(
         fetchStockPrice(investmentData.symbol)
       ).unwrap();
-
+// console.log(priceResult)
       dispatch(
         updateInvestmentValue({
           id: newInvestment.id,
