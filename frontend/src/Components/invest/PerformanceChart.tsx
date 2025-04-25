@@ -1,52 +1,17 @@
-"use client"
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { Line } from "react-chartjs-2"
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  TimeScale,
-} from "chart.js"
-import { Skeleton } from "@/components/ui/skeleton"
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
+import { ChartJSRegister, COLOR_PALETTE, getChartOptions } from "./chart-config"
+import { Skeleton } from "@/Components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
+import { Button } from "@/Components/ui/button"
 import { RefreshCw } from "lucide-react"
 import { toast } from "sonner"
-import { Investment } from "@/types/investment"
+import { Investment } from "./investment"
 import { DateTime } from "luxon"
-import axios from "axios"
+import { getApiManager } from "./api-manager"
 
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  TimeScale
-)
 
-const COLOR_PALETTE = [
-  "#3e95cd", "#8e5ea2", "#3cba9f", "#e8c3b9",
-  "#c45850", "#4dc9f6", "#f67019", "#f53794",
-  "#537bc4", "#acc236", "#166a8f", "#00a950",
-  "#58595b", "#8549ba"
-]
+ChartJSRegister()
 
 const RANGE_OPTIONS = [
   { value: '1d', label: '1 Day' },
@@ -55,155 +20,39 @@ const RANGE_OPTIONS = [
   { value: '3mo', label: '3 Months' },
   { value: '6mo', label: '6 Months' },
   { value: '1y', label: '1 Year' },
-  { value: '2y', label: '2 Years' },
-  { value: '5y', label: '5 Years' },
-  { value: '10y', label: '10 Years' },
-  { value: 'ytd', label: 'Year to Date' },
-  { value: 'max', label: 'Max' },
 ] as const
 
 const INTERVAL_OPTIONS = [
-  { value: '1m', label: '1 Minute' },
-  { value: '5m', label: '5 Minutes' },
-  { value: '15m', label: '15 Minutes' },
   { value: '1d', label: '1 Day' },
   { value: '1wk', label: '1 Week' },
   { value: '1mo', label: '1 Month' },
 ] as const
 
-const DEFAULT_RANGE = '1mo'
-const DEFAULT_INTERVAL = '1d'
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
-const MAX_RETRIES = 3
-
 interface PerformanceChartProps {
   investments: Investment[]
+  className?: string
 }
 
-const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
-  // Filter out sold investments
+const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments, className }) => {
+  const [chartData, setChartData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [range, setRange] = useState<typeof RANGE_OPTIONS[number]['value']>('1mo')
+  const [interval, setInterval] = useState<typeof INTERVAL_OPTIONS[number]['value']>('1d')
+  const [lastRefresh, setLastRefresh] = useState<DateTime | null>(null)
+  
+  const apiManager = useMemo(() => getApiManager([
+    process.env.NEXT_PUBLIC_RAPIDAPI_KEY_1!,
+    process.env.NEXT_PUBLIC_RAPIDAPI_KEY_2!,
+    process.env.NEXT_PUBLIC_RAPIDAPI_KEY_3!,
+  ]), [])
+
   const activeInvestments = useMemo(
     () => investments.filter(inv => !inv.sellPrice),
     [investments]
   )
 
-  // State
-  const [chartData, setChartData] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [range, setRange] = useState<string>(DEFAULT_RANGE)
-  const [interval, setInterval] = useState<string>(DEFAULT_INTERVAL)
-  const [lastRefresh, setLastRefresh] = useState<DateTime | null>(null)
-  
-  // Refs
-  const cache = useRef<Record<string, { data: any; timestamp: number }>>({})
-  const apiKeyStatus = useRef<Record<string, { failures: number; lastUsed: number }>>({})
-  const isMounted = useRef(true)
-
-  // API Keys configuration
-  const API_KEYS = useMemo(() => [
-    process.env.NEXT_PUBLIC_RAPIDAPI_KEY_1,
-    process.env.NEXT_PUBLIC_RAPIDAPI_KEY_2,
-    process.env.NEXT_PUBLIC_RAPIDAPI_KEY_3,
-  ].filter(Boolean) as string[], [])
-
-  // Initialize API key status
-  useEffect(() => {
-    const initialStatus: Record<string, { failures: number; lastUsed: number }> = {}
-    API_KEYS.forEach(key => {
-      initialStatus[key] = { failures: 0, lastUsed: 0 }
-    })
-    apiKeyStatus.current = initialStatus
-
-    return () => {
-      isMounted.current = false
-    }
-  }, [API_KEYS])
-
-  // Get the best available API key
-  const getBestApiKey = useCallback(() => {
-    const availableKeys = Object.entries(apiKeyStatus.current)
-      .filter(([_, status]) => status.failures < MAX_RETRIES)
-      .sort((a, b) => a[1].failures - b[1].failures || a[1].lastUsed - b[1].lastUsed)
-
-    return availableKeys[0]?.[0] || null
-  }, [])
-
-  // Fetch stock chart data with retry logic
-  const fetchStockChartData = useCallback(async (
-    symbol: string,
-    retryCount = 0
-  ): Promise<any> => {
-    const cacheKey = `${symbol}-${range}-${interval}`
-    const cachedData = cache.current[cacheKey]
-    
-    // Return cached data if valid
-    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
-      return cachedData.data
-    }
-
-    const apiKey = getBestApiKey()
-    if (!apiKey) {
-      throw new Error('No available API keys')
-    }
-
-    try {
-      const response = await axios.get(
-        `https://yahoo-finance166.p.rapidapi.com/api/stock/get-chart`,
-        {
-          params: {
-            symbol,
-            range,
-            interval,
-            region: symbol.includes('.NS') ? 'IN' : 'US'
-          },
-          headers: {
-            'x-rapidapi-key': apiKey,
-            'x-rapidapi-host': 'yahoo-finance166.p.rapidapi.com'
-          },
-          timeout: 10000
-        }
-      )
-
-      if (!response.data?.chart?.result?.[0]) {
-        throw new Error('Invalid response structure')
-      }
-
-      // Update cache
-      cache.current[cacheKey] = {
-        data: response.data,
-        timestamp: Date.now()
-      }
-
-      // Update API key status
-      apiKeyStatus.current[apiKey] = {
-        failures: 0,
-        lastUsed: Date.now()
-      }
-
-      return response.data
-    } catch (error) {
-      // Update API key status on failure
-      if (apiKeyStatus.current[apiKey]) {
-        apiKeyStatus.current[apiKey] = {
-          ...apiKeyStatus.current[apiKey],
-          failures: apiKeyStatus.current[apiKey].failures + 1,
-          lastUsed: Date.now()
-        }
-      }
-
-      if (retryCount < MAX_RETRIES) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)))
-        return fetchStockChartData(symbol, retryCount + 1)
-      }
-      throw error
-    }
-  }, [range, interval, getBestApiKey])
-
-  // Fetch data for all active investments
   const fetchData = useCallback(async () => {
-    if (!isMounted.current) return
-
     try {
       setLoading(true)
       setError(null)
@@ -214,21 +63,11 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
         return
       }
 
-      // Fetch data for each investment with concurrency control
-      const MAX_CONCURRENT = 3
-      const results = []
-      
-      for (let i = 0; i < activeInvestments.length; i += MAX_CONCURRENT) {
-        const batch = activeInvestments.slice(i, i + MAX_CONCURRENT)
-        const batchResults = await Promise.allSettled(
-          batch.map(inv => fetchStockChartData(inv.symbol)))
-        results.push(...batchResults)
-        
-        // Add delay between batches if needed
-        if (i + MAX_CONCURRENT < activeInvestments.length) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
-        }
-      }
+      const results = await Promise.allSettled(
+        activeInvestments.map(inv => 
+          apiManager.getChartData(inv.symbol, range, interval)
+        )
+      )
 
       const successfulData: any[] = []
       const errors: string[] = []
@@ -242,40 +81,39 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
         }
       })
 
-      if (isMounted.current) {
-        setChartData(successfulData)
-        setLastRefresh(DateTime.now())
+      setChartData(successfulData)
+      setLastRefresh(DateTime.now())
 
-        if (errors.length > 0) {
-          setError(`Failed to load ${errors.length}/${activeInvestments.length} investments`)
-          toast.warning(
-            `Loaded ${successfulData.length} of ${activeInvestments.length}`,
-            {
-              description: errors.slice(0, 3).join(', ') + (errors.length > 3 ? `... +${errors.length - 3} more` : '')
-            }
-          )
-        } else if (successfulData.length > 0) {
-          toast.success('Investment data loaded')
-        }
+      if (errors.length > 0) {
+        setError(`Failed to load ${errors.length}/${activeInvestments.length}`)
+        toast.warning('Partial data loaded', {
+          description: `Failed to load ${errors.length} investments`
+        })
+      } else if (successfulData.length > 0) {
+        toast.success('Data loaded successfully')
       }
     } catch (error) {
-      if (isMounted.current) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch data')
-        toast.error('Failed to load investment data')
-      }
+      setError(error instanceof Error ? error.message : 'Failed to fetch data')
+      toast.error('Failed to load data')
     } finally {
-      if (isMounted.current) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
-  }, [activeInvestments, fetchStockChartData])
+  }, [activeInvestments, range, interval, apiManager])
 
-  // Initial data fetch and refresh on range/interval change
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
-  // Format date based on selected range
+  const handleRefresh = useCallback(() => {
+    fetchData()
+  }, [fetchData])
+
+  const handleRangeChange = useCallback((value: typeof RANGE_OPTIONS[number]['value']) => {
+    setRange(value)
+    // Auto-adjust interval based on range
+    setInterval(value === '1d' ? '1d' : value === '5d' ? '1d' : '1wk')
+  }, [])
+
   const formatDate = useCallback((timestamp: number) => {
     const date = DateTime.fromSeconds(timestamp)
     switch (range) {
@@ -287,7 +125,6 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
     }
   }, [range])
 
-  // Prepare chart data
   const chartDataConfig = useMemo(() => {
     if (chartData.length === 0) {
       return { 
@@ -317,6 +154,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
         const meta = result.meta
         const quotes = result.indicators.quote[0]
         const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
+        const investment = activeInvestments[index]
 
         // Align data with reference timestamps
         const alignedData = referenceTimestamps.map(ts => {
@@ -332,102 +170,28 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
           borderWidth: 2,
           pointRadius: range === '1d' ? 3 : 0,
           tension: 0.1,
-          fill: {
-            target: "origin",
-            above: `${color}10`,
-          },
+          fill: { target: "origin", above: `${color}10` },
+          investment
         }
       })
     }
-  }, [chartData, formatDate, range])
+  }, [chartData, formatDate, range, activeInvestments])
 
-  // Chart options
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "top" as const,
-        labels: {
-          boxWidth: 12,
-          padding: 20,
-          usePointStyle: true,
-          font: { size: 12 }
-        },
-      },
-      tooltip: {
-        mode: "index" as const,
-        intersect: false,
-        callbacks: {
-          label: (context: any) => {
-            const label = context.dataset.label || ""
-            const value = context.parsed.y
-            const currency = context.dataset.label?.includes(".NS") ? "INR" : "USD"
-            
-            return value !== null 
-              ? `${label}: ${new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency,
-                }).format(value)}`
-              : label
-          },
-        },
-      },
-    },
-    interaction: {
-      mode: "nearest" as const,
-      axis: "x" as const,
-      intersect: false,
-    },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: {
-          maxRotation: 45,
-          autoSkip: true,
-          maxTicksLimit: 10,
-        },
-      },
-      y: {
-        beginAtZero: false,
-        ticks: {
-          callback: (value: any) => new Intl.NumberFormat("en-US", {
-            style: "currency",
-            currency: "USD",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-          }).format(value)
-        },
-      },
-    },
-  }), [])
+  const currency = useMemo(() => {
+    return activeInvestments.some(inv => inv.symbol.includes('.NS')) ? 'INR' : 'USD'
+  }, [activeInvestments])
 
-  // Handlers
-  const handleRefresh = useCallback(() => {
-    // Clear cache
-    cache.current = {}
-    fetchData()
-  }, [fetchData])
-
-  const handleRangeChange = useCallback((value: string) => {
-    setRange(value)
-    // Auto-adjust interval
-    setInterval(value === '1d' ? '5m' : value === '5d' ? '1d' : '1wk')
-  }, [])
-
-  // Loading state
   if (loading && chartData.length === 0) {
     return (
-      <div className="w-full h-[400px] bg-card rounded-lg p-4 border">
+      <div className={`w-full h-[400px] bg-card rounded-lg p-4 border ${className}`}>
         <Skeleton className="h-full w-full" />
       </div>
     )
   }
 
-  // Error state
   if (error && chartData.length === 0) {
     return (
-      <div className="w-full h-[400px] bg-card rounded-lg p-4 border flex flex-col items-center justify-center gap-4">
+      <div className={`w-full h-[400px] bg-card rounded-lg p-4 border flex flex-col items-center justify-center gap-4 ${className}`}>
         <p className="text-destructive">{error}</p>
         <Button onClick={handleRefresh} variant="outline">
           Retry
@@ -437,7 +201,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
   }
 
   return (
-    <div className="w-full bg-card rounded-lg p-4 border">
+    <div className={`w-full bg-card rounded-lg p-4 border ${className}`}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <div>
           <h3 className="text-lg font-semibold">Investment Performance</h3>
@@ -470,9 +234,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
               <SelectContent>
                 {INTERVAL_OPTIONS
                   .filter(option => {
-                    if (range === '1d') return ['1m', '5m', '15m'].includes(option.value)
-                    if (range === '5d') return ['1d'].includes(option.value)
-                    return ['1d', '1wk', '1mo'].includes(option.value)
+                    if (range === '1d') return option.value === '1d'
+                    if (range === '5d') return option.value === '1d'
+                    return ['1wk', '1mo'].includes(option.value)
                   })
                   .map(option => (
                     <SelectItem key={option.value} value={option.value}>
@@ -498,7 +262,10 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments }) => {
       <div className="h-[350px] relative">
         {chartData.length > 0 ? (
           <>
-            <Line options={chartOptions} data={chartDataConfig} />
+            <Line 
+              options={getChartOptions(range, currency)} 
+              data={chartDataConfig} 
+            />
             {loading && (
               <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
                 <RefreshCw className="h-8 w-8 animate-spin" />
