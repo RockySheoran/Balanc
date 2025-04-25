@@ -41,6 +41,6 @@ export const config = {
     "/expense",
     "/transaction",
     "/income",
-    "/login",
+    "/login",'/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };

@@ -363,7 +363,7 @@ const Sidebar: React.FC<SideBarProps> = ({
                       <div className="relative mt-1">
                         <div className="text-xs text-gray-500 overflow-hidden flex items-center">
                           <span className="truncate">
-                            {session?.user?.email}
+                            {session?.user?.email ||"xyz@gmail.com"}
                           </span>
                           <button
                             onClick={handleCopyEmail}
@@ -379,6 +379,8 @@ const Sidebar: React.FC<SideBarProps> = ({
                   )}
                 </div>
               </div>
+              {
+                session ?(
 
               <button
                 onClick={() => setOpen(true)}
@@ -389,6 +391,20 @@ const Sidebar: React.FC<SideBarProps> = ({
                 <SignOutIcon />
                 {!isCollapsed && <span className="ml-3">Sign Out</span>}
               </button>
+                ):(
+                    
+                    <Link
+                      href="/login"
+                      className={`flex cursor-pointer items-center w-full p-3 mt-2 rounded-lg text-gray-700 hover:bg-white hover:shadow-md transition-all duration-300 ${
+                        isCollapsed ? "justify-center" : ""
+                      }`}
+                      aria-label="Sign in">
+                      <SignOutIcon />
+                      {!isCollapsed && <span className="ml-3">Sign In</span>}
+                    </Link>
+                )
+              }
+
               <LogoutModal open={open} setOpen={setOpen} />
             </footer>
           </div>

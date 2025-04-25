@@ -25,7 +25,7 @@ import {
   setAccounts,
 } from "@/lib/Redux/features/account/accountSlice"
 import {
-  addBackendInvestment,
+  
   addInvestment,
   clearInvestments,
 } from "@/lib/Redux/features/investmentSlice/investmentSlice"

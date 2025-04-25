@@ -22,12 +22,12 @@ export default  function SideBarWrapper({Session}: {Session: Session}) {
   // Handle unauthenticated users
   const router = useRouter()
 
-  useEffect(() => {
-    if (!Session) {
-      router.replace("/login")
-    }
-  }, [Session, router])
-  if (!Session) return null // Optionally render nothing or a loader
+  // useEffect(() => {
+  //   if (!Session) {
+  //     router.replace("/login")
+  //   }
+  // }, [Session, router])
+  // if (!Session) return null // Optionally render nothing or a loader
 
   return (
     <>

@@ -120,7 +120,18 @@ export const authOptions: NextAuthOptions = {
       // console.log(session)
       return session
     },
-
+    cookies: {
+      sessionToken: {
+        name: `__Secure-next-auth.session-token`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+          domain: process.env.NODE_ENV === "production" ? ".yourdomain.com" : undefined,
+        },
+      },
+    },
     async signIn({ user, account, profile }) {
       try {
         if (account?.provider === "google") {
