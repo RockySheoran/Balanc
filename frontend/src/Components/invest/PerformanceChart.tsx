@@ -74,11 +74,16 @@ interface PerformanceChartProps {
 // Cache implementation
 class ChartDataCache {
   private cache: Map<string, { data: any; timestamp: number }> = new Map()
+  private ttl: number
+
+  constructor(ttl: number) {
+    this.ttl = ttl
+  }
 
   get(key: string) {
     const item = this.cache.get(key)
     if (!item) return null
-    if (Date.now() - item.timestamp > CACHE_TTL) {
+    if (Date.now() - item.timestamp > this.ttl) {
       this.cache.delete(key)
       return null
     }
@@ -104,6 +109,12 @@ const MAX_RETRIES = 3
 const MAX_CONCURRENT_REQUESTS = 3
 
 const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] }) => {
+  // Filter out sold investments
+  const activeInvestments = useMemo(
+    () => investments.filter(inv => !inv.sellPrice),
+    [investments]
+  )
+
   // State
   const [chartData, setChartData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -113,7 +124,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
   const [lastRefresh, setLastRefresh] = useState<DateTime | null>(null)
   
   // Refs
-  const cache = useRef(new ChartDataCache())
+  const cache = useRef(new ChartDataCache(CACHE_TTL))
   const activeRequests = useRef<Set<string>>(new Set())
   const requestQueue = useRef<Array<() => Promise<void>>>([])
   const isMounted = useRef(true)
@@ -166,7 +177,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         activeRequests.current.add(requestId)
         task().finally(() => {
           activeRequests.current.delete(requestId)
-          processQueue()
+          if (isMounted.current) {
+            processQueue()
+          }
         })
       }
     }
@@ -208,24 +221,30 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
             }
           })
 
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
 
           const data = await response.json()
-          if (!data?.chart?.result?.[0]) throw new Error('Invalid data structure')
+          if (!data?.chart?.result?.[0]) {
+            throw new Error('Invalid data structure')
+          }
 
           // Update cache
           cache.current.set(cacheKey, data)
 
           // Reset failure count for this key
-          apiKeyStatus.current[apiKey] = {
-            ...apiKeyStatus.current[apiKey],
-            failures: 0
+          if (apiKeyStatus.current[apiKey]) {
+            apiKeyStatus.current[apiKey] = {
+              ...apiKeyStatus.current[apiKey],
+              failures: 0
+            }
           }
 
           resolve(data)
         } catch (error) {
           // Update failure count for this key
-          if (apiKeyStatus.current[apiKey]) {
+          if (apiKey && apiKeyStatus.current[apiKey]) {
             apiKeyStatus.current[apiKey] = {
               ...apiKeyStatus.current[apiKey],
               failures: (apiKeyStatus.current[apiKey].failures || 0) + 1
@@ -249,11 +268,10 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
       setLoading(true)
       setError(null)
 
-      // Only fetch for active investments
-      const activeInvestments = investments.filter(inv => !inv.sellPrice)
       if (activeInvestments.length === 0) {
         setChartData([])
         setLastRefresh(DateTime.now())
+        setLoading(false)
         return
       }
 
@@ -282,38 +300,42 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         }
       }
 
-      if (successfulData.length > 0) {
-        setChartData(successfulData)
-        setLastRefresh(DateTime.now())
-      }
+      if (isMounted.current) {
+        if (successfulData.length > 0) {
+          setChartData(successfulData)
+          setLastRefresh(DateTime.now())
+        }
 
-      if (errors.length > 0) {
-        setError(`Failed to load ${errors.length} investments`)
-        toast.warning(
-          `Loaded ${successfulData.length} of ${activeInvestments.length} investments`,
-          {
-            description: errors.length > 3 
-              ? `${errors.length} investments failed to load` 
-              : `Failed to load: ${errors.join(', ')}`
-          }
-        )
-      } else if (successfulData.length > 0) {
-        toast.success('Investment data loaded successfully')
+        if (errors.length > 0) {
+          setError(`Failed to load ${errors.length} investments`)
+          toast.warning(
+            `Loaded ${successfulData.length} of ${activeInvestments.length} investments`,
+            {
+              description: errors.length > 3 
+                ? `${errors.length} investments failed to load` 
+                : `Failed to load: ${errors.join(', ')}`
+            }
+          )
+        } else if (successfulData.length > 0) {
+          toast.success('Investment data loaded successfully')
+        }
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to fetch data')
-      toast.error('Failed to load investment data')
+      if (isMounted.current) {
+        setError(error instanceof Error ? error.message : 'Failed to fetch data')
+        toast.error('Failed to load investment data')
+      }
     } finally {
       if (isMounted.current) {
         setLoading(false)
       }
     }
-  }, [investments, fetchStockChartData])
+  }, [activeInvestments, fetchStockChartData])
 
   // Initial data fetch and refresh on range/interval change
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+  }, [fetchData, range, interval])
 
   // Date formatting
   const formatDate = useCallback((timestamp: number) => {
@@ -330,7 +352,18 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
 
   // Prepare chart data - normalize all datasets to same timestamps
   const chartDataConfig = useMemo(() => {
-    if (chartData.length === 0) return { labels: [], datasets: [] }
+    if (chartData.length === 0) {
+      return { 
+        labels: ['No Data'], 
+        datasets: [{
+          label: 'No Investments',
+          data: [1],
+          borderColor: '#cccccc',
+          backgroundColor: '#f0f0f0',
+          borderWidth: 1
+        }]
+      }
+    }
 
     // Find the dataset with the most data points to use as reference
     const referenceData = chartData.reduce((prev, current) => {
@@ -348,7 +381,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         const result = data.chart.result[0]
         const meta = result.meta
         const quotes = result.indicators.quote[0]
-        const inv = investments.find(i => i.symbol === meta.symbol)
+        const inv = activeInvestments.find(i => i.symbol === meta.symbol)
         const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
 
         // Align data points with reference timestamps
@@ -358,7 +391,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         })
 
         return {
-          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${meta.shortName.length > 15 ? "..." : ""}`,
+          label: `${meta.symbol} - ${meta.shortName?.substring(0, 15) || ''}${meta.shortName?.length > 15 ? "..." : ""}`,
           data: alignedData,
           borderColor: color,
           backgroundColor: `${color}20`,
@@ -373,7 +406,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
         }
       }).filter(Boolean),
     }
-  }, [chartData, investments, formatDate, range])
+  }, [chartData, activeInvestments, formatDate, range])
 
   // Chart options
   const chartOptions = useMemo(() => ({
@@ -444,12 +477,12 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
   // Handlers
   const handleRefresh = useCallback(() => {
     // Clear cache for current range/interval
-    investments.forEach(inv => {
+    activeInvestments.forEach(inv => {
       const cacheKey = `${inv.symbol}-${range}-${interval}`
       cache.current.delete(cacheKey)
     })
     fetchData()
-  }, [fetchData, investments, range, interval])
+  }, [fetchData, activeInvestments, range, interval])
 
   const handleRangeChange = useCallback((value: string) => {
     setRange(value)
@@ -548,9 +581,9 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ investments = [] })
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
-            {investments.some(inv => !inv.sellPrice) 
+            {activeInvestments.length > 0 
               ? "No chart data available" 
-              : "All investments have been sold"}
+              : "No active investments to display"}
           </div>
         )}
       </div>

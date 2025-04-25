@@ -24,7 +24,8 @@ import { Loader2, Search } from "lucide-react";
 import { addInvestmentAction, ApiResponse, getStockPrice } from "@/Actions/investmentApi/fetchStockPrice";
 import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks";
 import { toast } from "sonner";
-import { addBackendInvestment } from "@/lib/Redux/features/investmentSlice/investmentSlice";
+import { addInvestmentToState } from "@/lib/Redux/features/investmentSlice/investmentSlice";
+
 
 export type InvestmentType = "STOCK" | "MUTUAL_FUND" | "CRYPTO";
 interface InvestmentFormProps {
@@ -83,7 +84,7 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
     switch (state.status) {
       case 200:
         toast.success(state.message || "Investment added successfully!");
-        dispatch(addBackendInvestment(state.data?.data?.investment));
+        dispatch(  addInvestmentToState   (state.data?.data?.investment));
         onClose();
         break;
       case 400:

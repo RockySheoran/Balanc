@@ -140,12 +140,16 @@ export default function DashboardClient({ session }: SessionProps) {
                if (!data) return
               dispatch(clearInvestments())
               for (const inv of data) {
-                try {
-                  const result = await dispatch(addInvestment(inv)).unwrap();
-                  console.log('Investment added successfully:', result);
-                } catch (error) {
-                  console.error('Failed to add investment:', error);
-                }
+               
+                dispatch(addInvestment(inv))
+                .unwrap()
+                .then(() => {
+                 toast.success("investment added")
+                })
+                .catch((error) => {
+                  console.error("Failed to add investment:", error);
+                });
+                
               }
               toast.success("Investments loaded successfully")
             },

@@ -522,77 +522,165 @@ const InvestmentTracker = () => {
     }
   }, [chartData, timeRange, hasInvestments])
 
-  const pieChartData = useMemo(
-    () => ({
-      labels: hasInvestments
-        ? topInvestments.map((inv) => inv.symbol)
-        : ["No Investments"],
+  // const pieChartData = useMemo(
+  //   () => ({
+  //     labels: hasInvestments
+  //       ? topInvestments.map((inv) => inv.symbol)
+  //       : ["No Investments"],
+  //     datasets: [
+  //       {
+  //         data: hasInvestments
+  //           ? topInvestments.map(
+  //               (inv) => (inv.currentValue || inv.buyPrice) * inv.quantity
+  //             )
+  //           : [1],
+  //         backgroundColor: hasInvestments
+  //           ? topInvestments.map(
+  //               (_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]
+  //             )
+  //           : ["#cccccc"],
+  //         borderWidth: 1,
+  //       },
+  //     ],
+  //   }),
+  //   [topInvestments, hasInvestments]
+  // )
+
+  // console.log(pieChartData)
+  const pieChartData = useMemo(() => {
+    if (!hasInvestments) {
+      return {
+        labels: ["No Investments"],
+        datasets: [
+          {
+            data: [1],
+            backgroundColor: ["#cccccc"],
+            borderWidth: 1,
+          },
+        ],
+      }
+    }
+
+    const holdingsData = topInvestments.map((inv) => ({
+      symbol: inv.symbol,
+      value: (inv.currentValue || inv.buyPrice) * inv.quantity,
+      name: inv.name,
+    }))
+
+    return {
+      labels: holdingsData.map((item) => item.symbol),
       datasets: [
         {
-          data: hasInvestments
-            ? topInvestments.map(
-                (inv) => (inv.currentValue || inv.buyPrice) * inv.quantity
-              )
-            : [1],
-          backgroundColor: hasInvestments
-            ? topInvestments.map(
-                (_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]
-              )
-            : ["#cccccc"],
+          data: holdingsData.map((item) => item.value),
+          backgroundColor: holdingsData.map(
+            (_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]
+          ),
           borderWidth: 1,
         },
       ],
-    }),
-    [topInvestments, hasInvestments]
-  )
+    }
+  }, [topInvestments, hasInvestments])
+  // const chartOptions = useMemo(
+  //   () => ({
+  //     responsive: true,
+  //     maintainAspectRatio: false,
+  //     plugins: {
+  //       legend: {
+  //         position: "bottom" as const,
+  //         labels: {
+  //           boxWidth: 12,
+  //           padding: 20,
+  //           usePointStyle: true,
+  //           font: {
+  //             size: window.innerWidth < 768 ? 10 : 12,
+  //           },
+  //         },
+  //       },
+  //       tooltip: {
+  //         callbacks: {
+  //           label: (context: any) => {
+  //             const label = context.dataset.label || ""
+  //             const value = context.parsed.y
+  //             const currency = context.dataset.label?.includes(".NS")
+  //               ? "INR"
+  //               : "USD"
 
-  // console.log(pieChartData)
-
-  const chartOptions = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "bottom" as const,
-          labels: {
-            boxWidth: 12,
-            padding: 20,
-            usePointStyle: true,
-            font: {
-              size: window.innerWidth < 768 ? 10 : 12,
-            },
-          },
-        },
-        tooltip: {
-          callbacks: {
-            label: (context: any) => {
-              const label = context.dataset.label || ""
-              const value = context.parsed.y
-              const currency = context.dataset.label?.includes(".NS")
-                ? "INR"
-                : "USD"
-
-              return value !== null
-                ? `${label}: ${new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency,
-                  }).format(value)}`
-                : label
-            },
-          },
-        },
-      },
-      interaction: {
-        mode: "nearest" as const,
-        axis: "x" as const,
-        intersect: false,
-      },
-    }),
-    []
-  )
+  //             return value !== null
+  //               ? `${label}: ${new Intl.NumberFormat("en-US", {
+  //                   style: "currency",
+  //                   currency,
+  //                 }).format(value)}`
+  //               : label
+  //           },
+  //         },
+  //       },
+  //     },
+  //     interaction: {
+  //       mode: "nearest" as const,
+  //       axis: "x" as const,
+  //       intersect: false,
+  //     },
+  //   }),
+  //   []
+  // )
 
   // Event handlers
+  
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom" as const,
+        labels: {
+          boxWidth: 12,
+          padding: 20,
+          usePointStyle: true,
+          font: {
+            size: window.innerWidth < 768 ? 10 : 12,
+          },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: (context: any) => {
+            const label = context.label || ''
+            const value = context.raw
+            const dataset = context.dataset
+            const total = dataset.data.reduce((acc: number, data: number) => acc + data, 0)
+            const percentage = Math.round((value / total) * 100)
+            
+            // For pie chart, show both value and percentage
+            if (context.chart.config.type === 'pie') {
+              const investment = topInvestments[context.dataIndex]
+              const currency = investment?.symbol?.includes(".NS") ? "INR" : "USD"
+              return [
+                `${label}: ${new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency,
+                }).format(value)}`,
+                `${percentage}% of portfolio`
+              ]
+            }
+            
+            // For line chart, keep original behavior
+            return `${label}: ${new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: label.includes(".NS") ? "INR" : "USD",
+            }).format(value)}`
+          },
+        },
+      },
+    },
+    interaction: {
+      mode: "nearest" as const,
+      axis: "x" as const,
+      intersect: false,
+    },
+  }), [topInvestments])
+
+  
+  
   const handleRefresh = useCallback(() => {
     // Clear cache for current range/interval
     topInvestments.forEach((inv) => {
@@ -791,7 +879,22 @@ const InvestmentTracker = () => {
             chart={
               <Pie
                 data={pieChartData}
-                options={chartOptions}
+                options={{
+                  ...chartOptions,
+                  plugins: {
+                    ...chartOptions.plugins,
+                    tooltip: {
+                      callbacks: {
+                        ...chartOptions.plugins?.tooltip?.callbacks,
+                        // Add additional tooltip formatting for pie chart
+                        afterLabel: (context: any) => {
+                          const investment = topInvestments[context.dataIndex]
+                          return investment?.name || ''
+                        }
+                      }
+                    }
+                  }
+                }}
                 className="h-80"
               />
             }
@@ -800,7 +903,6 @@ const InvestmentTracker = () => {
           />
         </div>
       )}
-
       {/* Holdings Table */}
       <HoldingsTable
         investments={investments} // Show all investments including sold ones
