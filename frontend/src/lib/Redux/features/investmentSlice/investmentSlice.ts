@@ -1,3 +1,5 @@
+
+
 /** @format */
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios, { AxiosError } from "axios";
@@ -29,17 +31,18 @@ interface Investment {
   lastPriceUpdate?: string;
 }
 
+interface CachedPrice {
+  price: number;
+  timestamp: number;
+  currency: "USD" | "INR";
+}
+
 interface ApiKeyStatus {
   valid: boolean;
   lastUsed: number;
   errorCount: number;
   retryAfter?: number;
-}
-
-interface CachedPrice {
-  price: number;
-  timestamp: number;
-  currency: "USD" | "INR";
+  lastError?: string;
 }
 
 interface InvestmentState {
@@ -56,38 +59,64 @@ interface InvestmentState {
 }
 
 // Constants
-const STALE_PRICE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
-const API_RETRY_DELAY_MS = 1000;
-const MAX_RETRIES_PER_KEY = 2;
-const KEY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour cooldown for failed keys
-const MAX_ERRORS_BEFORE_DISABLE = 5;
-const INR_TO_USD_RATE = 85; // Example conversion rate
-
-// Helper function to safely load API keys
-const loadApiKeys = (): string[] => {
-  const keys = [
-    process.env.NEXT_PUBLIC_RAPIDAPI1,
-    process.env.NEXT_PUBLIC_RAPIDAPI2,
-    process.env.NEXT_PUBLIC_RAPIDAPI3,
-    process.env.NEXT_PUBLIC_RAPIDAPI4,
-    process.env.NEXT_PUBLIC_RAPIDAPI5,
-    process.env.NEXT_PUBLIC_RAPIDAPI6,
-    process.env.NEXT_PUBLIC_RAPIDAPI7,
-    process.env.NEXT_PUBLIC_RAPIDAPI8,
-    process.env.NEXT_PUBLIC_RAPIDAPI9,
-    process.env.NEXT_PUBLIC_RAPIDAPI10,
-  ].filter(Boolean) as string[];
-
-  if (keys.length === 0 && typeof window !== 'undefined') {
-    console.error("No API keys found in environment variables!");
-  }
-
-  return keys;
+const API_CONFIG = {
+  stalePriceThresholdMs: 10 * 60 * 1000, // 10 minutes
+  retryDelayMs: 1000,
+  maxRetriesPerKey: 2,
+  keyCooldownMs: 60 * 60 * 1000, // 1 hour
+  maxErrorsBeforeDisable: 5,
+  inrToUsdRate: 85,
 };
 
-const API_KEYS = loadApiKeys();
+// Helper to get fresh API keys from environment with validation
+const getCurrentApiKeys = (): string[] => {
+  try {
+    const keys = [
+      process.env.NEXT_PUBLIC_RAPIDAPI1,
+      process.env.NEXT_PUBLIC_RAPIDAPI2,
+      process.env.NEXT_PUBLIC_RAPIDAPI3,
+      process.env.NEXT_PUBLIC_RAPIDAPI4,
+      process.env.NEXT_PUBLIC_RAPIDAPI5,
+      process.env.NEXT_PUBLIC_RAPIDAPI6,
+      process.env.NEXT_PUBLIC_RAPIDAPI7,
+      process.env.NEXT_PUBLIC_RAPIDAPI8,
+      process.env.NEXT_PUBLIC_RAPIDAPI9,
+      process.env.NEXT_PUBLIC_RAPIDAPI10,
+    ].filter((key): key is string => Boolean(key) && typeof key === 'string');
 
-// Initial State
+    if (keys.length === 0) {
+      console.error("No valid API keys found in environment variables!");
+      throw new Error("API configuration error - no valid keys found");
+    }
+
+    console.debug(`Loaded ${keys.length} valid API keys`);
+    return keys;
+  } catch (error) {
+    console.error("Failed to load API keys:", error);
+    return [];
+  }
+};
+
+// Enhanced error logging
+const logApiError = (error: unknown, context: string) => {
+  if (axios.isAxiosError(error)) {
+    console.error(`API Error (${context}):`, {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      url: error.config?.url,
+      headers: error.config?.headers?.['X-RapidAPI-Key'] ? 
+        {...error.config.headers, 'X-RapidAPI-Key': '***REDACTED***'} : 
+        error.config?.headers,
+    });
+  } else if (error instanceof Error) {
+    console.error(`Error (${context}):`, error.message, error.stack);
+  } else {
+    console.error(`Unknown error (${context}):`, error);
+  }
+};
+
+// Initial state
 const initialState: InvestmentState = {
   investments: [],
   status: "idle",
@@ -99,80 +128,74 @@ const initialState: InvestmentState = {
   error: null,
   priceCache: {},
   apiKeys: {
-    keys: API_KEYS,
+    keys: [],
     currentIndex: 0,
-    status: API_KEYS.reduce((acc, key) => {
-      acc[key] = {
-        valid: true,
-        lastUsed: 0,
-        errorCount: 0,
-      };
-      return acc;
-    }, {} as Record<string, ApiKeyStatus>),
+    status: {},
   },
 };
 
-// Helper Functions
-const isStale = (timestamp: number, thresholdMs: number): boolean => {
-  return Date.now() - timestamp > thresholdMs;
-};
+// Smart API key selection with fresh keys
+const selectApiKey = (state: InvestmentState): { key: string; index: number } | null => {
+  const currentKeys = getCurrentApiKeys();
+  if (currentKeys.length === 0) {
+    console.error("No API keys available for selection");
+    return null;
+  }
 
-const getNextValidKey = (state: InvestmentState): { key: string; index: number } | null => {
-  const { keys, currentIndex, status } = state.apiKeys;
-  
-  // Sort keys by least recently used and error count
-  const sortedKeys = [...keys]
+  // Merge current keys with existing status
+  const keyStatus = currentKeys.reduce((acc, key) => {
+    acc[key] = state.apiKeys.status[key] || {
+      valid: true,
+      lastUsed: 0,
+      errorCount: 0,
+    };
+    return acc;
+  }, {} as Record<string, ApiKeyStatus>);
+
+  // Find best available key
+  const availableKeys = currentKeys
     .map((key, index) => ({ key, index }))
-    .sort((a, b) => {
-      const aStatus = status[a.key] || { errorCount: 0, lastUsed: 0 };
-      const bStatus = status[b.key] || { errorCount: 0, lastUsed: 0 };
+    .filter(({ key }) => {
+      const status = keyStatus[key];
+      const isAvailable = status.valid && 
+        status.errorCount < API_CONFIG.maxErrorsBeforeDisable &&
+        (!status.retryAfter || Date.now() > status.retryAfter);
       
-      // First sort by error count
-      if (aStatus.errorCount !== bStatus.errorCount) {
-        return aStatus.errorCount - bStatus.errorCount;
+      if (!isAvailable) {
+        console.debug(`Key ${key.substring(0, 5)}... is not available`, status);
       }
-      
-      // Then by last used time
-      return aStatus.lastUsed - bStatus.lastUsed;
+      return isAvailable;
+    })
+    .sort((a, b) => {
+      // Prefer keys with fewer errors and least recently used
+      const aStatus = keyStatus[a.key];
+      const bStatus = keyStatus[b.key];
+      return aStatus.errorCount - bStatus.errorCount || 
+             aStatus.lastUsed - bStatus.lastUsed;
     });
 
-  for (const { key, index } of sortedKeys) {
-    const keyStatus = status[key];
-    
-    if (!keyStatus) continue;
-    
-    // Skip if key is marked invalid
-    if (!keyStatus.valid) continue;
-    
-    // Skip if key is in cooldown
-    if (keyStatus.retryAfter && Date.now() < keyStatus.retryAfter) continue;
-    
-    // Skip if key has too many errors
-    if (keyStatus.errorCount >= MAX_ERRORS_BEFORE_DISABLE) continue;
-    
-    return { key, index };
+  if (availableKeys.length === 0) {
+    console.error("No available API keys after filtering", {
+      totalKeys: currentKeys.length,
+      keyStatus: Object.keys(keyStatus).map(k => ({
+        key: k.substring(0, 5) + '...',
+        ...keyStatus[k]
+      })),
+    });
+    return null;
   }
 
-  return null;
+  const selectedKey = availableKeys[0];
+  console.debug(`Selected API key: ${selectedKey.key.substring(0, 5)}...`, {
+    index: selectedKey.index,
+    errorCount: keyStatus[selectedKey.key].errorCount,
+    lastUsed: keyStatus[selectedKey.key].lastUsed,
+  });
+
+  return selectedKey;
 };
 
-const calculateCooldown = (error: AxiosError, currentErrorCount: number): number => {
-  if (error.response?.status === 429) {
-    // Rate limited - use Retry-After header with exponential backoff
-    const retryAfter = parseInt(error.response.headers['retry-after'] || "1", 10) * 1000;
-    return Math.min(retryAfter * (2 ** currentErrorCount), KEY_COOLDOWN_MS);
-  }
-  
-  if (error.response?.status === 401) {
-    // Unauthorized - long cooldown
-    return KEY_COOLDOWN_MS;
-  }
-  
-  // Default exponential backoff
-  return Math.min(1000 * (2 ** currentErrorCount), KEY_COOLDOWN_MS);
-};
-
-// Thunks
+// Enhanced fetchStockPrice with detailed logging
 export const fetchStockPrice = createAsyncThunk(
   "investments/fetchPrice",
   async (symbol: string, { getState, dispatch, rejectWithValue }) => {
@@ -180,10 +203,14 @@ export const fetchStockPrice = createAsyncThunk(
     const cleanSymbol = symbol.toUpperCase();
     const isIndianStock = cleanSymbol.endsWith(".NS");
     const cacheKey = `${cleanSymbol}-${isIndianStock ? "INR" : "USD"}`;
-    
-    // Check cache first
+
+    // Cache check with logging
     const cachedPrice = state.priceCache[cacheKey];
-    if (cachedPrice && !isStale(cachedPrice.timestamp, STALE_PRICE_THRESHOLD_MS)) {
+    if (cachedPrice && Date.now() - cachedPrice.timestamp < API_CONFIG.stalePriceThresholdMs) {
+      console.debug(`Using cached price for ${cleanSymbol}`, {
+        price: cachedPrice.price,
+        age: Date.now() - cachedPrice.timestamp,
+      });
       return {
         symbol: cleanSymbol,
         price: cachedPrice.price,
@@ -193,17 +220,22 @@ export const fetchStockPrice = createAsyncThunk(
     }
 
     let retries = 0;
+    const maxAttempts = getCurrentApiKeys().length * API_CONFIG.maxRetriesPerKey;
     let lastError: Error | null = null;
 
-    while (retries < state.apiKeys.keys.length * MAX_RETRIES_PER_KEY) {
-      const keyInfo = getNextValidKey(state);
+    while (retries < maxAttempts) {
+      const keyInfo = selectApiKey(state);
       if (!keyInfo) {
-        return rejectWithValue("No valid API keys available");
+        const errorMsg = "No valid API keys available";
+        console.error(errorMsg);
+        return rejectWithValue(errorMsg);
       }
 
       const { key, index } = keyInfo;
-      
+      console.debug(`Attempt ${retries + 1} with key ${key.substring(0, 5)}...`);
+
       try {
+        const startTime = Date.now();
         const response = await axios.get(
           "https://yahoo-finance166.p.rapidapi.com/api/stock/get-price",
           {
@@ -219,16 +251,21 @@ export const fetchStockPrice = createAsyncThunk(
           }
         );
 
+        const responseTime = Date.now() - startTime;
+        console.debug(`API call succeeded in ${responseTime}ms`, {
+          symbol: cleanSymbol,
+          key: key.substring(0, 5) + '...',
+          responseTime,
+        });
+
         const price = response.data?.quoteSummary?.result?.[0]?.price?.regularMarketPrice?.raw;
         if (typeof price !== "number") {
           throw new Error("Invalid price data in response");
         }
 
-        // Convert to USD if Indian stock
-        const finalPrice = isIndianStock ? price / INR_TO_USD_RATE : price;
+        const finalPrice = isIndianStock ? price / API_CONFIG.inrToUsdRate : price;
         const currency = isIndianStock ? "INR" : "USD";
 
-        // Update key status
         dispatch(markApiKeySuccess(key));
         
         return {
@@ -239,20 +276,34 @@ export const fetchStockPrice = createAsyncThunk(
           apiKeyIndex: index,
         };
       } catch (error) {
-        lastError = error as Error;
         retries++;
+        lastError = error as Error;
+        logApiError(error, `fetchStockPrice(${cleanSymbol})`);
 
         if (axios.isAxiosError(error)) {
-          const cooldownMs = calculateCooldown(error, state.apiKeys.status[key]?.errorCount || 0);
-          dispatch(markApiKeyFailure({ key, cooldownMs }));
+          const currentStatus = state.apiKeys.status[key] || {
+            errorCount: 0,
+            lastUsed: 0,
+            valid: true,
+          };
+          const cooldownMs = calculateCooldown(error, currentStatus.errorCount);
+          dispatch(markApiKeyFailure({ 
+            key, 
+            cooldownMs, 
+            error: error.message 
+          }));
         }
 
-        await new Promise(resolve => setTimeout(resolve, API_RETRY_DELAY_MS));
+        await new Promise(resolve => setTimeout(resolve, API_CONFIG.retryDelayMs));
       }
     }
 
     // Fallback to stale cache if available
     if (cachedPrice) {
+      console.warn(`Falling back to stale cache for ${cleanSymbol} after ${retries} attempts`, {
+        lastError: lastError?.message,
+        cacheAge: Date.now() - cachedPrice.timestamp,
+      });
       return {
         symbol: cleanSymbol,
         price: cachedPrice.price,
@@ -262,7 +313,9 @@ export const fetchStockPrice = createAsyncThunk(
       };
     }
 
-    return rejectWithValue(lastError?.message || "Failed to fetch price after all retries");
+    const errorMsg = lastError?.message || "Failed to fetch price after all retries";
+    console.error(errorMsg, { attempts: retries });
+    return rejectWithValue(errorMsg);
   }
 );
 
@@ -280,17 +333,20 @@ export const addInvestment = createAsyncThunk(
 
       dispatch(addInvestmentToState(newInvestment));
 
-      const priceResult = await dispatch(
-        fetchStockPrice(investmentData.symbol)
-      ).unwrap();
-console.log(priceResult)
-      dispatch(
-        updateInvestmentValue({
-          id: newInvestment.id,
-          price: priceResult.price,
-          lastPriceUpdate: new Date().toISOString(),
-        })
-      );
+       if(newInvestment.sellPrice == null) {
+          console.log("first time sell price is not null", newInvestment.sellPrice);
+         const priceResult = await dispatch(
+           fetchStockPrice(investmentData.symbol)
+         ).unwrap();
+   
+         dispatch(
+           updateInvestmentValue({
+             id: newInvestment.id,
+             price: priceResult.price,
+             lastPriceUpdate: new Date().toISOString(),
+           })
+         );
+       }
 
       return newInvestment;
     } catch (error) {
@@ -301,8 +357,7 @@ console.log(priceResult)
     }
   }
 );
-
-// Slice
+// Slice with enhanced reducers
 const investmentSlice = createSlice({
   name: "investments",
   initialState,
@@ -325,7 +380,6 @@ const investmentSlice = createSlice({
         investment.currentValue = price;
         investment.lastPriceUpdate = lastPriceUpdate;
         
-        // Update cache
         const isIndianStock = investment.symbol.endsWith(".NS");
         const cacheKey = `${investment.symbol}-${isIndianStock ? "INR" : "USD"}`;
         state.priceCache[cacheKey] = {
@@ -335,33 +389,7 @@ const investmentSlice = createSlice({
         };
       }
     },
-    markApiKeySuccess: (state, action: PayloadAction<string>) => {
-      const key = action.payload;
-      if (state.apiKeys.status[key]) {
-        state.apiKeys.status[key] = {
-          valid: true,
-          lastUsed: Date.now(),
-          errorCount: 0,
-        };
-      }
-    },
-    markApiKeyFailure: (
-      state,
-      action: PayloadAction<{ key: string; cooldownMs: number }>
-    ) => {
-      const { key, cooldownMs } = action.payload;
-      if (state.apiKeys.status[key]) {
-        const currentStatus = state.apiKeys.status[key];
-        const errorCount = currentStatus.errorCount + 1;
-        
-        state.apiKeys.status[key] = {
-          valid: errorCount < MAX_ERRORS_BEFORE_DISABLE,
-          lastUsed: Date.now(),
-          errorCount,
-          retryAfter: Date.now() + cooldownMs,
-        };
-      }
-    },
+
     rotateApiKey: (state) => {
       if (state.apiKeys.keys.length > 0) {
         state.apiKeys.currentIndex = (state.apiKeys.currentIndex + 1) % state.apiKeys.keys.length;
@@ -393,6 +421,18 @@ const investmentSlice = createSlice({
           sellDate,
           updatedAt: new Date().toISOString(),
         };
+
+        // Update API key status to ensure proper rotation and retrieval
+        const currentKey = state.apiKeys.keys[state.apiKeys.currentIndex];
+        if (currentKey) {
+          state.apiKeys.status[currentKey] = {
+        ...state.apiKeys.status[currentKey],
+        lastUsed: Date.now(),
+          };
+        }
+
+        // Rotate to the next key for subsequent operations
+        state.apiKeys.currentIndex = (state.apiKeys.currentIndex + 1) % state.apiKeys.keys.length;
       }
     },
     resetApiKeys: (state) => {
@@ -401,34 +441,93 @@ const investmentSlice = createSlice({
           valid: true,
           lastUsed: 0,
           errorCount: 0,
+          retryAfter: undefined,
+          lastError: undefined,
         };
       });
       state.apiKeys.currentIndex = 0;
     },
+    markApiKeySuccess: (state, action: PayloadAction<string>) => {
+      const key = action.payload;
+      if (!state.apiKeys.status[key]) {
+        console.debug(`Initializing status for new API key: ${key.substring(0, 5)}...`);
+      }
+      state.apiKeys.status[key] = {
+        valid: true,
+        lastUsed: Date.now(),
+        errorCount: 0,
+        retryAfter: undefined,
+        lastError: undefined,
+      };
+      console.debug(`Marked API key as successful: ${key.substring(0, 5)}...`);
+    },
+    markApiKeyFailure: (
+      state,
+      action: PayloadAction<{ key: string; cooldownMs: number; error?: string }>
+    ) => {
+      const { key, cooldownMs, error } = action.payload;
+      const currentStatus = state.apiKeys.status[key] || {
+        valid: true,
+        lastUsed: 0,
+        errorCount: 0,
+      };
+      
+      const errorCount = currentStatus.errorCount + 1;
+      const isValid = errorCount < API_CONFIG.maxErrorsBeforeDisable;
+      
+      state.apiKeys.status[key] = {
+        valid: isValid,
+        lastUsed: Date.now(),
+        errorCount,
+        retryAfter: Date.now() + cooldownMs,
+        lastError: error,
+      };
+      
+      console.warn(`Marked API key as failed: ${key.substring(0, 5)}...`, {
+        errorCount,
+        valid: isValid,
+        retryAfter: cooldownMs,
+        lastError: error,
+      });
+      
+      if (!isValid) {
+        console.error(`API key disabled due to too many errors: ${key.substring(0, 5)}...`);
+      }
+    },
     initializeApiKeys: (state) => {
-      if (!state.apiKeys || !state.apiKeys.keys || state.apiKeys.keys.length === 0) {
-        const keys = loadApiKeys();
+      const keys = getCurrentApiKeys();
+      if (keys.length > 0) {
+        // Preserve existing status for keys that still exist
+        const newStatus = keys.reduce((acc, key) => {
+          acc[key] = state.apiKeys.status[key] || {
+            valid: true,
+            lastUsed: 0,
+            errorCount: 0,
+          };
+          return acc;
+        }, {} as Record<string, ApiKeyStatus>);
+
         state.apiKeys = {
           keys,
           currentIndex: 0,
-          status: keys.reduce((acc, key) => {
-            acc[key] = {
-              valid: true,
-              lastUsed: 0,
-              errorCount: 0,
-            };
-            return acc;
-          }, {} as Record<string, ApiKeyStatus>),
+          status: newStatus,
         };
+        console.debug("Initialized API keys", { keyCount: keys.length });
       }
     },
+    // ... (other reducers remain the same)
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchStockPrice.pending, (state) => {
+        console.debug("Starting price fetch...");
         state.status = "loading";
       })
       .addCase(fetchStockPrice.fulfilled, (state, action) => {
+        console.debug("Price fetch succeeded", {
+          symbol: action.payload.symbol,
+          fromCache: action.payload.fromCache,
+        });
         state.status = "succeeded";
         if (!action.payload.fromCache) {
           const cacheKey = `${action.payload.symbol}-${action.payload.currency}`;
@@ -440,18 +539,11 @@ const investmentSlice = createSlice({
         }
       })
       .addCase(fetchStockPrice.rejected, (state, action) => {
+        console.error("Price fetch failed", {
+          error: action.payload,
+        });
         state.status = "failed";
         state.error = (action.payload as string) || "Price fetch failed";
-      })
-      .addCase(addInvestment.pending, (state) => {
-        state.status = "loading";
-      })
-      .addCase(addInvestment.fulfilled, (state) => {
-        state.status = "succeeded";
-      })
-      .addCase(addInvestment.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = (action.payload as string) || "Failed to add investment";
       });
   },
 });
@@ -461,12 +553,12 @@ export const {
   updateInvestmentValue,
   markApiKeySuccess,
   markApiKeyFailure,
+  initializeApiKeys,
   rotateApiKey,
   updateSellPrice,
   clearInvestments,
   setFilter,
   resetApiKeys,
-  initializeApiKeys,
 } = investmentSlice.actions;
 
 export default investmentSlice.reducer;

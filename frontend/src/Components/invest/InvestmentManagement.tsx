@@ -61,7 +61,7 @@ const InvestmentForm = dynamic(() => import("./InvestmentForm"))
 type Filters = {
   searchTerm: string
   dateRange: "all" | "1m" | "3m" | "6m" | "1y"
-  performanceFilter: "all" | "profit" | "loss" | "best"
+  performanceFilter: "all" | "profit" | "loss" | "best" |"sold"
 }
 
 const InvestmentManagement = () => {
@@ -92,6 +92,10 @@ const InvestmentManagement = () => {
           return (
             matchesSearch &&
             (inv.currentValue ? inv.currentValue < inv.buyPrice : false)
+          )
+          case "sold":
+          return (
+            matchesSearch&&(inv.sellPrice !==null && inv.sellPrice !== undefined)
           )
         case "best":
           const sorted = [...investments].sort((a, b) => {
@@ -144,7 +148,7 @@ const InvestmentManagement = () => {
   )
 
   const handleAddInvestment = useCallback(
-    (investment: Omit<Investment, "id" | "currentPrice">) => {
+    (investment: Omit<Investment, "id" | "currentValue">) => {
       dispatch(addInvestment(investment))
       setIsFormOpen(false)
     },
@@ -239,6 +243,7 @@ const InvestmentManagement = () => {
               <option value="profit">Profitable</option>
               <option value="loss">Losing</option>
               <option value="best">Top Performers</option>
+              <option value="sold">Sold</option>  
             </select>
           </div>
         </div>

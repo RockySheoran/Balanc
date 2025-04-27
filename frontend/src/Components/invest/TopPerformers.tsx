@@ -4,7 +4,8 @@ import React, { useMemo } from "react"
 import { Badge } from "@/Components/ui/badge"
 import { Card, CardHeader, CardContent } from "@/Components/ui/card"
 import { ArrowUp, ArrowDown, Star, TrendingUp, Trophy } from "lucide-react"
-import { Investment } from "@/types/investment"
+import { Investment } from "./investment"
+
 
 interface TopPerformersProps {
   investments: Investment[]
@@ -40,7 +41,7 @@ const TopPerformers: React.FC<TopPerformersProps> = ({
       }
 
       const withPerformance = investments.map((inv) => {
-        const currentValue = inv.currentPrice || inv.buyPrice
+        const currentValue = inv.currentValue || inv.buyPrice
         const roi = ((currentValue - inv.buyPrice) / inv.buyPrice) * 100
         const value = currentValue * inv.quantity
         const gain = (currentValue - inv.buyPrice) * inv.quantity

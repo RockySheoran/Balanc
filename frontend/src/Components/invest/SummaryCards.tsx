@@ -123,25 +123,25 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ investments = [] }) => {
       0
     )
     const current = investments.reduce(
-      (sum, inv) => sum + (inv.currentPrice || inv.buyPrice) * inv.quantity,
+      (sum, inv) => sum + (inv.currentValue || inv.buyPrice) * inv.quantity,
       0
     )
     const profit = current - total
     const returnOnInvestment = total > 0 ? (profit / total) * 100 : 0
 
     const best = investments.reduce((best, inv) => {
-      if (!inv.currentPrice) return best
+      if (!inv.currentValue) return best
       const currentROI =
-        ((inv.currentPrice - inv.buyPrice) / inv.buyPrice) * 100
+        ((inv.currentValue - inv.buyPrice) / inv.buyPrice) * 100
       return !best || currentROI > best.roi
         ? { symbol: inv.symbol, roi: currentROI }
         : best
     }, null as Performer | null)
 
     const worst = investments.reduce((worst, inv) => {
-      if (!inv.currentPrice) return worst
+      if (!inv.currentValue) return worst
       const currentROI =
-        ((inv.currentPrice - inv.buyPrice) / inv.buyPrice) * 100
+        ((inv.currentValue - inv.buyPrice) / inv.buyPrice) * 100
       return !worst || currentROI < worst.roi
         ? { symbol: inv.symbol, roi: currentROI }
         : worst
