@@ -13,6 +13,7 @@ import { RedirectToDashboard } from "@/Components/common/RedirectToDashboard"
 import ClientSessionProvider from "./providers/ClientSessionProvider"
 import { Analytics } from "@vercel/analytics/react"
 import ReduxProvider from "./providers/ReduxProvider"
+import { FinancialAssistant } from "@/Components/common/FinancialAssistant"
 
 export const metadata: Metadata = {
   title: {
@@ -52,6 +53,14 @@ export default async function RootLayout({
                 <Analytics />
                 <SpeedInsights />
               </main>
+              {
+                session && (
+                  <div className="">
+                    <FinancialAssistant />
+                  </div>
+                )
+              }
+                
             </div>
             <Toaster
               richColors
