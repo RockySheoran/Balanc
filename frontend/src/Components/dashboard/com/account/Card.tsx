@@ -11,7 +11,7 @@ import { Icons } from "./icons1"
 export const Card = ({
   title,
   value,
-  trend,
+ 
   icon,
   gradient,
   iconBg,
@@ -43,10 +43,10 @@ export const Card = ({
         <h2 className="mt-3 text-3xl font-semibold text-gray-900">
           ${value?.toLocaleString()}
         </h2>
-        <p className={`mt-2 text-sm ${trendColor} flex items-center`}>
+        {/* <p className={`mt-2 text-sm ${trendColor} flex items-center`}>
           <Icons.trendUp className="h-4 w-4 mr-1" />
           {trend}
-        </p>
+        </p> */}
       </div>
     </div>
   )

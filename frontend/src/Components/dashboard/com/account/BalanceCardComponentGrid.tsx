@@ -26,7 +26,7 @@ export const BalanceCardComponent = () => {
       {
         title: "Total Balance",
         value: selectedAccount.balance,
-        trend: "5.2% from last month",
+        
         icon: "balance",
         gradient: "from-blue-50 to-blue-100",
         colors: {
@@ -38,7 +38,7 @@ export const BalanceCardComponent = () => {
       {
         title: "Total Income",
         value: selectedAccount.income,
-        trend: "12.5% from last month",
+       
         icon: "income",
         gradient: "from-green-50 to-green-100",
         colors: {
@@ -50,7 +50,7 @@ export const BalanceCardComponent = () => {
       {
         title: "Total Expense",
         value: selectedAccount.totalExpense,
-        trend: "3.8% from last month",
+    
         icon: "expense",
         gradient: "from-purple-50 to-purple-100",
         colors: {
@@ -76,7 +76,7 @@ export const BalanceCardComponent = () => {
             key={index}
             title={card.title}
             value={card.value}
-            trend={card.trend}
+            
             icon={card.icon}
             gradient={card.gradient}
             {...card.colors}

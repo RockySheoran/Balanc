@@ -1,6 +1,4 @@
 /** @format */
-
-// store/slices/incomeSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
 
 interface Income {
@@ -10,6 +8,9 @@ interface Income {
   type: "CREDIT" | "INCOME"
   category: string
   date: string
+  description?: string
+  accountId?: string
+  createdAt?: string
 }
 
 interface IncomeState {
@@ -24,6 +25,7 @@ interface IncomeState {
     minAmount: number | ""
     maxAmount: number | ""
   }
+  needsRecalculation: boolean
 }
 
 const initialState: IncomeState = {
@@ -31,6 +33,7 @@ const initialState: IncomeState = {
   filteredIncomes: [],
   currentPage: 1,
   itemsPerPage: 5,
+  needsRecalculation: true,
   filters: {
     sort: "",
     category: "",
@@ -40,77 +43,29 @@ const initialState: IncomeState = {
   },
 }
 
-const incomeSlice = createSlice({
-  name: "income",
-  initialState,
-  reducers: {
-    addIncome: (state, action: PayloadAction<Omit<Income>>) => {
-      const newIncome = {
-        ...action.payload,    
-        date:action.payload.createdAt,
-      }
-      state.incomes = [newIncome, ...state.incomes]
-      state.filteredIncomes = applyFilters(
-        [newIncome, ...state.filteredIncomes],
-        state.filters
-      )
-    },
-    deleteIncome: (state, action: PayloadAction<string>) => {
-      state.incomes = state.incomes.filter(
-        (income) => income.id !== action.payload
-      )
-      state.filteredIncomes = state.filteredIncomes.filter(
-        (income) => income.id !== action.payload
-      )
-    },
-    setFilter: (
-      state,
-      action: PayloadAction<Partial<IncomeState["filters"]>>
-    ) => {
-      state.filters = { ...state.filters, ...action.payload }
-      state.filteredIncomes = applyFilters(state.incomes, {
-        ...state.filters,
-        ...action.payload,
-      })
-      state.currentPage = 1
-    },
-    setPage: (state, action: PayloadAction<number>) => {
-      state.currentPage = action.payload
-    },
-    resetFilters: (state) => {
-     
-      state.filters = initialState.filters
-      state.filteredIncomes = state.incomes
-      state.currentPage = 1
-    },
-    clearIncome: () => initialState,
-  },
-})
+const recalculateIncomes = (state: IncomeState) => {
+  let filtered = [...state.incomes]
 
-// Helper function to apply all filters
-const applyFilters = (incomes: Income[], filters: IncomeState["filters"]) => {
-  let filtered = [...incomes]
-
-  // Category filter
-  if (filters.category) {
-    filtered = filtered.filter((income) => income.category === filters.category)
+  // Apply category filter
+  if (state.filters.category && state.filters.category !== "all") {
+    filtered = filtered.filter(income => income.category === state.filters.category)
   }
 
-  // Type filter
-  if (filters.type) {
-    filtered = filtered.filter((income) => income.type === filters.type)
+  // Apply type filter
+  if (state.filters.type && state.filters.type !== "all") {
+    filtered = filtered.filter(income => income.type === state.filters.type)
   }
 
-  // Amount range filter
-  if (filters.minAmount !== "") {
-    filtered = filtered.filter((income) => income.amount >= Number(filters.minAmount))
+  // Apply amount range filter
+  if (state.filters.minAmount !== "") {
+    filtered = filtered.filter(income => income.amount >= Number(state.filters.minAmount))
   }
-  if (filters.maxAmount !== "") {
-    filtered = filtered.filter((income) => income.amount <= Number(filters.maxAmount))
+  if (state.filters.maxAmount !== "") {
+    filtered = filtered.filter(income => income.amount <= Number(state.filters.maxAmount))
   }
 
-  // Sorting
-  switch (filters.sort) {
+  // Apply sorting
+  switch (state.filters.sort) {
     case "asc":
       filtered.sort((a, b) => a.amount - b.amount)
       break
@@ -118,32 +73,95 @@ const applyFilters = (incomes: Income[], filters: IncomeState["filters"]) => {
       filtered.sort((a, b) => b.amount - a.amount)
       break
     case "date-asc":
-      filtered.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      )
+      filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       break
     case "date-desc":
-      filtered.sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      )
+      filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       break
     default:
       // Default sorting (newest first)
-      filtered.sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      )
+      filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }
 
-  return filtered
+  state.filteredIncomes = filtered
+  state.needsRecalculation = false
 }
+
+const incomeSlice = createSlice({
+  name: "income",
+  initialState,
+  reducers: {
+    addIncome: (state, action: PayloadAction<Income>) => {
+      const newIncome = {
+        ...action.payload,
+        date: action.payload.date || action.payload.createdAt || new Date().toISOString(),
+      }
+      state.incomes.unshift(newIncome)
+      state.needsRecalculation = true
+      recalculateIncomes(state)
+    },
+    updateIncome: (state, action: PayloadAction<Income>) => {
+      const index = state.incomes.findIndex(i => i.id === action.payload.id)
+      if (index !== -1) {
+        state.incomes[index] = action.payload
+        state.needsRecalculation = true
+        recalculateIncomes(state)
+      }
+    },
+    deleteIncome: (state, action: PayloadAction<string>) => {
+      state.incomes = state.incomes.filter(income => income.id !== action.payload)
+      state.needsRecalculation = true
+      recalculateIncomes(state)
+    },
+    setFilter: (state, action: PayloadAction<Partial<IncomeState["filters"]>>) => {
+      // Debugging logs
+      console.log("Current filters:", state.filters);
+      console.log("Incoming payload:", action.payload);
+    
+      // Create new filters object with proper type handling
+      const newFilters = {
+        sort: action.payload.sort !== undefined ? action.payload.sort : state.filters.sort,
+        category: action.payload.category !== undefined ? action.payload.category : state.filters.category,
+        type: action.payload.type !== undefined ? action.payload.type : state.filters.type,
+        minAmount: action.payload.minAmount !== undefined ? action.payload.minAmount : state.filters.minAmount,
+        maxAmount: action.payload.maxAmount !== undefined ? action.payload.maxAmount : state.filters.maxAmount,
+      };
+    
+      // Only update if there are actual changes
+      if (JSON.stringify(state.filters) !== JSON.stringify(newFilters)) {
+        console.log("Updating filters to:", newFilters);
+        state.filters = newFilters;
+        state.needsRecalculation = true;
+        state.currentPage = 1;
+        recalculateIncomes(state);
+      } else {
+        console.log("No filter changes detected");
+      }
+    },
+    setPage: (state, action: PayloadAction<number>) => {
+      state.currentPage = action.payload
+    },
+    resetFilters: (state) => {
+      state.filters = initialState.filters
+      state.needsRecalculation = true
+      state.currentPage = 1
+      recalculateIncomes(state)
+      console.log("first filter", state.filters)
+    },
+    clearIncome: () => initialState,
+    recalculate: (state) => {
+      state.needsRecalculation = true
+      recalculateIncomes(state)
+    },
+  },
+})
 
 // Selectors
 export const selectTotalIncome = (state: { income: IncomeState }) =>
   state.income.incomes.reduce(
-    (sum, income) =>
-      income.type === "CREDIT" || "INCOME"
-        ? sum + income.amount
-        : sum - income.amount,
+    (sum, income) => income.type === "CREDIT" || income.type === "INCOME" 
+      ? sum + income.amount 
+      : sum - income.amount,
     0
   )
 
@@ -152,12 +170,11 @@ export const selectLastMonthIncome = (state: { income: IncomeState }) => {
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
 
   return state.income.incomes
-    .filter((income) => new Date(income.date) >= oneMonthAgo)
+    .filter(income => new Date(income.date) >= oneMonthAgo)
     .reduce(
-      (sum, income) =>
-        income.type === "CREDIT" || "INCOME"
-          ? sum + income.amount
-          : sum - income.amount,
+      (sum, income) => income.type === "CREDIT" || income.type === "INCOME"
+        ? sum + income.amount
+        : sum - income.amount,
       0
     )
 }
@@ -166,14 +183,11 @@ export const selectAverageIncome = (state: { income: IncomeState }) => {
   if (state.income.incomes.length === 0) return 0
 
   const creditIncomes = state.income.incomes.filter(
-    (income) => income.type === "CREDIT" || "INCOME"
+    income => income.type === "CREDIT" || income.type === "INCOME"
   )
   if (creditIncomes.length === 0) return 0
 
-  return (
-    creditIncomes.reduce((sum, income) => sum + income.amount, 0) /
-    creditIncomes.length
-  )
+  return creditIncomes.reduce((sum, income) => sum + income.amount, 0) / creditIncomes.length
 }
 
 export const selectPaginatedIncomes = (state: { income: IncomeState }) => {
@@ -181,66 +195,74 @@ export const selectPaginatedIncomes = (state: { income: IncomeState }) => {
   const end = start + state.income.itemsPerPage
   return state.income.filteredIncomes.slice(start, end)
 }
-// Add this to your incomeSlice.ts file, with the other selectors
-export const selectCurrentPage = (state: { income: IncomeState }) => state.income.currentPage;
+
+export const selectCurrentPage = (state: { income: IncomeState }) => 
+  state.income.currentPage
 
 export const selectTotalPages = (state: { income: IncomeState }) =>
   Math.ceil(state.income.filteredIncomes.length / state.income.itemsPerPage)
 
 export const selectCategories = (state: { income: IncomeState }) => {
   const categories = new Set<string>()
-  state.income.incomes.forEach((income) => categories.add(income.category))
+  state.income.incomes.forEach(income => categories.add(income.category))
   return Array.from(categories)
 }
-// In your incomeSlice.ts
+
 export const selectCategoryData = (state: { income: IncomeState }) => {
-  const categoryMap = new Map<string, number>();
+  const categoryMap = new Map<string, number>()
   
   state.income.incomes.forEach(income => {
-    if (income.type === "CREDIT" || "INCOME") {
+    if (income.type === "CREDIT" || income.type === "INCOME") {
       const current = categoryMap.get(income.category) || 0
       categoryMap.set(income.category, current + income.amount)
     }
-  });
+  })
 
   return Array.from(categoryMap.entries()).map(([name, value]) => ({
     name,
     value
-  }));
-};
+  }))
+}
 
 export const selectMonthlyIncomeData = (state: { income: IncomeState }) => {
-  const monthlyMap = new Map<string, { income: number; expense: number }>();
-  const currentYear = new Date().getFullYear();
+  const monthlyMap = new Map<string, { income: number }>()
+  const currentYear = new Date().getFullYear()
 
   state.income.incomes.forEach(income => {
-    const date = new Date(income.date);
+    const date = new Date(income.date)
     if (date.getFullYear() === currentYear) {
-      const month = date.toLocaleString('default', { month: 'short' });
-      const current = monthlyMap.get(month) || { income: 0, expense: 0 };
+      const month = date.toLocaleString('default', { month: 'short' })
+      const current = monthlyMap.get(month) || { income: 0 }
       
-      if (income.type === "CREDIT" || "INCOME") {
+      if (income.type === "CREDIT" || income.type === "INCOME") {
         current.income += income.amount
-      } else {
-        current.expense += income.amount
-      }
+      } 
       
-      monthlyMap.set(month, current);
+      monthlyMap.set(month, current)
     }
-  });
+  })
 
   // Ensure all months are present
   const months = Array.from({ length: 12 }, (_, i) => 
     new Date(0, i).toLocaleString('default', { month: 'short' })
-  );
+  )
 
   return months.map(month => ({
     name: month,
     income: monthlyMap.get(month)?.income || 0,
-    expense: monthlyMap.get(month)?.expense || 0
-  }));
-};
+    
+  }))
+}
 
-export const { addIncome, deleteIncome,clearIncome, setFilter, setPage, resetFilters } =
-  incomeSlice.actions
+export const {
+  addIncome,
+  updateIncome,
+  deleteIncome,
+  clearIncome,
+  setFilter,
+  setPage,
+  resetFilters,
+  recalculate,
+} = incomeSlice.actions
+
 export default incomeSlice.reducer

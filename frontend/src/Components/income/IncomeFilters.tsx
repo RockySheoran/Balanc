@@ -8,52 +8,36 @@ import { resetFilters } from "@/lib/Redux/features/expense/expenseSlice"
 
 
 type SortOption = "" | "asc" | "desc" | "date-asc" | "date-desc"
-type IncomeType = "" | "credit" | "debit"
+type IncomeType = "" | "CREDIT" | "INCOME"
 
 const IncomeFilters = () => {
   const dispatch = useDispatch()
   const categories = useSelector(selectCategories)
+  const filterState = useSelector((state: any) => state.income.filters)
+  const { sort, category, type, minAmount, maxAmount } = filterState
+// Example usage in a component
+const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  dispatch(setFilter({ sort: e.target.value as SortOption }))
+}
 
-  // Memoized event handlers
-  const handleSortChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      dispatch(setFilter({ sort: e.target.value as SortOption }))
-    },
-    [dispatch]
-  )
+const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  console.log(e.target.value)
+  dispatch(setFilter({ category: e.target.value }))
+}
 
-  const handleCategoryChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      dispatch(setFilter({ category: e.target.value }))
-    },
-    [dispatch]
-  )
+const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  console.log(e.target.value )
+  dispatch(setFilter({ type: e.target.value as IncomeType }))
+}
 
-  const handleTypeChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      dispatch(setFilter({ type: e.target.value as IncomeType }))
-    },
-    [dispatch]
-  )
+const handleAmountRangeChange = (e: React.ChangeEvent<HTMLInputElement>, type: "min" | "max") => {
+  const value = e.target.value ? Number(e.target.value) : ""
+  dispatch(setFilter({ [type === "min" ? "minAmount" : "maxAmount"]: value }))
+}
 
-  const handleAmountRangeChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>, type: "min" | "max") => {
-      const value = e.target.value ? Number(e.target.value) : null
-      dispatch(
-        setFilter({
-          [type === "min" ? "minAmount" : "maxAmount"]: value,
-        })
-      )
-    },
-    [dispatch]
-  )
-
-  const handleReset = () => {
-    // console.log("object")
-    dispatch(resetFilters())
-    // console.log("3")
-  }
-
+const handleReset = () => {
+  dispatch(resetFilters())
+}
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -78,6 +62,7 @@ const IncomeFilters = () => {
             Sort By
           </label>
           <select
+          value={sort}
             onChange={handleSortChange}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-800 dark:text-white">
             <option value="">Default</option>
@@ -94,6 +79,7 @@ const IncomeFilters = () => {
             Category
           </label>
           <select
+            value={category}
             onChange={handleCategoryChange}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-800 dark:text-white">
             <option value="">All Categories</option>
@@ -111,6 +97,7 @@ const IncomeFilters = () => {
             Type
           </label>
           <select
+            value={type}
             onChange={handleTypeChange}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-800 dark:text-white">
             <option value="">All Types</option>
@@ -126,6 +113,7 @@ const IncomeFilters = () => {
           </label>
           <div className="flex space-x-2">
             <input
+              value={minAmount}
               type="number"
               placeholder="Min"
               onChange={(e) => handleAmountRangeChange(e, "min")}
@@ -133,6 +121,7 @@ const IncomeFilters = () => {
               min="0"
             />
             <input
+              value={maxAmount}
               type="number"
               placeholder="Max"
               onChange={(e) => handleAmountRangeChange(e, "max")}

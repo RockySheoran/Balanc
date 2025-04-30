@@ -22,5 +22,10 @@ TransactionRouter.post(
   Middleware,
   TransactionController.deleteTransaction
 )
+TransactionRouter.post(
+  "/updateTransaction",
+  Middleware,
+  TransactionController.updateTransaction
+)
 
 export default TransactionRouter

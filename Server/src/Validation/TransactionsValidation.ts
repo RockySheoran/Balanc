@@ -20,6 +20,9 @@ const isValidDate = (date: string): boolean => {
 
 // 🎯 Transaction Schema Validation
 export const transactionSchema = z.object({
+  id: z.string().length(24, {
+    message: "Invalid transaction ID format - must be 24 characters",
+  }).optional(),
   accountId: z.string().length(24, {
     message: "Invalid Account ID format - must be 24 characters",
   }),

@@ -63,10 +63,13 @@ const IncomeCharts = memo(() => {
 
   const monthlyData = useMemo(() => {
     if (!rawMonthlyData) return []
-    return rawMonthlyData.map((item) => ({
+    console.log(rawCategoryData)
+    return rawMonthlyData.map((item) => (
+   
+      {
       ...item,
       income: Number(item.income.toFixed(2)),
-      expense: Number(item.expense.toFixed(2)),
+    
     }))
   }, [rawMonthlyData])
 
@@ -199,12 +202,7 @@ const IncomeCharts = memo(() => {
                     name="Income"
                     radius={[4, 4, 0, 0]}
                   />
-                  <Bar
-                    dataKey="expense"
-                    fill="#ec4899"
-                    name="Expense"
-                    radius={[4, 4, 0, 0]}
-                  />
+                
                 </BarChart>
               </ResponsiveContainer>
             ) : (

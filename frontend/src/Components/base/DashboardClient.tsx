@@ -1,102 +1,100 @@
 /** @format */
 
 // src/app/dashboard/DashboardClient.tsx
-"use client"
+"use client";
 
-import { useEffect, Suspense } from "react"
-import { signOut } from "next-auth/react"
-import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
-import { clearUser, setUser } from "@/lib/Redux/features/user/userSlice"
+import { useEffect, Suspense } from "react";
+import { signOut } from "next-auth/react";
+import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks";
+import { clearUser, setUser } from "@/lib/Redux/features/user/userSlice";
 import {
   addTransaction,
   clearTransactions,
-} from "@/lib/Redux/features/transactions/transactionsSlice"
+} from "@/lib/Redux/features/transactions/transactionsSlice";
 import {
   addExpense,
   clearExpense,
-} from "@/lib/Redux/features/expense/expenseSlice"
+} from "@/lib/Redux/features/expense/expenseSlice";
 import {
   addIncome,
   clearIncome,
-} from "@/lib/Redux/features/income/incomeSlices"
+} from "@/lib/Redux/features/income/incomeSlices";
 import {
   clearAccount,
   selectAccount,
   setAccounts,
-} from "@/lib/Redux/features/account/accountSlice"
+} from "@/lib/Redux/features/account/accountSlice";
 import {
-  
   addInvestment,
   clearInvestments,
-} from "@/lib/Redux/features/investmentSlice/investmentSlice"
+} from "@/lib/Redux/features/investmentSlice/investmentSlice";
 
-import { fetchAllTransactions } from "@/Actions/transactionActions/fetchAllTransactions"
-import { fetchAllInvestment } from "@/Actions/investmentApi/fetchAllInvestment"
-import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount"
+import { fetchAllTransactions } from "@/Actions/transactionActions/fetchAllTransactions";
+import { fetchAllInvestment } from "@/Actions/investmentApi/fetchAllInvestment";
+import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount";
 
-import { toast } from "sonner"
-import useSWR from "swr"
+import { toast } from "sonner";
+import useSWR from "swr";
 
 interface SessionProps {
   session: {
     user?: {
-      name?: string | null
-      email?: string | null
-      image?: string | null
-    }
-    token?: string
-  } | null
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+    token?: string;
+  } | null;
 }
 
 export default function DashboardClient({ session }: SessionProps) {
-  const dispatch = useAppDispatch()
+  const dispatch = useAppDispatch();
   const { allAccounts, selectedAccount } = useAppSelector(
     (state) => state.account
-  )
+  );
   const { expenseTransactions, incomeTransactions } = useAppSelector(
     (state) => state.transactions
-  )
+  );
 
   // Fetch accounts
   const { isLoading: isAccountsLoading } = useSWR(
     session?.token ? "accounts" : null,
     async () => {
-      const response = await getAllAccounts({ token: session?.token || "" })
+      const response = await getAllAccounts({ token: session?.token || "" });
       if (response?.status == 404 || !response?.data) {
-        toast.error(response?.message || "Failed to fetch accounts")
-        return null
+        toast.error(response?.message || "Failed to fetch accounts");
+        return null;
       }
-      return response.data
+      return response.data;
     },
     {
       revalidateOnFocus: false,
       shouldRetryOnError: false,
       revalidateOnReconnect: true,
       onSuccess: (data) => {
-        if(!data) return
-        dispatch(setAccounts(data))
+        if (!data) return;
+        dispatch(setAccounts(data));
         if (!selectedAccount && data?.length > 0) {
-          dispatch(selectAccount(data[0].id))
+          dispatch(selectAccount(data[0].id));
         }
-        toast.success("Accounts loaded successfully")
+        toast.success("Accounts loaded successfully");
       },
       onError: (err) => toast.error(err.message),
     }
-  )
+  );
 
   // Fetch transactions
   const { data: transactionsData, error: transactionsError } = useSWR(
     selectedAccount?.id ? `/api/transactions/${selectedAccount.id}` : null,
     async () => {
-     
       const response = await fetchAllTransactions({
         accountId: selectedAccount!.id,
-      })
-        if (response?.status == 404 || !response?.data) {
-          toast.error(response?.message || "Failed to fetch transactions")  
-          return null
-        }
-      return response.data
+      });
+      if (response?.status == 404 || !response?.data) {
+        toast.error(response?.message || "Failed to fetch transactions");
+        return null;
+      }
+      return response.data;
     },
     {
       revalidateOnFocus: false,
@@ -104,20 +102,20 @@ export default function DashboardClient({ session }: SessionProps) {
       revalidateOnReconnect: true,
       onSuccess: (data) => {
         // console.log(data)
-         if(!data) return
+        if (!data) return;
         if (data?.transactions) {
-          dispatch(clearTransactions())
+          dispatch(clearTransactions());
           data?.transactions?.forEach((transaction: any) => {
-            dispatch(addTransaction(transaction))
-          })
-          toast.success("Transactions loaded successfully")
+            dispatch(addTransaction(transaction));
+          });
+          toast.success("Transactions loaded successfully");
         } else {
-          toast.error("No transactions found")
+          toast.error("No transactions found");
         }
       },
       onError: (err) => toast.error(err.message),
     }
-  )
+  );
 
   // Fetch investments
   const { data: investmentData, error: investmentError } = useSWR(
@@ -125,48 +123,46 @@ export default function DashboardClient({ session }: SessionProps) {
     async () => {
       const response = await fetchAllInvestment({
         accountId: selectedAccount!.id,
-      })
-         if (response?.status == 404 || !response?.data) {
-           toast.error(response?.message || "Failed to fetch investment")
-           return null
-         }
-      return response.data.investments
+      });
+      if (response?.status == 404 || !response?.data) {
+        toast.error(response?.message || "Failed to fetch investment");
+        return null;
+      }
+      return response.data.investments;
     },
     {
       revalidateOnFocus: false,
       shouldRetryOnError: false,
       revalidateOnReconnect: true,
       onSuccess: async (data) => {
-               if (!data) return
-              dispatch(clearInvestments())
-              for (const inv of data) {
-               
-                dispatch(addInvestment(inv))
-                .unwrap()
-                .then(() => {
-                 toast.success("investment added")
-                })
-                .catch((error) => {
-                  console.error("Failed to add investment:", error);
-                });
-                
-              }
-              toast.success("Investments loaded successfully")
-            },
+        if (!data) return;
+        dispatch(clearInvestments());
+        for (const inv of data) {
+          dispatch(addInvestment(inv))
+            .unwrap()
+            .then(() => {
+              //  toast.success("investment added")
+            })
+            .catch((error) => {
+              console.error("Failed to add investment:", error);
+            });
+        }
+        toast.success("Investments loaded successfully");
+      },
       onError: (err) => toast.error("Failed to load investments"),
     }
-  )
+  );
 
   // Session effect
   useEffect(() => {
     if (!session) {
-      dispatch(clearUser())
-      dispatch(clearIncome())
-      dispatch(clearTransactions())
-      dispatch(clearExpense())
-      dispatch(clearAccount())
-      dispatch(clearInvestments())
-      signOut({ redirect: true, callbackUrl: "/login" })
+      dispatch(clearUser());
+      dispatch(clearIncome());
+      dispatch(clearTransactions());
+      dispatch(clearExpense());
+      dispatch(clearAccount());
+      dispatch(clearInvestments());
+      signOut({ redirect: true, callbackUrl: "/login" });
     } else {
       dispatch(
         setUser({
@@ -175,35 +171,35 @@ export default function DashboardClient({ session }: SessionProps) {
           email: session.user?.email || "",
           token: session.token || "",
         })
-      )
+      );
     }
-  }, [session, dispatch])
+  }, [session, dispatch]);
 
   // Debounce expenses update
   useEffect(() => {
     const timer = setTimeout(() => {
-      dispatch(clearExpense())
+      dispatch(clearExpense());
       expenseTransactions.forEach((transaction: any) => {
-        dispatch(addExpense(transaction))
-      })
-    }, 300)
+        dispatch(addExpense(transaction));
+      });
+    }, 300);
 
-    return () => clearTimeout(timer)
-  }, [expenseTransactions, dispatch])
+    return () => clearTimeout(timer);
+  }, [expenseTransactions, dispatch]);
 
   // Debounce income update
   useEffect(() => {
     const timer = setTimeout(() => {
-      dispatch(clearIncome())
+      dispatch(clearIncome());
       incomeTransactions?.forEach((transaction: any) => {
-        dispatch(addIncome(transaction))
-      })
-    }, 300)
+        dispatch(addIncome(transaction));
+      });
+    }, 300);
 
-    return () => clearTimeout(timer)
-  }, [incomeTransactions, dispatch])
+    return () => clearTimeout(timer);
+  }, [incomeTransactions, dispatch]);
 
-  return null
+  return null;
 }
 
 // Wrapper for Suspense support
@@ -212,5 +208,5 @@ export function DashboardServerWrapper({ session }: SessionProps) {
     <Suspense fallback={<div>Loading dashboard...</div>}>
       <DashboardClient session={session} />
     </Suspense>
-  )
+  );
 }

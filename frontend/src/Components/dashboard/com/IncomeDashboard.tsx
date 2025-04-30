@@ -174,7 +174,7 @@ const IncomeDashboard = () => {
           callbacks: {
             label: (context) => {
               const value = context.parsed.y ?? context.parsed
-              return ` ${value}: ${formatCurrency(value)}`
+              return ` ${formatCurrency(value)}`
             },
           },
           padding: 10,
@@ -256,7 +256,7 @@ const IncomeDashboard = () => {
       height="16"
       viewBox="0 0 24 24"
       fill="none"
-      className={trend === "up" ? "text-green-500" : "text-red-500"}>
+      className={trend === "up"   ? "text-green-500" : "text-red-500"}>
       <path
         d={trend === "up" ? "M5 15L12 8L19 15" : "M19 9L12 16L5 9"}
         stroke="currentColor"

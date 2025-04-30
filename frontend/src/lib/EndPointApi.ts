@@ -12,12 +12,21 @@ export const loginGoogleApi = `${Api}/api/auth/google`
 export const Check_loginApi = `${Api}/api/auth/check/credentials` 
 export const FORGOT_PASSWORD_URL = `${Api}/api/auth/forget-password` 
 export const RESET_PASSWORD_URL = `${Api}/api/auth/reset-password` 
+
+// here i am handle the user profile account
 export const CREATE_ACCOUNT_URL = `${Api}/api/account/createAccount` 
 export const GET_ALL_ACCOUNT_URL = `${Api}/api/account/getAccount` 
 export const DELETE_ACCOUNT_URL = `${Api}/api/account/accountDelete` 
+
+// here i am handle the user tranction account
+
 export const CREATE_TRANSACTION_URL = `${Api}/api/transaction/createTransaction` 
 export const ALL_TRANSACTION_URL = `${Api}/api/transaction/transactions` 
 export const DELETE_TRANSACTION_URL = `${Api}/api/transaction/deleteTransaction` 
+export const UPDATE_TRANSACTION_URL = `${Api}/api/transaction/updateTransaction`
+
+
+
 export const CREATE_INVEST_URL = `${Api}/api/investments/createInvestment` 
 export const ALL_INVEST_URL = `${Api}/api/investments/getAllInvestments` 
 export const UPDATE_INVEST_URL = `${Api}/api/investments/updateInvestment` 

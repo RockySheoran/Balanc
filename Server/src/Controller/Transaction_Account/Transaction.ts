@@ -234,10 +234,11 @@ console.log(userId,id)
 
       const userId = req.user.id
       const data = req.body
+      console.log(data,userId)
       const payload = await transactionSchema.parse(data)
-
+console.log(payload)
       // Verify transaction ownership
-      const transaction = await prisma.transaction.findUnique({ where: { id } })
+      const transaction = await prisma.transaction.findUnique({ where: { id :payload.id } })
       if (!transaction || transaction.userId !== userId) {
         return res.status(404).json({
           success: false,
@@ -258,18 +259,22 @@ console.log(userId,id)
       // Calculate balance adjustments
       let updatedBalance = account.balance || 0
       let updatedTotalExpense = account.totalExpense || 0
-
+      let income = account.income || 0
+console.log(updatedBalance,updatedTotalExpense,income)  
       // Reverse old transaction impact
       if (transaction.type === "CREDIT" || transaction.type === "INCOME") {
         updatedBalance -= transaction.amount
+        income -= transaction.amount
       } else {
         updatedBalance += transaction.amount
         updatedTotalExpense -= transaction.amount
+
       }
 
       // Apply new transaction impact
       if (payload.type === "CREDIT" || payload.type === "INCOME") {
         updatedBalance += payload.amount
+        income += payload.amount
       } else {
         updatedBalance -= payload.amount
         updatedTotalExpense += payload.amount
@@ -277,7 +282,7 @@ console.log(userId,id)
 
       // Update transaction and account
       const updatedTransaction = await prisma.transaction.update({
-        where: { id },
+        where: { id :payload.id },
         data: {
           accountId: payload.accountId,
           amount: payload.amount,
@@ -287,14 +292,15 @@ console.log(userId,id)
         },
       })
 
-      await prisma.account.update({
+    const  updatedAccount = await prisma.account.update({
         where: { id: transaction.accountId },
         data: {
           balance: updatedBalance,
           totalExpense: updatedTotalExpense,
+          income:income
         },
       })
-
+console.log(updatedAccount)
       // Invalidate relevant caches
       const multi = redisClient.multi()
       multi.del(`transactions:${transaction.accountId}`)
@@ -304,9 +310,10 @@ console.log(userId,id)
       return res.status(200).json({
         success: true,
         message: "Transaction updated successfully",
-        data: updatedTransaction,
+        data: {updatedTransaction,updatedAccount}
       })
     } catch (error) {
+      console.log(error)
       if (error instanceof ZodError) {
         const errors = await formatError(error)
         return res.status(422).json({ message: "Invalid Data", errors })
