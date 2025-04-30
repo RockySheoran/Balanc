@@ -22,6 +22,15 @@ export const metadata: Metadata = {
   },
   description: "Next.js with Redux Toolkit and TypeScript && A personal management finance app",
   metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
+  icons: {
+    icon: [
+      // { url: '/favicon.ico', sizes: 'any' },
+      { url: '/logo.png', type: 'image/png', sizes: '2x2'   },
+    ],
+    shortcut: [
+      { url: '/logo.png', type: 'image/png' },
+    ],
+  },
 }
 
 const inter = Inter({
@@ -45,7 +54,7 @@ export default async function RootLayout({
               {session && (
                 <>
                   <SideBarWrapper Session={session} />
-                  <RedirectToDashboard />
+                  {/* <RedirectToDashboard /> */}
                 </>
               )}
               <main className="flex-1 overflow-x-hidden md:mt-0">

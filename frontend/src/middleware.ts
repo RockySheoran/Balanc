@@ -19,7 +19,9 @@ export async function middleware(req: MiddlewareRequest): Promise<NextResponse> 
     "/transaction",
     "/income",
   ];
-
+  if (req.nextUrl.pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', req.url))
+  }
   // If trying to access protected route without token
   if (protectedRoutes.includes(pathname) && !token) {
     return NextResponse.redirect(`${origin}/login`);

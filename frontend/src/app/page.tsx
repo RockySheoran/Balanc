@@ -9,7 +9,6 @@ export default async function Home() {
     <div className="">
 
 
-      <h1 className="text-6xl">Home page</h1>
     </div>
   )
 }
