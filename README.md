@@ -12,6 +12,7 @@
 
 </div>
  Balanc is a comprehensive personal finance management application designed to help users track their income, expenses, investments, and transactions in one place. Built with modern web technologies, Balanc offers a seamless user experience with powerful visualization tools.
+ Balanc is a personal finance app that helps you track expenses, income, and investments in one place. Get clear insights into your spending habits and financial health with intuitive dashboards and smart analytics.
 
 
 ## Table of Contents
