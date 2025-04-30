@@ -35,7 +35,7 @@ app.get("/", asyncHandler(async (req, res) => {
     // console.log(html)
     await sendMail("rockysheoran1@gmail.com", "test", html);
     await emailQueue.add(emailQueueName, {
-        to: "rotoma4007@bankrau.com",
+        to: "rockysheoran1@gmail.com",
         subject: "Test",
         body: html,
     });

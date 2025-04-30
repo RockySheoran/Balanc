@@ -3,8 +3,8 @@
 import { useCallback } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import { motion } from "framer-motion"
-import { selectCategories, setFilter } from "@/lib/Redux/features/income/incomeSlices"
-import { resetFilters } from "@/lib/Redux/features/expense/expenseSlice"
+import { resetFilters, selectCategories, setFilter } from "@/lib/Redux/features/income/incomeSlices"
+
 
 
 type SortOption = "" | "asc" | "desc" | "date-asc" | "date-desc"

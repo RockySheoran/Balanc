@@ -25,6 +25,7 @@ import { addInvestmentAction, ApiResponse, getStockPrice } from "@/Actions/inves
 import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks";
 import { toast } from "sonner";
 import { addInvestmentToState } from "@/lib/Redux/features/investmentSlice/investmentSlice";
+import { popularStocks } from "./allStock-Array";
 
 
 export type InvestmentType = "STOCK" | "MUTUAL_FUND" | "CRYPTO";
@@ -39,7 +40,7 @@ const SubmitButton = () => {
     <Button
       type="submit"
       disabled={pending}
-      className="w-full sm:w-auto min-w-[120px]"
+      className="w-full cursor-pointer sm:w-auto min-w-[120px]"
     >
       {pending ? (
         <>
@@ -202,7 +203,7 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
         >
           <div className="flex justify-between items-start mb-4">
             <DialogHeader className="text-left p-0">
-              <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <DialogTitle className="text-xl  sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Add Investment
               </DialogTitle>
               <DialogDescription className="text-sm sm:text-base">
@@ -241,8 +242,8 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="STOCK">Stock</SelectItem>
-                    <SelectItem value="MUTUAL_FUND">Mutual Fund</SelectItem>
-                    <SelectItem value="CRYPTO">Cryptocurrency</SelectItem>
+                    {/* <SelectItem value="MUTUAL_FUND">Mutual Fund</SelectItem>
+                    <SelectItem value="CRYPTO">Cryptocurrency</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>
@@ -287,8 +288,8 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
                     <SelectItem value="all">All</SelectItem>
                     <SelectItem value="indian">Indian</SelectItem>
                     <SelectItem value="international">International</SelectItem>
-                    <SelectItem value="crypto">Crypto</SelectItem>
-                    <SelectItem value="mf">Mutual Funds</SelectItem>
+                    {/* <SelectItem value="crypto">Crypto</SelectItem>
+                    <SelectItem value="mf">Mutual Funds</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>
@@ -390,8 +391,8 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
                     <Input
                       name="buyPrice"
                       type="number"
-                      min="0.00000001"
-                      step="0.00000001"
+                      min="0.1"
+                      step="0.1"
                       value={formData.buyPrice || ""}
                       onChange={(e) =>
                         setFormData({
@@ -443,7 +444,7 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="w-full sm:w-auto"
+                className="w-full cursor-pointer sm:w-auto"
               >
                 Cancel
               </Button>
@@ -458,51 +459,6 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
 
 export default InvestmentForm;
 
-const popularStocks = [
-  // Indian Stocks (NSE)
-  { symbol: "RELIANCE.NS", name: "Reliance Industries Ltd" },
-  { symbol: "TCS.NS", name: "Tata Consultancy Services Ltd" },
-  { symbol: "HDFCBANK.NS", name: "HDFC Bank Ltd" },
-  { symbol: "ICICIBANK.NS", name: "ICICI Bank Ltd" },
-  { symbol: "INFY.NS", name: "Infosys Ltd" },
-  { symbol: "HINDUNILVR.NS", name: "Hindustan Unilever Ltd" },
-  { symbol: "ITC.NS", name: "ITC Ltd" },
-  { symbol: "SBIN.NS", name: "State Bank of India" },
-  { symbol: "BHARTIARTL.NS", name: "Bharti Airtel Ltd" },
-  { symbol: "LT.NS", name: "Larsen & Toubro Ltd" },
-  { symbol: "KOTAKBANK.NS", name: "Kotak Mahindra Bank Ltd" },
-  { symbol: "AXISBANK.NS", name: "Axis Bank Ltd" },
-  { symbol: "ASIANPAINT.NS", name: "Asian Paints Ltd" },
-  { symbol: "HCLTECH.NS", name: "HCL Technologies Ltd" },
-  { symbol: "MARUTI.NS", name: "Maruti Suzuki India Ltd" },
 
-  // US Stocks
-  { symbol: "AAPL", name: "Apple Inc" },
-  { symbol: "MSFT", name: "Microsoft Corporation" },
-  { symbol: "GOOGL", name: "Alphabet Inc (Google)" },
-  { symbol: "AMZN", name: "Amazon.com Inc" },
-  { symbol: "META", name: "Meta Platforms Inc (Facebook)" },
-  { symbol: "TSLA", name: "Tesla Inc" },
-  { symbol: "NVDA", name: "NVIDIA Corporation" },
-  { symbol: "JPM", name: "JPMorgan Chase & Co" },
-  { symbol: "V", name: "Visa Inc" },
-  { symbol: "WMT", name: "Walmart Inc" },
-
-  // Other International
-  { symbol: "005930.KS", name: "Samsung Electronics (Korea)" },
-  { symbol: "9984.T", name: "SoftBank Group (Japan)" },
-  { symbol: "BABA", name: "Alibaba Group (China)" },
-  { symbol: "TSM", name: "Taiwan Semiconductor (TSMC)" },
-  { symbol: "NESN.SW", name: "Nestlé (Switzerland)" },
-  { symbol: "HSBA.L", name: "HSBC Holdings (UK)" },
-  { symbol: "BP.L", name: "BP plc (UK)" },
-
-  // Cryptocurrencies
-  { symbol: "BTC-USD", name: "Bitcoin" },
-  { symbol: "ETH-USD", name: "Ethereum" },
-  { symbol: "BNB-USD", name: "Binance Coin" },
-  { symbol: "SOL-USD", name: "Solana" },
-  { symbol: "XRP-USD", name: "Ripple" },
-];
 
 

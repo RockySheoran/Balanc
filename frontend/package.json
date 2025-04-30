@@ -43,6 +43,7 @@
     "date-fns": "^3.6.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.6.2",
+    "intersection-observer": "^0.12.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.482.0",
     "luxon": "^3.6.1",

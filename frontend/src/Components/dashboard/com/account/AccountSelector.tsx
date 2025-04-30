@@ -420,7 +420,7 @@ export function AccountSelector() {
           //     <p className="text-red-600 dark:text-red-400">{error}</p>
           //   </div>
           // ) :
-          allAccounts === null ? (
+          allAccounts.length === 0 ? (
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 text-center">
               <p className="text-blue-600 dark:text-blue-400">
                 No accounts available. Create your first account!
