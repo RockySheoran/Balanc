@@ -66,7 +66,7 @@ type Filters = {
 const InvestmentManagement = () => {
   const dispatch = useAppDispatch();
   const { investments, status, filters } = useAppSelector(
-    (state: RootState) => state.investment
+    (state: RootState) => state.investments
   );
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(filters.searchTerm);

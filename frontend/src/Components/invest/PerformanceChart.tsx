@@ -316,9 +316,9 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
 
       if (successfulData.length === 0) {
         setError("Failed to load investment data. API limit may be reached.")
-        toast.error("Failed to load investment data", {
-          id: activeToastId.current,
-        })
+        // toast.error("Failed to load investment data", {
+        //   id: activeToastId.current,
+        // })
       } else if (failedSymbols.length > 0) {
         toast.warning(
           `Loaded ${successfulData.length} of ${activeInvestments.length} investments`,
@@ -331,18 +331,18 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
           }
         )
       } else {
-        toast.success("Investment data loaded successfully", {
-          id: activeToastId.current,
-        })
+        // toast.success("Investment data loaded successfully", {
+        //   id: activeToastId.current,
+        // })
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to load data"
       setError(errorMessage)
-      toast.error("Failed to load investment data", {
-        id: activeToastId.current,
-        description: errorMessage,
-      })
+      // toast.error("Failed to load investment data", {
+      //   id: activeToastId.current,
+      //   description: errorMessage,
+      // })
     } finally {
       setLoading(false)
     }

@@ -118,7 +118,7 @@ const DEFAULT_SUMMARY: PortfolioSummary = {
 
 const InvestmentTracker = () => {
   // State
-  const investments = useAppSelector((state) => state.investment.investments)
+  const investments = useAppSelector((state) => state.investments.investments)
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<PortfolioSummary>(DEFAULT_SUMMARY)
   const [timeRange, setTimeRange] = useState<TimeRange>("1mo")
@@ -421,9 +421,9 @@ const InvestmentTracker = () => {
 
       if (successfulData.length === 0) {
         setApiError("Failed to load investment data. API limit may be reached.")
-        toast.error("Failed to load investment data", {
-          id: activeToastId.current,
-        })
+        // toast.error("Failed to load investment data", {
+        //   id: activeToastId.current,
+        // })
       } else if (failedSymbols.length > 0) {
         toast.warning(
           `Loaded ${successfulData.length} of ${topInvestments.length} investments`,
@@ -436,16 +436,16 @@ const InvestmentTracker = () => {
           }
         )
       } else {
-        toast.success("Investment data loaded successfully")
+        // toast.success("Investment data loaded successfully")
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to load data"
       setApiError(errorMessage)
-      toast.error("Failed to load investment data", {
-        id: activeToastId.current,
-        description: errorMessage,
-      })
+      // toast.error("Failed to load investment data", {
+      //   id: activeToastId.current,
+      //   description: errorMessage,
+      // })
     } finally {
       setLoading(false)
     }

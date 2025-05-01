@@ -27,7 +27,7 @@ const rootReducer = combineReducers({
   transactions: transactionSlice,
   expenses: expenseReducer,
   income: incomeReducer,
-  investment: investmentReducer,
+  investments: investmentReducer,
 })
 
 const persistConfig = {
@@ -48,7 +48,7 @@ export const store = configureStore({
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
     }),
-  devTools: process.env.NODE_ENV !== "production",
+  
 })
 
 export const persistor = persistStore(store)

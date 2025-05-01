@@ -25,7 +25,7 @@ import { Investment } from "@/Components/invest/investment";
 
 export const FinancialAssistant = () => {
   const [open, setOpen] = useState(false);
-  const investments = useAppSelector((state) => state.investment.investments);
+  const investments = useAppSelector((state) => state.investments.investments);
   const [activeTab, setActiveTab] = useState("recommendations");
   const [isMobile, setIsMobile] = useState(false);
 
