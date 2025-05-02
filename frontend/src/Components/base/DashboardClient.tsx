@@ -25,7 +25,7 @@ import {
   setAccounts,
 } from "@/lib/Redux/features/account/accountSlice";
 import {
-  addInvestment,
+  addInvestments,
   clearInvestments,
 } from "@/lib/Redux/features/investmentSlice/investmentSlice";
 
@@ -137,16 +137,18 @@ export default function DashboardClient({ session }: SessionProps) {
       onSuccess: async (data) => {
         if (!data) return;
         dispatch(clearInvestments());
-        for (const inv of data) {
-          dispatch(addInvestment(inv))
-            .unwrap()
-            .then(() => {
-              //  toast.success("investment added")
-            })
-            .catch((error) => {
-              console.error("Failed to add investment:", error);
-            });
-        }
+        dispatch(addInvestments(data));
+        // for (const inv of data) {
+        //   dispatch(addInvestment(inv))
+        //     .unwrap()
+        //     .then(() => {
+        //       //  toast.success("investment added")
+        //     })
+        //     .catch((error) => {
+        //       console.error("Failed to add investment:", error);
+        //     });
+        // }
+
         toast.success("Investments loaded successfully");
       },
       onError: (err) => toast.error("Failed to load investments"),

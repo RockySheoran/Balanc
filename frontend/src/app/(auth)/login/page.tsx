@@ -2,9 +2,16 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { Suspense } from "react"
+import { Suspense, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
+import { useAppDispatch } from "@/lib/Redux/store/hooks"
+import { clearUser } from "@/lib/Redux/features/user/userSlice"
+import { clearIncome } from "@/lib/Redux/features/income/incomeSlices"
+import { clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
+import { clearExpense } from "@/lib/Redux/features/expense/expenseSlice"
+import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
+import { clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
 
 // Dynamic import with loading and error fallback
 const LoginForm = dynamic(
@@ -40,6 +47,16 @@ const LoginForm = dynamic(
 export default function LoginPage() {
   // const searchParams = useSearchParams()
   // const error = searchParams.get("error")
+  const dispatch = useAppDispatch()
+  
+  useEffect(()=>{
+        dispatch(clearUser())
+         dispatch(clearIncome())
+         dispatch(clearTransactions())
+         dispatch(clearExpense())
+         dispatch(clearAccount())
+         dispatch(clearInvestments())
+      },[])
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
