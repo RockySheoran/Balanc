@@ -6,6 +6,7 @@ import { Account, AccountState } from "./account"
 const initialState: AccountState = {
   allAccounts: [],
   selectedAccount: null,
+  previousedAccount: null,
   isLoading: false,
   error: null,
 }
@@ -25,6 +26,10 @@ export const accountSlice = createSlice({
     selectAccount: (state, action: PayloadAction<string>) => {
       const account = state.allAccounts?.find((acc) => acc.id === action.payload)
       state.selectedAccount = account || null
+    },
+    previousAccount: (state, action: PayloadAction<string>) => {
+      const account = state.allAccounts?.find((acc) => acc.id === action.payload)
+      state.previousedAccount = account || null
     },
 
     // Add new account
@@ -84,6 +89,8 @@ export const {
   updateAccount,
   deleteAccount,
   setLoading,
+  previousAccount,
+
   setError,
   resetSelectedAccount,
 } = accountSlice.actions

@@ -372,11 +372,9 @@ const investmentSlice = createSlice({
         }
       });
     },
-    clearInvestments: (state) => {
-      state.investments = [];
-      state.status = "idle";
-      state.error = null;
-    },
+    clearInvestments: () => initialState
+      
+    ,
     setFilter: (state, action: PayloadAction<Partial<Filters>>) => {
       state.filters = { ...state.filters, ...action.payload };
     },

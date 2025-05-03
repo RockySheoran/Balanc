@@ -45,7 +45,7 @@ export const fetchAllInvestment = async ({
         },
       }
     )
-    console.log(response) 
+    console.log(response.data) 
 
 
 

@@ -57,7 +57,7 @@ export default function LoginPage() {
          dispatch(clearAccount())
          dispatch(clearInvestments())
       },[])
-
+      
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
       <div className="w-full px-4 sm:px-10 max-w-[550px] py-5 mx-4 bg-white rounded-xl shadow-xl">

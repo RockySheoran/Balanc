@@ -52,7 +52,7 @@ export const fetchAllTransactions = async ({
         }
       }
     )
-    console.log(response)
+    console.log(response.data)
 
   
 

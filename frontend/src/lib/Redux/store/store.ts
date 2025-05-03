@@ -1,7 +1,5 @@
-/** @format */
-
 // lib/Redux/store/store.ts
-import { configureStore } from "@reduxjs/toolkit"
+import { configureStore } from "@reduxjs/toolkit";
 import {
   persistStore,
   persistReducer,
@@ -11,15 +9,17 @@ import {
   PERSIST,
   PURGE,
   REGISTER,
-} from "redux-persist"
-import storage from "./storage" // Use our custom storage
-import { combineReducers } from "redux"
-import userSlice from "../features/user/userSlice"
-import accountReducer from "../features/account/accountSlice"
-import transactionSlice from "../features/transactions/transactionsSlice"
-import expenseReducer from "../features/expense/expenseSlice"
-import incomeReducer from "../features/income/incomeSlices"
-import investmentReducer from "../features/investmentSlice/investmentSlice"
+} from "redux-persist";
+import storage from "./storage"; // Custom storage
+import { combineReducers } from "redux";
+// Import all your reducers
+import userSlice from "../features/user/userSlice";
+import accountReducer from "../features/account/accountSlice";
+import transactionSlice from "../features/transactions/transactionsSlice";
+import expenseReducer from "../features/expense/expenseSlice";
+import incomeReducer from "../features/income/incomeSlices";
+import investmentReducer from "../features/investmentSlice/investmentSlice";
+import investmentChartDataSlice from "../features/investmentSlice/investmentChartDataSlice";
 
 const rootReducer = combineReducers({
   user: userSlice,
@@ -28,17 +28,18 @@ const rootReducer = combineReducers({
   expenses: expenseReducer,
   income: incomeReducer,
   investments: investmentReducer,
-})
+  investmentChartData: investmentChartDataSlice
+});
 
 const persistConfig = {
   key: "root",
   version: 1,
-  storage, // Use our custom storage
-  // whitelist: ["user", "transactions"],
-  // timeout: 2000,
-}
+  storage,
+  // You might want to add whitelist/blacklist if needed
+  // whitelist: ['account', 'transactions'] 
+};
 
-const persistedReducer = persistReducer(persistConfig, rootReducer)
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: persistedReducer,
@@ -48,10 +49,9 @@ export const store = configureStore({
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
     }),
-  
-})
+});
 
-export const persistor = persistStore(store)
+export const persistor = persistStore(store);
 
-export type RootState = ReturnType<typeof store.getState>
-export type AppDispatch = typeof store.dispatch
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;

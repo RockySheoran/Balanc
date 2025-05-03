@@ -26,11 +26,12 @@ export const getAllAccounts = async({token}: { token: string })=>{
           headers: {
             Authorization: `${token}`,
             "Content-Type": "application/json",
+            "Cache-Control": "force-cache",
             
           },
         })
         
-        console.log(response)
+        console.log(response.data)
         
       
         return {

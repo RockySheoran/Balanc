@@ -37,8 +37,8 @@ export default function LogoutModal({
     dispatch(clearExpense())
     dispatch(clearAccount())
     dispatch(clearInvestments())
+    console.log('11111111111111111111111111111111111')
     signOut({ redirect: true, callbackUrl: "/login" })
-
   }
 
   const handleCancel = () => {

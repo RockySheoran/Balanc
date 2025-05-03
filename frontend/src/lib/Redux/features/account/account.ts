@@ -22,6 +22,7 @@ export interface Account {
 export interface AccountState {
   allAccounts: Account[]
   selectedAccount: Account | null
+  previousedAccount: Account | null
   isLoading: boolean
   error: string | null
 }
