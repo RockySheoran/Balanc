@@ -72,7 +72,7 @@ export default function DashboardClient({ session }: SessionProps) {
   }, []);
 
   // Determine if we should fetch data
-  const shouldFetchAccounts = isRehydratedRef.current && !initializedRef.current && session?.token && !allAccounts?.length;
+  const shouldFetchAccounts = isRehydratedRef.current && !initializedRef.current && session?.token || !allAccounts?.length;
   console.log(shouldFetchAccounts, "shouldFetchAccounts")
   const shouldFetchTransactions = isRehydratedRef.current && selectedAccount?.id && 
     (selectedAccount.id !== previousedAccount?.id || !transactions?.length);
