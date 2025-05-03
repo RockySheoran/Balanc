@@ -25,7 +25,7 @@ import {
 } from "@/Components/ui/select"
 import { Button } from "@/Components/ui/button"
 import { toast } from "sonner"
-import { Investment } from "@/Components/invest/investment"
+import { Investment } from "@/Components/investment/investment"
 import axios, { AxiosError } from "axios"
 import { format } from "date-fns"
 

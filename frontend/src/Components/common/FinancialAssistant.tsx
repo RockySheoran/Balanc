@@ -21,7 +21,7 @@ import {
 import { Skeleton } from "@/Components/ui/skeleton";
 import { useAppSelector } from "@/lib/Redux/store/hooks";
 import Link from "next/link";
-import { Investment } from "@/Components/invest/investment";
+import { Investment } from "@/Components/investment/investment";
 
 export const FinancialAssistant = () => {
   const [open, setOpen] = useState(false);

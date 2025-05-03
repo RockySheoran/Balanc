@@ -16,7 +16,7 @@ import { RiArrowUpDownLine } from "react-icons/ri";
 // Redux
 import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks";
 import {
-  addInvestment,
+  addInvestments,
   fetchStockPrice,
   setFilter,
 } from "@/lib/Redux/features/investmentSlice/investmentSlice";
