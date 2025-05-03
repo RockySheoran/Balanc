@@ -13,22 +13,25 @@ import {
 import storage from "./storage"; // Custom storage
 import { combineReducers } from "redux";
 // Import all your reducers
-import userSlice from "../features/user/userSlice";
-import accountReducer from "../features/account/accountSlice";
-import transactionSlice from "../features/transactions/transactionsSlice";
+
+import   accountSlice  from "../features/account/accountSlice";
+import  userSlice  from "../features/user/userSlice";
+import  transactionSlice  from "../features/transactions/transactionsSlice";
+import  chartDataSlice  from "../features/investmentSlice/investmentChartDataSlice";
 import expenseReducer from "../features/expense/expenseSlice";
 import incomeReducer from "../features/income/incomeSlices";
 import investmentReducer from "../features/investmentSlice/investmentSlice";
-import investmentChartDataSlice from "../features/investmentSlice/investmentChartDataSlice";
+
+
 
 const rootReducer = combineReducers({
   user: userSlice,
-  account: accountReducer,
+  account: accountSlice,
   transactions: transactionSlice,
   expenses: expenseReducer,
   income: incomeReducer,
   investments: investmentReducer,
-  investmentChartData: investmentChartDataSlice
+  investmentChartData: chartDataSlice
 });
 
 const persistConfig = {

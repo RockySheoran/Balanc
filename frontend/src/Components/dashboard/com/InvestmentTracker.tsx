@@ -38,9 +38,10 @@ import {
 import { Button } from "@/Components/ui/button"
 import { toast } from "sonner"
 import { Investment } from "@/Components/invest/investment"
-import { useAppSelector } from "@/lib/Redux/store/hooks"
+import { useAppSelector, useAppDispatch } from "@/lib/Redux/store/hooks"
 import axios, { AxiosError } from "axios"
 import { format, formatDistanceToNow, subDays } from "date-fns"
+import { setChartData as setReduxChartData, selectChartData } from "@/lib/Redux/features/investmentSlice/investmentChartDataSlice"
 
 // Register ChartJS components
 ChartJS.register(
@@ -116,28 +117,24 @@ const DEFAULT_SUMMARY: PortfolioSummary = {
   totalSold: 0,
 }
 
+interface CachedChartData {
+  data: any
+  timestamp: number
+}
+
 const InvestmentTracker = () => {
-  // State
+  const dispatch = useAppDispatch()
   const investments = useAppSelector((state) => state.investments.investments)
+  const reduxChartData = useAppSelector(selectChartData)
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<PortfolioSummary>(DEFAULT_SUMMARY)
   const [timeRange, setTimeRange] = useState<TimeRange>("1mo")
   const [interval, setInterval] = useState<Interval>("1d")
   const [apiError, setApiError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [chartData, setChartData] = useState<any[]>([])
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const activeToastId = useRef<string | null>(null)
-  const apiKeyStatus = useRef<
-    Record<
-      string,
-      {
-        valid: boolean
-        lastUsed: number
-        errorCount: number
-      }
-    >
-  >({})
+  const apiKeyStatus = useRef<Record<string, { valid: boolean; lastUsed: number; errorCount: number }>>({})
 
   // Filter out sold investments
   const activeInvestments = useMemo(
@@ -219,10 +216,12 @@ const InvestmentTracker = () => {
 
     const currentValue = activeInvestments.reduce(
       (sum, investment) =>
-        sum + (investment.sellPrice !== undefined ? (investment.currentValue || investment.buyPrice) * investment.quantity : 0), 0)
+        sum + (investment.currentValue || investment.buyPrice) * investment.quantity,
+      0
+    )
 
     const totalSold = soldInvestments.reduce(
-      (sum, investment) => sum + (investment.sellPrice? investment.sellPrice-investment.buyPrice  : 0) * investment.quantity,
+      (sum, investment) => sum + (investment.sellPrice ? (investment.sellPrice - investment.buyPrice) : 0) * investment.quantity,
       0
     )
 
@@ -254,19 +253,6 @@ const InvestmentTracker = () => {
     })
   }, [])
 
-  // Cache implementation
-  const chartDataCache = useMemo(
-    () =>
-      new Map<
-        string,
-        {
-          data: any
-          timestamp: number
-        }
-      >(),
-    []
-  )
-
   // Get the next available API key with smart rotation
   const getNextApiKey = useCallback(() => {
     // Filter out invalid keys (those with too many errors)
@@ -297,9 +283,9 @@ const InvestmentTracker = () => {
   const fetchStockChartData = useCallback(
     async (symbol: string): Promise<any> => {
       const cacheKey = `${symbol}-${timeRange}-${interval}`
-      const cachedData = chartDataCache.get(cacheKey)
-
-      // Return cached data if valid
+      
+      // Check Redux store first
+      const cachedData = reduxChartData[cacheKey]
       if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
         return cachedData.data
       }
@@ -342,11 +328,12 @@ const InvestmentTracker = () => {
             errorCount: 0,
           }
 
-          // Update cache
-          chartDataCache.set(cacheKey, {
+          // Update Redux store with new data
+          const newChartData = {
             data: response.data,
             timestamp: Date.now(),
-          })
+          }
+          dispatch(setReduxChartData({ key: cacheKey, data: newChartData }))
 
           return response.data
         } catch (error) {
@@ -356,7 +343,7 @@ const InvestmentTracker = () => {
             (error.response?.status === 429 || error.response?.status === 403)
 
           // Update key status on failure
-          if (apiKeyStatus.current[apiKey]) {
+          if (apiKey && apiKeyStatus.current[apiKey]) {
             apiKeyStatus.current[apiKey] = {
               ...apiKeyStatus.current[apiKey],
               valid: !isRateLimit,
@@ -378,7 +365,7 @@ const InvestmentTracker = () => {
 
       throw new Error("Failed to fetch data after multiple attempts")
     },
-    [API_KEYS, timeRange, interval, chartDataCache, getNextApiKey]
+    [API_KEYS, timeRange, interval, getNextApiKey, reduxChartData, dispatch]
   )
 
   // Fetch all investment data with error handling
@@ -392,7 +379,6 @@ const InvestmentTracker = () => {
       }
 
       if (!hasInvestments) {
-        setChartData([])
         calculateSummary([])
         setInitialLoadComplete(true)
         return
@@ -414,16 +400,12 @@ const InvestmentTracker = () => {
         }
       })
 
-      setChartData(successfulData)
       calculateSummary(investments) // Calculate summary for all investments (including sold ones)
       setLastUpdated(new Date())
       setInitialLoadComplete(true)
 
       if (successfulData.length === 0) {
         setApiError("Failed to load investment data. API limit may be reached.")
-        // toast.error("Failed to load investment data", {
-        //   id: activeToastId.current,
-        // })
       } else if (failedSymbols.length > 0) {
         toast.warning(
           `Loaded ${successfulData.length} of ${topInvestments.length} investments`,
@@ -435,17 +417,11 @@ const InvestmentTracker = () => {
                 : `Failed to load: ${failedSymbols.join(", ")}`,
           }
         )
-      } else {
-        // toast.success("Investment data loaded successfully")
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to load data"
       setApiError(errorMessage)
-      // toast.error("Failed to load investment data", {
-      //   id: activeToastId.current,
-      //   description: errorMessage,
-      // })
     } finally {
       setLoading(false)
     }
@@ -462,91 +438,104 @@ const InvestmentTracker = () => {
     fetchAllData()
   }, [fetchAllData])
 
-  // Chart data preparation
-  const lineChartData = useMemo(() => {
-    if (!hasInvestments || chartData.length === 0) {
-      return {
-        labels: ["No Data"],
-        datasets: [
-          {
-            label: "No Investments",
-            data: [1],
-            borderColor: "#cccccc",
-            backgroundColor: "#f0f0f0",
-            borderWidth: 1,
-          },
-        ],
-      }
-    }
+// In your component, update the lineChartData memoization:
 
-    const referenceTimestamps =
-      chartData[0]?.chart?.result?.[0]?.timestamp || []
-
-    const formatLabel = (timestamp: number) => {
-      const date = new Date(timestamp * 1000)
-      switch (timeRange) {
-        case "1d":
-          return format(date, "HH:mm")
-        case "5d":
-        case "1mo":
-          return format(date, "MMM dd")
-        case "3mo":
-        case "6mo":
-          return format(date, "MMM")
-        default:
-          return format(date, "MMM yyyy")
-      }
-    }
-
+const lineChartData = useMemo(() => {
+  if (!hasInvestments) {
     return {
-      labels: referenceTimestamps.map(formatLabel),
-      datasets: chartData.map((data, index) => {
-        const result = data.chart.result[0]
-        const meta = result.meta
-        const quotes = result.indicators.quote[0]
-        const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
+      labels: ["No Data"],
+      datasets: [
+        {
+          label: "No Investments",
+          data: [1],
+          borderColor: "#cccccc",
+          backgroundColor: "#f0f0f0",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }
 
+  // Safely get data from Redux store
+  const chartData = topInvestments.map(inv => {
+    const cacheKey = `${inv.symbol}-${timeRange}-${interval}`;
+    return reduxChartData?.[cacheKey]?.data || null; // Added null check
+  }).filter(Boolean);
+
+  if (chartData.length === 0) {
+    return {
+      labels: ["Loading..."],
+      datasets: topInvestments.map((inv, index) => ({
+        label: `${inv.symbol} - Loading...`,
+        data: [],
+        borderColor: COLOR_PALETTE[index % COLOR_PALETTE.length],
+        backgroundColor: `${COLOR_PALETTE[index % COLOR_PALETTE.length]}20`,
+        borderWidth: 2,
+      })),
+    };
+  }
+
+  // Use first valid dataset as reference
+  const referenceTimestamps = chartData[0]?.chart?.result?.[0]?.timestamp || [];
+
+  const formatLabel = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    switch (timeRange) {
+      case "1d": return format(date, "HH:mm");
+      case "5d":
+      case "1mo": return format(date, "MMM dd");
+      case "3mo":
+      case "6mo": return format(date, "MMM");
+      default: return format(date, "MMM yyyy");
+    }
+  };
+
+  return {
+    labels: referenceTimestamps.map(formatLabel),
+    datasets: topInvestments.map((inv, index) => {
+      const cacheKey = `${inv.symbol}-${timeRange}-${interval}`;
+      const data = reduxChartData?.[cacheKey]?.data; // Safe access
+      const color = COLOR_PALETTE[index % COLOR_PALETTE.length];
+
+      if (!data) {
         return {
-          label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${
-            meta.shortName.length > 15 ? "..." : ""
-          }`,
-          data: quotes.close,
+          label: `${inv.symbol} - Loading...`,
+          data: [],
           borderColor: color,
           backgroundColor: `${color}20`,
           borderWidth: 2,
-          pointRadius: timeRange === "1d" ? 3 : 0,
-          tension: 0.1,
-          fill: { target: "origin", above: `${color}10` },
-        }
-      }),
-    }
-  }, [chartData, timeRange, hasInvestments])
+        };
+      }
 
-  // const pieChartData = useMemo(
-  //   () => ({
-  //     labels: hasInvestments
-  //       ? topInvestments.map((inv) => inv.symbol)
-  //       : ["No Investments"],
-  //     datasets: [
-  //       {
-  //         data: hasInvestments
-  //           ? topInvestments.map(
-  //               (inv) => (inv.currentValue || inv.buyPrice) * inv.quantity
-  //             )
-  //           : [1],
-  //         backgroundColor: hasInvestments
-  //           ? topInvestments.map(
-  //               (_, i) => COLOR_PALETTE[i % COLOR_PALETTE.length]
-  //             )
-  //           : ["#cccccc"],
-  //         borderWidth: 1,
-  //       },
-  //     ],
-  //   }),
-  //   [topInvestments, hasInvestments]
-  // )
+      const result = data.chart?.result?.[0];
+      if (!result) {
+        return {
+          label: `${inv.symbol} - Invalid Data`,
+          data: [],
+          borderColor: color,
+          backgroundColor: `${color}20`,
+          borderWidth: 2,
+        };
+      }
 
-  // console.log(pieChartData)
+      const meta = result.meta;
+      const quotes = result.indicators?.quote?.[0];
+
+      return {
+        label: `${meta?.symbol || inv.symbol} - ${meta?.shortName?.substring(0, 15) || ''}${
+          meta?.shortName?.length > 15 ? "..." : ""
+        }`,
+        data: quotes?.close || [],
+        borderColor: color,
+        backgroundColor: `${color}20`,
+        borderWidth: 2,
+        pointRadius: timeRange === "1d" ? 3 : 0,
+        tension: 0.1,
+        fill: { target: "origin", above: `${color}10` },
+      };
+    }),
+  };
+}, [topInvestments, timeRange, interval, hasInvestments, reduxChartData]);
   const pieChartData = useMemo(() => {
     if (!hasInvestments) {
       return {
@@ -580,52 +569,7 @@ const InvestmentTracker = () => {
       ],
     }
   }, [topInvestments, hasInvestments])
-  // const chartOptions = useMemo(
-  //   () => ({
-  //     responsive: true,
-  //     maintainAspectRatio: false,
-  //     plugins: {
-  //       legend: {
-  //         position: "bottom" as const,
-  //         labels: {
-  //           boxWidth: 12,
-  //           padding: 20,
-  //           usePointStyle: true,
-  //           font: {
-  //             size: window.innerWidth < 768 ? 10 : 12,
-  //           },
-  //         },
-  //       },
-  //       tooltip: {
-  //         callbacks: {
-  //           label: (context: any) => {
-  //             const label = context.dataset.label || ""
-  //             const value = context.parsed.y
-  //             const currency = context.dataset.label?.includes(".NS")
-  //               ? "INR"
-  //               : "USD"
 
-  //             return value !== null
-  //               ? `${label}: ${new Intl.NumberFormat("en-US", {
-  //                   style: "currency",
-  //                   currency,
-  //                 }).format(value)}`
-  //               : label
-  //           },
-  //         },
-  //       },
-  //     },
-  //     interaction: {
-  //       mode: "nearest" as const,
-  //       axis: "x" as const,
-  //       intersect: false,
-  //     },
-  //   }),
-  //   []
-  // )
-
-  // Event handlers
-  
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -650,7 +594,6 @@ const InvestmentTracker = () => {
             const total = dataset.data.reduce((acc: number, data: number) => acc + data, 0)
             const percentage = Math.round((value / total) * 100)
             
-            // For pie chart, show both value and percentage
             if (context.chart.config.type === 'pie') {
               const investment = topInvestments[context.dataIndex]
               const currency = investment?.symbol?.includes(".NS") ? "INR" : "USD"
@@ -663,7 +606,6 @@ const InvestmentTracker = () => {
               ]
             }
             
-            // For line chart, keep original behavior
             return `${label}: ${new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: label.includes(".NS") ? "INR" : "USD",
@@ -679,16 +621,9 @@ const InvestmentTracker = () => {
     },
   }), [topInvestments])
 
-  
-  
   const handleRefresh = useCallback(() => {
-    // Clear cache for current range/interval
-    topInvestments.forEach((inv) => {
-      const cacheKey = `${inv.symbol}-${timeRange}-${interval}`
-      chartDataCache.delete(cacheKey)
-    })
     fetchAllData()
-  }, [fetchAllData, topInvestments, timeRange, interval, chartDataCache])
+  }, [fetchAllData])
 
   const handleRangeChange = useCallback((value: TimeRange) => {
     setTimeRange(value)
@@ -886,7 +821,6 @@ const InvestmentTracker = () => {
                     tooltip: {
                       callbacks: {
                         ...chartOptions.plugins?.tooltip?.callbacks,
-                        // Add additional tooltip formatting for pie chart
                         afterLabel: (context: any) => {
                           const investment = topInvestments[context.dataIndex]
                           return investment?.name || ''
@@ -905,17 +839,17 @@ const InvestmentTracker = () => {
       )}
       {/* Holdings Table */}
       <HoldingsTable
-        investments={investments} // Show all investments including sold ones
+        investments={investments}
         formatCurrency={formatCurrency}
         formatPercentage={formatPercentage}
-        hasInvestments={investments.length > 0} // Check all investments, not just active ones
+        hasInvestments={investments.length > 0}
         loading={showLoadingState}
       />
     </div>
   )
 }
 
-// Sub-components (keep the same as before)
+// Sub-components (remain the same as in your original code)
 interface SummaryCardProps {
   title: string
   value: number
