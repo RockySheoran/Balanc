@@ -138,15 +138,7 @@ const InvestmentTracker = () => {
       }
     >
   >({})
-  useEffect(()=>{
-    if(investments.length > 0){
-      setLoading(false)
-    }
-    else{
-      setLoading(true)
-    }
 
-  },[investments])
 
   // Filter out sold investments
   const activeInvestments = useMemo(
