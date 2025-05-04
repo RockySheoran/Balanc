@@ -138,6 +138,15 @@ const InvestmentTracker = () => {
       }
     >
   >({})
+  useEffect(()=>{
+    if(investments.length > 0){
+      setLoading(false)
+    }
+    else{
+      setLoading(true)
+    }
+
+  },[investments])
 
   // Filter out sold investments
   const activeInvestments = useMemo(
@@ -384,7 +393,7 @@ const InvestmentTracker = () => {
   // Fetch all investment data with error handling
   const fetchAllData = useCallback(async () => {
     try {
-      setLoading(true)
+      // setLoading(true) // Show loading state
       setApiError(null)
 
       if (activeToastId.current) {
