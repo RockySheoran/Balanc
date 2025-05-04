@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     default: "BALANC",
     template: "%s | BALANC",
   },
-  description: "Next.js with Redux Toolkit and TypeScript && A personal management finance app",
+  description: "A personal management finance app",
   metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
   icons: {
     icon: [
@@ -30,6 +30,14 @@ export const metadata: Metadata = {
     shortcut: [
       { url: '/logo.png', type: 'image/png' },
     ],
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: process.env.NEXTAUTH_URL,
+    title: "BALANC",
+    description: "A personal management finance app",
+    siteName: "BALANC",
   },
 }
 

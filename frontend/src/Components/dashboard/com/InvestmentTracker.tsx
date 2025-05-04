@@ -90,7 +90,7 @@ const INTERVAL_OPTIONS = [
 ] as const
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
-const API_RETRY_DELAY = 500 // 0.5 second between retries
+const API_RETRY_DELAY = 700 // 0.5 second between retries
 const MAX_RETRIES_PER_KEY = 2 // Max retries per API key
 
 type TimeRange = (typeof RANGE_OPTIONS)[number]["value"]

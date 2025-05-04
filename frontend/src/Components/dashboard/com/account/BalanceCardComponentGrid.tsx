@@ -6,13 +6,18 @@ import dynamic from "next/dynamic"
 import { useAppSelector } from "@/lib/Redux/store/hooks"
 import { Skeleton } from "@/Components/ui/skeleton"
 import { Card } from "./Card"
+import { AccountSelectorSkeleton } from "@/Components/ui/AccountSkeleton"
+
 // import { AccountSelector } from "./AccountSelector"
 
+
 // Lazy load AccountSelector (actual performance gain)
-const AccountSelector = dynamic(
-  () => import("./AccountSelector").then((mod) => mod.AccountSelector),
+const AccountSelector = dynamic(() => import("./AccountSelector").then((mod) => mod.AccountSelector),
   {
-    loading: () => <Skeleton className="h-10 w-48 rounded-md" />,
+    loading: () =>  <div className="min-h-[400px]">
+    <AccountSelectorSkeleton />
+  </div>,
+    // loading:()=><div className=""><h1 className="text-4xl">Loadingn</h1></div>,
     ssr: false,
   }
 )
@@ -22,6 +27,7 @@ export const BalanceCardComponent = () => {
   // console.log(selectedAccount)
   const cards = useMemo(() => {
     if (!selectedAccount) return []
+
     return [
       {
         title: "Total Balance",
@@ -65,9 +71,9 @@ export const BalanceCardComponent = () => {
   return (
     <div className="mt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <div className="w-full flex justify-end mb-6">
-        {/* <Suspense fallback={useSkeleton("h-96")}> */}
+        <Suspense>
           <AccountSelector />
-        {/* </Suspense> */}
+        </Suspense>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

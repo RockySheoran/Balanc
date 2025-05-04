@@ -135,7 +135,7 @@ export default function DashboardClient({ session }: SessionProps) {
           if (selectedAccount?.id) {
             dispatch(previousAccount(selectedAccount.id));
           }
-        toast
+        toast.success("Transactions fetched successfully");
       },
       onError: (err) => {
         console.error("Transactions error:", err);

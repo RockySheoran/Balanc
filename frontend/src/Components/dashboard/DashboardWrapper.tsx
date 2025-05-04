@@ -4,6 +4,7 @@
 import dynamic from "next/dynamic"
 import React, { Suspense, useMemo } from "react"
 
+
 const BalanceCardComponent = dynamic(() =>
   import("./com/account/BalanceCardComponentGrid").then((mod) => ({
     default: mod.BalanceCardComponent,
@@ -51,7 +52,6 @@ export default function DashboardWrapper() {
 
         <Suspense fallback={useSkeleton("h-64")}>
           <BalanceCardComponent />
-       
         </Suspense>
 
         <Suspense fallback={useSkeleton("h-64")}>

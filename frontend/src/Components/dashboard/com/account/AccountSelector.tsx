@@ -1,8 +1,14 @@
 /** @format */
 
-import { useEffect, useState, useMemo, useCallback, useActionState } from "react"
-import { useFormStatus } from "react-dom"
-import { Button } from "@/Components/ui/button"
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useActionState,
+} from "react";
+import { useFormStatus } from "react-dom";
+import { Button } from "@/Components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,45 +17,44 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogDescription,
-} from "@/Components/ui/dialog"
-import { Input } from "@/Components/ui/input"
-import { Label } from "@/Components/ui/label"
-import { PlusIcon, ChevronDownIcon, Trash2Icon } from "./Icons"
-import { CreateAccountAction } from "@/Actions/AccountActions/CreateAccountAction"
-import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount"
-import { deleteAccountAction } from "@/Actions/AccountActions/deleteAccountAction"
-import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks"
+} from "@/Components/ui/dialog";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import { PlusIcon, ChevronDownIcon, Trash2Icon } from "./Icons";
+import { CreateAccountAction } from "@/Actions/AccountActions/CreateAccountAction";
+import { getAllAccounts } from "@/Actions/AccountActions/getAllAccount";
+import { deleteAccountAction } from "@/Actions/AccountActions/deleteAccountAction";
+import { useAppDispatch, useAppSelector } from "@/lib/Redux/store/hooks";
 import {
   addAccount,
   selectAccount,
   deleteAccount,
   setAccounts,
   resetSelectedAccount,
-} from "@/lib/Redux/features/account/accountSlice"
+} from "@/lib/Redux/features/account/accountSlice";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/Components/ui/select"
-import { Skeleton } from "@/Components/ui/skeleton"
-import useSWR from "swr"
-import { toast } from "sonner"
-
+} from "@/Components/ui/select";
+import { Skeleton } from "@/Components/ui/skeleton";
+import useSWR from "swr";
+import { toast } from "sonner";
 
 const ACCOUNT_TYPES = [
   { value: "SAVINGS", label: "Savings", color: "text-emerald-500" },
   { value: "CHECKING", label: "Checking", color: "text-blue-500" },
   { value: "CREDIT", label: "Credit", color: "text-amber-500" },
   { value: "INVESTMENT", label: "Investment", color: "text-purple-500" },
-] as const
+] as const;
 
 interface FormState {
-  message: string
-  status: number
-  errors: Record<string, string[]>
-  data:  null
+  message: string;
+  status: number;
+  errors: Record<string, string[]>;
+  data: null;
 }
 
 const initialState: FormState = {
@@ -57,40 +62,43 @@ const initialState: FormState = {
   status: 0,
   errors: {},
   data: null,
-}
+};
 
 export function AccountSelector() {
-  const dispatch = useAppDispatch()
+  const dispatch = useAppDispatch();
   const { allAccounts, selectedAccount, isLoading, error } = useAppSelector(
     (state) => state.account
-  )
-  
+  );
+
   useEffect(() => {
     if (allAccounts == null) {
       const timer = setTimeout(() => {
-        dispatch(resetSelectedAccount())
-      }, 5000) // 4 seconds delay
+        dispatch(resetSelectedAccount());
+      }, 5000); // 4 seconds delay
 
       // Cleanup function to clear the timeout if component unmounts
-      return () => clearTimeout(timer)
+      return () => clearTimeout(timer);
     }
-  }, [allAccounts, dispatch])
-  
-  const { token } = useAppSelector((state) => state.user)
-  const { pending } = useFormStatus()
+  }, [allAccounts, dispatch]);
+
+  const { token } = useAppSelector((state) => state.user);
+  const { pending } = useFormStatus();
 
   // State management
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [state, formAction,isPending] = useActionState(CreateAccountAction, initialState)
-  const[delteLoading,setDeleteLoding] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [state, formAction, isPending] = useActionState(
+    CreateAccountAction,
+    initialState
+  );
+  const [delteLoading, setDeleteLoding] = useState(false);
 
   // Memoized account type color mapping
   const getTypeColor = useMemo(
     () => (type: string) =>
       ACCOUNT_TYPES.find((t) => t.value === type)?.color || "text-gray-500",
     []
-  )
+  );
 
   // // Account data fetching with SWR
   // const { isLoading: isAccountsLoading } = useSWR(
@@ -99,7 +107,7 @@ export function AccountSelector() {
   //     try {
   //       if (token === "") {
   //         toast.error("Token is required to fetch accounts")
-  //         return  
+  //         return
   //       }
   //       console.log(
   //         "111111111111111111111111111111111111111111111111111111111"
@@ -136,71 +144,71 @@ export function AccountSelector() {
 
   // Handle form submission response
   useEffect(() => {
-    if (!state) return
+    if (!state) return;
 
     if (state.status === 500) {
-      toast.error(state.message)
+      toast.error(state.message);
     } else if (state.status === 200) {
-      toast.success(state.message)
+      toast.success(state.message);
       if (state.data) {
-        dispatch(addAccount(state.data.data))
-        dispatch(selectAccount(state.data.data.id))
-        setIsCreateDialogOpen(false)
+        dispatch(addAccount(state.data.data));
+        dispatch(selectAccount(state.data.data.id));
+        setIsCreateDialogOpen(false);
       }
     }
-  }, [state, dispatch])
+  }, [state, dispatch]);
 
   // Delete account handler
   const handleDeleteAccount = useCallback(async () => {
-    if (!selectedAccount || !token) return
+    if (!selectedAccount || !token) return;
 
     try {
       setDeleteLoding(true);
       const response = await deleteAccountAction({
         accountId: selectedAccount.id,
         token,
-      })
-  // console.log(response)
+      });
+      // console.log(response)
       if (response.status === 200) {
-        dispatch(deleteAccount(selectedAccount.id))
-        toast.success(`Account "${selectedAccount.name}" deleted`)
+        dispatch(deleteAccount(selectedAccount.id));
+        toast.success(`Account "${selectedAccount.name}" deleted`);
 
         // Select another account if available
         if (allAccounts?.length > 1) {
           const remainingAccounts = allAccounts.filter(
             (acc) => acc.id !== selectedAccount.id
-          )
+          );
           if (remainingAccounts?.length > 0) {
-            dispatch(selectAccount(remainingAccounts[0].id))
+            dispatch(selectAccount(remainingAccounts[0].id));
           }
         }
       } else {
-        toast.error(response.message || "Failed to delete account")
+        toast.error(response.message || "Failed to delete account");
       }
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "An unknown error occurred"
-      )
+      );
     } finally {
-      setIsDeleteDialogOpen(false)
-      setDeleteLoding(false)
+      setIsDeleteDialogOpen(false);
+      setDeleteLoding(false);
     }
-  }, [selectedAccount, allAccounts, dispatch, token])
+  }, [selectedAccount, allAccounts, dispatch, token]);
 
   // Memoized account options
   const accountOptions = useMemo(
     () =>
-      
       allAccounts?.map((account) => (
         <option
           key={account.id}
           value={account.id}
-          className={`${getTypeColor(account.type)} bg-white dark:bg-gray-800`}>
+          className={`${getTypeColor(account.type)} bg-white dark:bg-gray-800`}
+        >
           {account.name} ({account.type})
         </option>
       )),
     [allAccounts, getTypeColor]
-  )
+  );
 
   // Loading state
   // if (!allAccounts || allAccounts.length === 0) {
@@ -209,7 +217,7 @@ export function AccountSelector() {
   //       <Skeleton className="h-10 w-1/3 rounded-md" />
   //       <Skeleton className="h-20 w-full rounded-md" />
   //     </div>
-  //   )  
+  //   )
   // }
 
   return (
@@ -224,12 +232,14 @@ export function AccountSelector() {
           {/* Create Account Dialog */}
           <Dialog
             open={isCreateDialogOpen}
-            onOpenChange={setIsCreateDialogOpen}>
+            onOpenChange={setIsCreateDialogOpen}
+          >
             <DialogTrigger asChild>
               <Button
                 variant="default"
                 className="w-full cursor-pointer sm:w-auto shadow-md hover:shadow-lg transition-shadow"
-                aria-label="Create new account">
+                aria-label="Create new account"
+              >
                 <PlusIcon className="mr-2 h-4 w-4" />
                 <span>New Account</span>
               </Button>
@@ -244,11 +254,13 @@ export function AccountSelector() {
                 action={(formData) =>
                   formAction({ formData, token: token || "" })
                 }
-                className="space-y-4">
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <Label
                     htmlFor="name"
-                    className="text-gray-700 dark:text-gray-300">
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     Account Name
                   </Label>
                   <Input
@@ -269,13 +281,15 @@ export function AccountSelector() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="type"
-                    className="text-gray-700 dark:text-gray-300">
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     Account Type
                   </Label>
                   <Select name="type" required>
                     <SelectTrigger
                       className="w-full focus:ring-2 focus:ring-primary/50"
-                      aria-label="Account type">
+                      aria-label="Account type"
+                    >
                       <SelectValue placeholder="Select account type" />
                     </SelectTrigger>
                     <SelectContent className="rounded-md border border-gray-200 dark:border-gray-700 shadow-lg">
@@ -283,7 +297,8 @@ export function AccountSelector() {
                         <SelectItem
                           key={type.value}
                           value={type.value}
-                          className={`${type.color} hover:bg-gray-100 dark:hover:bg-gray-800`}>
+                          className={`${type.color} hover:bg-gray-100 dark:hover:bg-gray-800`}
+                        >
                           {type.label}
                         </SelectItem>
                       ))}
@@ -301,7 +316,8 @@ export function AccountSelector() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="border-gray-300 cursor-pointer dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800">
+                      className="border-gray-300 cursor-pointer dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
                       Cancel
                     </Button>
                   </DialogTrigger>
@@ -309,7 +325,8 @@ export function AccountSelector() {
                     type="submit"
                     disabled={isPending}
                     className="bg-gradient-to-r cursor-pointer from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all"
-                    aria-disabled={isPending}>
+                    aria-disabled={isPending}
+                  >
                     {isPending ? (
                       <span className="flex items-center">
                         <LoadingSpinner />
@@ -328,14 +345,16 @@ export function AccountSelector() {
           {selectedAccount && (
             <Dialog
               open={isDeleteDialogOpen}
-              onOpenChange={setIsDeleteDialogOpen}>
+              onOpenChange={setIsDeleteDialogOpen}
+            >
               <DialogTrigger asChild>
                 <Button
                   variant="destructive"
                   onClick={() => setIsDeleteDialogOpen(true)}
                   disabled={allAccounts?.length < 1}
                   className="w-full sm:w-auto cursor-pointer shadow-md hover:shadow-lg transition-shadow"
-                  aria-label="Delete account">
+                  aria-label="Delete account"
+                >
                   <Trash2Icon className="mr-2 h-4 w-4" />
                   <span>Delete Account</span>
                 </Button>
@@ -367,7 +386,8 @@ export function AccountSelector() {
                     <div
                       className={`font-medium ${getTypeColor(
                         selectedAccount.type
-                      )}`}>
+                      )}`}
+                    >
                       {selectedAccount.type}
                     </div>
 
@@ -388,7 +408,8 @@ export function AccountSelector() {
                   <Button
                     variant="outline"
                     className="cursor-pointer"
-                    onClick={() => setIsDeleteDialogOpen(false)}>
+                    onClick={() => setIsDeleteDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
 
@@ -396,7 +417,8 @@ export function AccountSelector() {
                     className="cursor-pointer"
                     variant="destructive"
                     onClick={handleDeleteAccount}
-                    aria-label="Confirm account deletion">
+                    aria-label="Confirm account deletion"
+                  >
                     {delteLoading ? "Deleting.... " : "Delete Account"}
                   </Button>
                 </DialogFooter>
@@ -435,7 +457,8 @@ export function AccountSelector() {
                 value={selectedAccount?.id || ""}
                 onChange={(e) => dispatch(selectAccount(e.target.value))}
                 className="appearance-none block w-full px-4 py-3 pr-10 text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all cursor-pointer"
-                aria-label="Select account">
+                aria-label="Select account"
+              >
                 {accountOptions}
               </select>
             </div>
@@ -462,7 +485,8 @@ export function AccountSelector() {
                 <span
                   className={`font-medium ${getTypeColor(
                     selectedAccount.type
-                  )}`}>
+                  )}`}
+                >
                   {selectedAccount.type}
                 </span>
               </div>
@@ -483,7 +507,7 @@ export function AccountSelector() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // Reusable loading spinner component
@@ -493,17 +517,20 @@ const LoadingSpinner = () => (
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
     viewBox="0 0 24 24"
-    aria-hidden="true">
+    aria-hidden="true"
+  >
     <circle
       className="opacity-25"
       cx="12"
       cy="12"
       r="10"
       stroke="currentColor"
-      strokeWidth="4"></circle>
+      strokeWidth="4"
+    ></circle>
     <path
       className="opacity-75"
       fill="currentColor"
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    ></path>
   </svg>
-)
+);
