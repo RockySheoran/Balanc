@@ -17,7 +17,7 @@ const AccountSelector = dynamic(() => import("./AccountSelector").then((mod) => 
     loading: () =>  <div className="min-h-[400px]">
     <AccountSelectorSkeleton />
   </div>,
-    // loading:()=><div className=""><h1 className="text-4xl">Loadingn</h1></div>,
+    
     ssr: false,
   }
 )

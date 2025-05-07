@@ -295,7 +295,7 @@ export const addInvestment = createAsyncThunk(
        
         lastPriceUpdate: new Date().toISOString(),
         nextRefreshTime: calculateNextRefreshTime(),
-        currentValue: 0, // Will be updated by fetch
+        
       };
 
       // Add to state first (optimistic update)

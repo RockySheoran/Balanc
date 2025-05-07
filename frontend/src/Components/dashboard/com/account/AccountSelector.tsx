@@ -210,7 +210,7 @@ export function AccountSelector() {
     [allAccounts, getTypeColor]
   );
 
-  // Loading state
+  // // Loading state
   // if (!allAccounts || allAccounts.length === 0) {
   //   return (
   //     <div className="w-full p-4 space-y-6">
