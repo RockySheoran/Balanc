@@ -27,6 +27,7 @@ interface Investment {
   createdAt: string;
   updatedAt: string;
   lastPriceUpdate?: string;
+  nextRefreshTime?: string;
 }
 
 interface CachedPrice {
@@ -55,6 +56,7 @@ interface InvestmentState {
     status: Record<string, ApiKeyStatus>;
     lastSuccessfulKey: string | null;
   };
+  lastAutoRefresh: string | null;
 }
 
 // Constants
@@ -65,12 +67,15 @@ const API_CONFIG = {
   keyCooldownMs: 60 * 60 * 1000, // 1 hour
   maxErrorsBeforeDisable: 5,
   inrToUsdRate: 85,
+  priceRefreshIntervalMs: 12 * 60 * 60 * 1000, // 12 hours
   cacheExpiryMs: 24 * 60 * 60 * 1000, // 24 hours
   keyResetIntervalMs: 24 * 60 * 60 * 1000, // 24 hours
+  backgroundRefreshDelay: 5000, // 5 seconds delay between background refreshes
+  maxBackgroundRefreshAttempts: 3, // Max attempts for background refresh
 };
 
 // Helper to get fresh API keys from environment
-const getCurrentApiKeys = (): string[] => {
+function getCurrentApiKeys(): string[] {
   const keys = [
     process.env.NEXT_PUBLIC_RAPIDAPI1,
     process.env.NEXT_PUBLIC_RAPIDAPI2,
@@ -89,26 +94,63 @@ const getCurrentApiKeys = (): string[] => {
   }
 
   return keys;
-};
+}
 
-// Error logging
-const logApiError = (error: unknown, context: string) => {
+// Helper to calculate next refresh time
+function calculateNextRefreshTime(): string {
+  return new Date(Date.now() + API_CONFIG.priceRefreshIntervalMs).toISOString();
+}
+
+// Error logging with more context
+function logApiError(error: unknown, context: string, extra?: Record<string, unknown>) {
   if (axios.isAxiosError(error)) {
     console.error(`API Error (${context}):`, {
       status: error.response?.status,
       message: error.message,
+      url: error.config?.url,
+      ...extra,
     });
   } else {
-    console.error(`Error (${context}):`, error);
+    console.error(`Error (${context}):`, error, extra);
   }
-};
+}
 
 // Calculate cooldown based on error
-const calculateCooldown = (error: AxiosError): number => {
-  return error.response?.status === 429 
-    ? API_CONFIG.keyCooldownMs 
-    : API_CONFIG.retryDelayMs;
-};
+function calculateCooldown(error: AxiosError): number {
+  if (error.response?.status === 429) {
+    const retryAfter = error.response.headers['retry-after'];
+    return retryAfter ? parseInt(retryAfter) * 1000 : API_CONFIG.keyCooldownMs;
+  }
+  return API_CONFIG.retryDelayMs;
+}
+
+// Get next valid API key with rotation
+function getNextValidKey(state: InvestmentState): { key: string; index: number } | null {
+  const { keys, status, lastSuccessfulKey } = state.apiKeys;
+  
+  // Try last successful key first if valid
+  if (lastSuccessfulKey) {
+    const keyStatus = status[lastSuccessfulKey] || { valid: true, errorCount: 0 };
+    if (keyStatus.valid && (!keyStatus.retryAfter || Date.now() > keyStatus.retryAfter)) {
+      const index = keys.indexOf(lastSuccessfulKey);
+      if (index !== -1) {
+        return { key: lastSuccessfulKey, index };
+      }
+    }
+  }
+
+  // Try all keys in order
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const keyStatus = status[key] || { valid: true, errorCount: 0 };
+    
+    if (keyStatus.valid && (!keyStatus.retryAfter || Date.now() > keyStatus.retryAfter)) {
+      return { key, index: i };
+    }
+  }
+
+  return null;
+}
 
 // Initial state
 const initialState: InvestmentState = {
@@ -127,56 +169,36 @@ const initialState: InvestmentState = {
     status: {},
     lastSuccessfulKey: null,
   },
+  lastAutoRefresh: null,
 };
 
-// Get next valid API key
-const getNextValidKey = (state: InvestmentState): { key: string; index: number } | null => {
-  const { keys, status, lastSuccessfulKey } = state.apiKeys;
-  
-  // Try last successful key first if valid
-  if (lastSuccessfulKey) {
-    const keyStatus = status[lastSuccessfulKey] || { valid: true, errorCount: 0 };
-    if (keyStatus.valid && 
-        (!keyStatus.retryAfter || Date.now() > keyStatus.retryAfter)) {
-      const index = keys.indexOf(lastSuccessfulKey);
-      if (index !== -1) {
-        return { key: lastSuccessfulKey, index };
-      }
-    }
-  }
-
-  // Try all keys in order
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    const keyStatus = status[key] || { valid: true, errorCount: 0 };
-    
-    if (keyStatus.valid && 
-        (!keyStatus.retryAfter || Date.now() > keyStatus.retryAfter)) {
-      return { key, index: i };
-    }
-  }
-
-  return null;
-};
-
-// Fetch stock price with automatic key rotation
+// Fetch stock price with automatic key rotation and cache management
 export const fetchStockPrice = createAsyncThunk(
   "investments/fetchPrice",
-  async (symbol: string, { getState, dispatch, rejectWithValue }) => {
+  async (
+    { symbol, backgroundRefresh = false, attempt = 1 }: { 
+      symbol: string; 
+      backgroundRefresh?: boolean;
+      attempt?: number;
+    },
+    { getState, dispatch, rejectWithValue }
+  ) => {
     const state = (getState() as RootState).investments;
     const cleanSymbol = symbol.toUpperCase();
     const isIndianStock = cleanSymbol.endsWith(".NS");
     const cacheKey = `${cleanSymbol}-${isIndianStock ? "INR" : "USD"}`;
 
-    // Check cache first
-    const cachedPrice = state.priceCache[cacheKey];
-    if (cachedPrice && Date.now() - cachedPrice.timestamp < API_CONFIG.stalePriceThresholdMs) {
-      return {
-        symbol: cleanSymbol,
-        price: cachedPrice.price,
-        currency: cachedPrice.currency,
-        fromCache: true,
-      };
+    // Check cache first (skip if background refresh)
+    if (!backgroundRefresh) {
+      const cachedPrice = state.priceCache[cacheKey];
+      if (cachedPrice && Date.now() - cachedPrice.timestamp < API_CONFIG.stalePriceThresholdMs) {
+        return {
+          symbol: cleanSymbol,
+          price: cachedPrice.price,
+          currency: cachedPrice.currency,
+          fromCache: true,
+        };
+      }
     }
 
     const keyInfo = getNextValidKey(state);
@@ -213,7 +235,6 @@ export const fetchStockPrice = createAsyncThunk(
       // Mark key as successful
       dispatch(markApiKeySuccess({ key, index }));
       
-      // Update cache
       return {
         symbol: cleanSymbol,
         price: parseFloat(finalPrice.toFixed(2)),
@@ -221,7 +242,7 @@ export const fetchStockPrice = createAsyncThunk(
         fromCache: false,
       };
     } catch (error) {
-      logApiError(error, `fetchStockPrice(${cleanSymbol})`);
+      logApiError(error, `fetchStockPrice(${cleanSymbol})`, { attempt, backgroundRefresh });
 
       if (axios.isAxiosError(error)) {
         const cooldownMs = calculateCooldown(error);
@@ -232,23 +253,73 @@ export const fetchStockPrice = createAsyncThunk(
         }));
 
         // If rate limited, try again with next key
-        if (error.response?.status === 429) {
-          return dispatch(fetchStockPrice(symbol)).unwrap();
+        if (error.response?.status === 429 && attempt < API_CONFIG.maxRetriesPerKey) {
+          return dispatch(fetchStockPrice({ 
+            symbol, 
+            backgroundRefresh, 
+            attempt: attempt + 1 
+          })).unwrap();
         }
       }
 
-      // Fallback to stale cache
-      if (cachedPrice) {
-        return {
-          symbol: cleanSymbol,
-          price: cachedPrice.price,
-          currency: cachedPrice.currency,
-          fromCache: true,
-          error: "Using stale cache",
-        };
+      // Fallback to stale cache (only if not background refresh)
+      if (!backgroundRefresh) {
+        const cachedPrice = state.priceCache[cacheKey];
+        if (cachedPrice) {
+          return {
+            symbol: cleanSymbol,
+            price: cachedPrice.price,
+            currency: cachedPrice.currency,
+            fromCache: true,
+            error: "Using stale cache",
+          };
+        }
       }
 
       return rejectWithValue(error instanceof Error ? error.message : "Failed to fetch price");
+    }
+  }
+);
+
+// Add new investment with automatic price fetch
+export const addInvestment = createAsyncThunk(
+  "investments/add",
+  async (
+    investmentData: Omit<Investment,  "lastPriceUpdate" | "nextRefreshTime">,
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      // Create new investment object
+      const newInvestment: Investment = {
+        ...investmentData,
+       
+        lastPriceUpdate: new Date().toISOString(),
+        nextRefreshTime: calculateNextRefreshTime(),
+        currentValue: 0, // Will be updated by fetch
+      };
+
+      // Add to state first (optimistic update)
+      dispatch(addInvestmentToState(newInvestment));
+
+      // Fetch current price if it's not a sold investment
+      if (newInvestment.sellPrice === null) {
+        const priceResult = await dispatch(
+          fetchStockPrice({ symbol: newInvestment.symbol })
+        ).unwrap();
+        
+        dispatch(
+          updateInvestmentValue({
+            id: newInvestment.id,
+            price: priceResult.price,
+            lastPriceUpdate: new Date().toISOString(),
+          })
+        );
+      }
+
+      return newInvestment;
+    } catch (error) {
+      logApiError(error, "addInvestment", { investmentData });
+      return rejectWithValue(error instanceof Error ? error.message : "Failed to add investment");
     }
   }
 );
@@ -257,37 +328,15 @@ export const fetchStockPrice = createAsyncThunk(
 export const addInvestments = createAsyncThunk(
   "investments/addMultiple",
   async (
-    investmentsData: Omit<Investment, "lastPriceUpdate">[],
+    investmentsData: Omit<Investment, "id" | "createdAt" | "updatedAt" | "lastPriceUpdate" | "nextRefreshTime">[],
     { dispatch, rejectWithValue }
   ) => {
     const results = [];
     
     for (const investmentData of investmentsData) {
       try {
-        // Add investment to state
-        const newInvestment: Investment = {
-          ...investmentData,
-        
-          lastPriceUpdate: new Date().toISOString(),
-        };
-        dispatch(addInvestmentToState(newInvestment));
-
-        // Fetch price if needed
-        if (newInvestment.sellPrice == null) {
-          const priceResult = await dispatch(
-            fetchStockPrice(investmentData.symbol)
-          ).unwrap();
-          
-          dispatch(
-            updateInvestmentValue({
-              id: newInvestment.id,
-              price: priceResult.price,
-              lastPriceUpdate: new Date().toISOString(),
-            })
-          );
-        }
-
-        results.push(newInvestment);
+        const result = await dispatch(addInvestment(investmentData)).unwrap();
+        results.push(result);
       } catch (error) {
         console.error(`Failed to add investment ${investmentData.symbol}:`, error);
         continue;
@@ -295,6 +344,68 @@ export const addInvestments = createAsyncThunk(
     }
 
     return results;
+  }
+);
+
+// Refresh investments that need updating
+export const refreshStaleInvestments = createAsyncThunk(
+  "investments/refreshStale",
+  async (_, { getState, dispatch }) => {
+    const state = (getState() as RootState).investments;
+    const now = new Date();
+    
+    // Find investments that need refreshing
+    const investmentsToRefresh = state.investments.filter(investment => {
+      // Skip sold investments
+      if (investment.sellPrice !== null) return false;
+      
+      // Check if refresh is needed
+      if (!investment.nextRefreshTime) return true;
+      return new Date(investment.nextRefreshTime) <= now;
+    });
+
+    // Refresh each investment with a small delay between them
+    for (const investment of investmentsToRefresh) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, API_CONFIG.backgroundRefreshDelay));
+        
+        const priceResult = await dispatch(
+          fetchStockPrice({ 
+            symbol: investment.symbol, 
+            backgroundRefresh: true 
+          })
+        ).unwrap();
+        
+        dispatch(
+          updateInvestmentValue({
+            id: investment.id,
+            price: priceResult.price,
+            lastPriceUpdate: new Date().toISOString(),
+            nextRefreshTime: calculateNextRefreshTime(),
+          })
+        );
+      } catch (error) {
+        console.error(`Failed to refresh ${investment.symbol}:`, error);
+        // Schedule retry sooner for failed refreshes
+        const retryDelay = Math.min(
+          API_CONFIG.priceRefreshIntervalMs / 4, // Max 3 hours for retry
+          API_CONFIG.retryDelayMs * Math.pow(2, investment.refreshAttempts || 1)
+        );
+        
+        dispatch(
+          updateInvestmentRefreshTime({
+            id: investment.id,
+            nextRefreshTime: new Date(Date.now() + retryDelay).toISOString(),
+            refreshAttempts: (investment.refreshAttempts || 0) + 1,
+          })
+        );
+      }
+    }
+
+    // Update last auto-refresh time
+    dispatch(setLastAutoRefresh(new Date().toISOString()));
+    
+    return investmentsToRefresh.length;
   }
 );
 
@@ -312,13 +423,19 @@ const investmentSlice = createSlice({
         id: string;
         price: number;
         lastPriceUpdate: string;
+        nextRefreshTime?: string;
       }>
     ) => {
-      const { id, price, lastPriceUpdate } = action.payload;
+      const { id, price, lastPriceUpdate, nextRefreshTime } = action.payload;
       const investment = state.investments.find((inv) => inv.id === id);
       if (investment) {
         investment.currentValue = price;
         investment.lastPriceUpdate = lastPriceUpdate;
+        investment.updatedAt = new Date().toISOString();
+        if (nextRefreshTime) {
+          investment.nextRefreshTime = nextRefreshTime;
+        }
+        investment.refreshAttempts = 0; // Reset attempts on success
         
         const isIndianStock = investment.symbol.endsWith(".NS");
         const cacheKey = `${investment.symbol}-${isIndianStock ? "INR" : "USD"}`;
@@ -328,6 +445,27 @@ const investmentSlice = createSlice({
           currency: isIndianStock ? "INR" : "USD",
         };
       }
+    },
+    updateInvestmentRefreshTime: (
+      state,
+      action: PayloadAction<{
+        id: string;
+        nextRefreshTime: string;
+        refreshAttempts?: number;
+      }>
+    ) => {
+      const { id, nextRefreshTime, refreshAttempts } = action.payload;
+      const investment = state.investments.find((inv) => inv.id === id);
+      if (investment) {
+        investment.nextRefreshTime = nextRefreshTime;
+        investment.updatedAt = new Date().toISOString();
+        if (refreshAttempts !== undefined) {
+          investment.refreshAttempts = refreshAttempts;
+        }
+      }
+    },
+    setLastAutoRefresh: (state, action: PayloadAction<string>) => {
+      state.lastAutoRefresh = action.payload;
     },
     markApiKeySuccess: (state, action: PayloadAction<{ key: string; index: number }>) => {
       const { key, index } = action.payload;
@@ -372,9 +510,7 @@ const investmentSlice = createSlice({
         }
       });
     },
-    clearInvestments: () => initialState
-      
-    ,
+    clearInvestments: () => initialState,
     setFilter: (state, action: PayloadAction<Partial<Filters>>) => {
       state.filters = { ...state.filters, ...action.payload };
     },
@@ -410,13 +546,30 @@ const investmentSlice = createSlice({
       .addCase(fetchStockPrice.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload as string;
+      })
+      .addCase(addInvestment.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(addInvestment.fulfilled, (state) => {
+        state.status = "succeeded";
+      })
+      .addCase(addInvestment.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload as string;
+      })
+      .addCase(refreshStaleInvestments.fulfilled, (state, action) => {
+        console.log(`Refreshed ${action.payload} investments`);
       });
   },
 });
 
+
+// Export all actions
 export const {
   addInvestmentToState,
   updateInvestmentValue,
+  updateInvestmentRefreshTime,
+  setLastAutoRefresh,
   markApiKeySuccess,
   markApiKeyFailure,
   resetApiKeys,

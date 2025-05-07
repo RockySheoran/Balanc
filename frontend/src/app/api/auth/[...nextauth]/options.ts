@@ -185,12 +185,12 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: "jwt",
-    maxAge: 10 * 24 * 60 * 60, // 10 days
+    maxAge: 5 * 24 * 60 * 60, // 5 days
   },
 
   jwt: {
     secret: getEnvVar("NEXTAUTH_SECRET"),
-    maxAge: 10 * 24 * 60 * 60, // 10 days
+    maxAge: 5 * 24 * 60 * 60, // 5 days
   },
 
   secret: getEnvVar("NEXTAUTH_SECRET"),

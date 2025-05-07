@@ -95,7 +95,7 @@ const sendAuthResponse = (
       email: user.email,
     }
    const token = jwt.sign(JWTPayload, process.env.JWT_SECRET_KEY!, {
-        expiresIn: "10d",
+        expiresIn: "5d",
       })
   
 

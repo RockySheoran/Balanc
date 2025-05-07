@@ -47,7 +47,7 @@ export const Login = async (req: Request, res: Response): Promise<any> => {
       email: user.email,
     }
     const token = jsonwebtoken.sign(JWTPayload, process.env.JWT_SECRET_KEY!, {
-      expiresIn: "10d",
+      expiresIn: "5d",
     })
 
     console.log(token)
