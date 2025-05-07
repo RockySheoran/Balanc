@@ -119,7 +119,7 @@ const DEFAULT_SUMMARY: PortfolioSummary = {
 const InvestmentTracker = () => {
   // State
   const investments = useAppSelector((state) => state.investments.investments)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState<PortfolioSummary>(DEFAULT_SUMMARY)
   const [timeRange, setTimeRange] = useState<TimeRange>("1mo")
   const [interval, setInterval] = useState<Interval>("1d")
