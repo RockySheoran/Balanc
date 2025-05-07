@@ -193,8 +193,12 @@ const Sidebar: React.FC<SideBarProps> = ({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M12 1v22M17 5l-5-4-5 4M17 19l-5 4-5-4" />
-              <circle cx="12" cy="12" r="8" />
+              {/* Downward trending graph */}
+              <path d="M22 17l-8.5-8.5-5 5L2 7" />
+              {/* Arrow head pointing down */}
+              <path d="M16 17h6v-6" />
+              {/* Circle outline */}
+              <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z" />
             </svg>
           </NavIcon>
         ),
@@ -212,8 +216,12 @@ const Sidebar: React.FC<SideBarProps> = ({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M12 1v22M7 5l5-4 5 4M7 19l5 4 5-4" />
-              <path d="M2 12h20M12 2a10 10 0 110 20 10 10 0 010-20z" />
+              {/* Trending line */}
+              <path d="M22 7l-8.5 8.5-5-5L2 17" />
+              {/* Arrow head */}
+              <path d="M16 7h6v6" />
+              {/* Circle around it */}
+              <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z" />
             </svg>
           </NavIcon>
         ),

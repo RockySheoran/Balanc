@@ -11,3 +11,8 @@ const Page = () => {
 };
 
 export default Page;
+export const metadata = {
+  // title: "Investment",
+  title: "Investment Management",
+  description: "Your Investment page",
+}

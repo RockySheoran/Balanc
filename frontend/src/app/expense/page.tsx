@@ -7,3 +7,7 @@ const page =  () =>{
   return( <ExpenseComponent/>)
 }
 export default page;
+export const metadata = {
+  title: "Expense",
+  description: "Your Expense page",
+}
