@@ -108,12 +108,12 @@ const TransactionStats = memo(() => {
         color: "#EF4444",
         gradient: "bg-gradient-to-br from-red-500/20 to-red-600/30",
       },
-      {
-        title: "Investments",
-        value: totals?.investment ?? 0,
-        color: "#F59E0B",
-        gradient: "bg-gradient-to-br from-amber-500/20 to-amber-600/30",
-      },
+      // {
+      //   title: "Investments",
+      //   value: totals?.investment ?? 0,
+      //   color: "#F59E0B",
+      //   gradient: "bg-gradient-to-br from-amber-500/20 to-amber-600/30",
+      // },
       {
         title: "Net Balance",
         value: (totals?.income ?? 0) - (totals?.expense ?? 0),
@@ -125,7 +125,7 @@ const TransactionStats = memo(() => {
   )
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
       {stats.map((stat, index) => (
         <StatCard
           key={`${stat.title}-${index}`}
