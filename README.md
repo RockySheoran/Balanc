@@ -73,7 +73,7 @@
 | Framer Motion | Smooth animations |
 | Chart.js | Data visualization |
 | NextAuth.js | Authentication |
-| React Hook Form | Form management |
+| React Hook Form And Zod | Form management |
 | Redux | State management |
 | Axios | HTTP requests |
 
@@ -242,12 +242,13 @@ NODE_ENV=production
 ## 📸 Screenshots
 
 <!-- Add your actual screenshot paths -->
-![Image](https://github.com/user-attachments/assets/002f7adb-3eeb-41dd-9a6e-46e726717f62)
-![Image](https://github.com/user-attachments/assets/9745da11-986e-4561-b5fb-5623dbcdb3ac)
-![Image](https://github.com/user-attachments/assets/2a867a5a-e40e-424c-8b50-5487f6416470)
-![Image](https://github.com/user-attachments/assets/26b33e04-c78c-476f-a674-c8a25fc76df6)
-![Image](https://github.com/user-attachments/assets/99941595-e5d5-41d2-9e7b-eafa03d3f086)
-![Image](https://github.com/user-attachments/assets/40b86b26-b29d-45aa-93fa-8acd74aae2f2)
+![Image](https://github.com/user-attachments/assets/bc7acac5-3beb-4859-8208-b34079218855)
+![Image](https://github.com/user-attachments/assets/10b7e3cf-da00-4bb7-b3ec-820f1704876d)
+![Image](https://github.com/user-attachments/assets/0606faa8-cf6c-472f-b6d1-7a0e0111b205)
+![Image](https://github.com/user-attachments/assets/b1f77a42-836e-47a5-9b16-3ae59a35df5b)
+![Image](https://github.com/user-attachments/assets/ea0f6bc8-3430-450d-9e68-c1c11e4aafd9)
+![Image](https://github.com/user-attachments/assets/80d4ca1f-7f20-421c-9768-3bbd7cc00a79)
+![Image](https://github.com/user-attachments/assets/858d9aa5-e257-4774-bbdc-e4f969fcb09a)
 ## Contributing
 Contributions are welcome! Please fork the repository and create a pull request with your changes. Make sure to follow the code style and include relevant tests.
 
