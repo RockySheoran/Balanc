@@ -162,36 +162,30 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
 
   // Get the next available API key with smart rotation
   const getNextApiKey = useCallback(() => {
-    // Filter out invalid keys (those with too many errors)
     const validKeys = API_KEYS.filter(
       key => (apiKeyStatus.current[key]?.errorCount || 0) < MAX_RETRIES_PER_KEY
     )
 
     if (validKeys.length === 0) {
-      return null // No valid keys left
+      return null
     }
 
-    // Sort by least recently used and then by error count
     return [...validKeys].sort((a, b) => {
       const aStatus = apiKeyStatus.current[a] || { errorCount: 0, lastUsed: 0 }
       const bStatus = apiKeyStatus.current[b] || { errorCount: 0, lastUsed: 0 }
 
-      // First sort by last used time (oldest first)
       if (aStatus.lastUsed !== bStatus.lastUsed) {
         return aStatus.lastUsed - bStatus.lastUsed
       }
-
-      // Then by error count (fewest errors first)
       return aStatus.errorCount - bStatus.errorCount
     })[0]
   }, [API_KEYS])
 
-  // Enhanced fetch function with smart key rotation and error handling
+  // Enhanced fetch function
   const fetchStockChartData = useCallback(async (symbol: string): Promise<YahooChartResponse> => {
     const cacheKey = `${symbol}-${timeRange}-${interval}`
     const cachedData = chartDataCache.current.get(cacheKey)
 
-    // Return cached data if valid
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
       return cachedData.data
     }
@@ -227,14 +221,12 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
           throw new Error("Invalid response structure")
         }
 
-        // Update key status on success
         apiKeyStatus.current[apiKey] = {
           valid: true,
           lastUsed: Date.now(),
           errorCount: 0,
         }
 
-        // Update cache
         chartDataCache.current.set(cacheKey, {
           data: response.data,
           timestamp: Date.now(),
@@ -247,7 +239,6 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
           axios.isAxiosError(error) && 
           (error.response?.status === 429 || error.response?.status === 403)
 
-        // Update key status on failure
         if (apiKeyStatus.current[apiKey]) {
           apiKeyStatus.current[apiKey] = {
             ...apiKeyStatus.current[apiKey],
@@ -261,7 +252,6 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
           await new Promise(resolve => setTimeout(resolve, API_RETRY_DELAY))
         }
 
-        // If this was our last attempt, throw the error
         if (attempts >= maxAttempts) {
           throw error
         }
@@ -271,7 +261,7 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
     throw new Error("Failed to fetch data after multiple attempts")
   }, [API_KEYS, timeRange, interval, getNextApiKey])
 
-  // Process investments in batches to avoid overwhelming the API
+  // Process investments in batches
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true)
@@ -287,7 +277,6 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
         return
       }
 
-      // Process in batches
       const successfulData: YahooChartResponse[] = []
       const failedSymbols: string[] = []
 
@@ -305,7 +294,6 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
           }
         })
 
-        // Add delay between batches if not the last batch
         if (i + BATCH_SIZE < activeInvestments.length) {
           await new Promise(resolve => setTimeout(resolve, API_RETRY_DELAY))
         }
@@ -316,9 +304,6 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
 
       if (successfulData.length === 0) {
         setError("Failed to load investment data. API limit may be reached.")
-        // toast.error("Failed to load investment data", {
-        //   id: activeToastId.current,
-        // })
       } else if (failedSymbols.length > 0) {
         toast.warning(
           `Loaded ${successfulData.length} of ${activeInvestments.length} investments`,
@@ -330,19 +315,11 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
                 : `Failed to load: ${failedSymbols.join(", ")}`,
           }
         )
-      } else {
-        // toast.success("Investment data loaded successfully", {
-        //   id: activeToastId.current,
-        // })
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to load data"
       setError(errorMessage)
-      // toast.error("Failed to load investment data", {
-      //   id: activeToastId.current,
-      //   description: errorMessage,
-      // })
     } finally {
       setLoading(false)
     }
@@ -352,6 +329,30 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
   useEffect(() => {
     fetchAllData()
   }, [fetchAllData])
+
+  // Add this useEffect for interval synchronization
+  useEffect(() => {
+    const newInterval = timeRange === "1d" || timeRange === "5d" ? "1d" : "1wk"
+    if (interval !== newInterval) {
+      setInterval(newInterval)
+    }
+  }, [timeRange, interval])
+
+  // Simplified range change handler
+  const handleRangeChange = useCallback((value: typeof RANGE_OPTIONS[number]['value']) => {
+    setTimeRange(value)
+  }, [])
+
+  // Controlled interval change handler
+  const handleIntervalChange = useCallback((value: typeof INTERVAL_OPTIONS[number]['value']) => {
+    const allowedIntervals = timeRange === "1d" || timeRange === "5d" 
+      ? ["1d"] 
+      : ["1d", "1wk", "1mo"]
+    
+    if (allowedIntervals.includes(value)) {
+      setInterval(value)
+    }
+  }, [timeRange])
 
   // Format currency based on symbol
   const formatCurrency = useCallback((value: number, symbol?: string) => {
@@ -460,18 +461,12 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
   }), [])
 
   const handleRefresh = useCallback(() => {
-    // Clear cache for current range/interval
     activeInvestments.forEach(inv => {
       const cacheKey = `${inv.symbol}-${timeRange}-${interval}`
       chartDataCache.current.delete(cacheKey)
     })
     fetchAllData()
   }, [activeInvestments, timeRange, interval, fetchAllData])
-
-  const handleRangeChange = useCallback((value: typeof RANGE_OPTIONS[number]['value']) => {
-    setTimeRange(value)
-    setInterval(value === "1d" || value === "5d" ? "1d" : "1wk")
-  }, [])
 
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-100 dark:border-gray-700">
@@ -508,7 +503,7 @@ const PerformanceChart = ({ investments }: PerformanceChartProps) => {
             
             <Select 
               value={interval} 
-              onValueChange={setInterval}
+              onValueChange={handleIntervalChange}
               disabled={loading}
             >
               <SelectTrigger className="w-full sm:w-[150px]">

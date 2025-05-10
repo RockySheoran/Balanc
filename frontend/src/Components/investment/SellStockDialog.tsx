@@ -1,7 +1,7 @@
 /** @format */
 
-"use client"
-import React, { useState, useEffect, useActionState } from "react"
+"use client";
+import React, { useState, useEffect, useActionState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,35 +9,32 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/Components/ui/dialog"
-import { Button } from "@/Components/ui/button"
-import { Input } from "@/Components/ui/input"
-import { Label } from "@/Components/ui/label"
-import { toast } from "sonner"
-import { Loader2, RefreshCw } from "lucide-react"
-import { useFormState, useFormStatus } from "react-dom"
-import { sellInvestment } from "@/Actions/investmentApi/investment-actions"
-import { getStockPrice } from "@/Actions/investmentApi/fetchStockPrice"
-import { useAppDispatch } from "@/lib/Redux/store/hooks"
-import { updateSellPrice } from "@/lib/Redux/features/investmentSlice/investmentSlice"
-
-
+} from "@/Components/ui/dialog";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import { toast } from "sonner";
+import { Loader2, RefreshCw } from "lucide-react";
+import { useFormState, useFormStatus } from "react-dom";
+import { sellInvestment } from "@/Actions/investmentApi/investment-actions";
+import { getStockPrice } from "@/Actions/investmentApi/fetchStockPrice";
+import { useAppDispatch } from "@/lib/Redux/store/hooks";
+import { updateSellPrice } from "@/lib/Redux/features/investmentSlice/investmentSlice";
 
 interface Investment {
-  id: string
-  symbol: string
-  name: string
-  quantity: number
-  buyPrice: number
-  currentValue?: number
-  buyDate: string
+  id: string;
+  symbol: string;
+  name: string;
+  quantity: number;
+  buyPrice: number;
+  currentValue?: number;
+  buyDate: string;
 }
 
 interface SellInvestmentDialogProps {
-  investment: Investment | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  
+  investment: Investment | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const initialState = {
@@ -50,10 +47,10 @@ const initialState = {
     quantitySold: [],
   },
   investment: undefined,
-}
+};
 
 function SubmitButton() {
-  const { pending } = useFormStatus()
+  const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending} variant="destructive">
       {pending ? (
@@ -65,23 +62,22 @@ function SubmitButton() {
         "Confirm Sale"
       )}
     </Button>
-  )
+  );
 }
 
 export function SellInvestmentDialog({
   investment,
   open,
   onOpenChange,
- 
 }: SellInvestmentDialogProps) {
-  const dispatch = useAppDispatch()
-  const [priceLoading, setPriceLoading] = useState(false)
-  const [state, formAction] = useActionState(sellInvestment, initialState)
+  const dispatch = useAppDispatch();
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [state, formAction] = useActionState(sellInvestment, initialState);
   const [formData, setFormData] = useState({
     sellPrice: 0,
     sellDate: new Date().toISOString().split("T")[0],
     quantitySold: investment?.quantity || 1,
-  })
+  });
 
   // Initialize form when investment changes
   useEffect(() => {
@@ -90,48 +86,70 @@ export function SellInvestmentDialog({
         sellPrice: investment.currentValue || 0,
         sellDate: new Date().toISOString().split("T")[0],
         quantitySold: 1,
-      })
+      });
     }
-  }, [investment, open])
+  }, [investment, open]);
 
   const fetchCurrentPrice = async () => {
-    if (!investment) return
+    if (!investment) return;
 
     try {
-      setPriceLoading(true)
-      const price = await getStockPrice(investment.symbol)
-      console.log(price)
+      setPriceLoading(true);
+      const price = await getStockPrice(investment.symbol);
+      console.log(price);
       setFormData((prev) => ({
         ...prev,
-        sellPrice:  price.price,
-      }))
-      toast.success("Current price updated")
-    } catch (error) {
-      console.error("Failed to fetch stock price:", error)
-      toast.error("Failed to fetch current price")
-    } finally {
-      setPriceLoading(false)
-    }
-  }
-  
-
-     useEffect(() => {
-    if (state?.success || state?.status === 200) {
-      // console.log(state)
-      toast.success(state?.message || "Investment sold successfully")
-      dispatch(updateSellPrice({
-                   id:state?.investment.id,
-                   sellPrice: state?.investment.sellPrice,
-                    sellDate: state?.investment.sellDate,
+        sellPrice: price.price,
       }));
-      onOpenChange(false)
-      
+      toast.success("Current price updated");
+    } catch (error) {
+      console.error("Failed to fetch stock price:", error);
+      toast.error("Failed to fetch current price");
+    } finally {
+      setPriceLoading(false);
     }
-    if (state?.status === 500) {
-      toast.error(state?.message || "Failed to process sale")
-      
-    }
-  }, [state, dispatch, onOpenChange])
+  };
+
+  useEffect(() => {
+  // Guard clause - exit if no relevant state
+  if (!state || !state.status) return;
+
+  if (state.status === 200) {
+    // Extract data before any async operations
+    const successData = {
+      message: state.message || "Investment sold successfully",
+      investment: {
+        id: state.investment.id,
+        sellPrice: state.investment.sellPrice,
+        sellDate: state.investment.sellDate
+      }
+    };
+
+    // Show toast
+    toast.success(successData.message);
+
+    // Dispatch update
+    dispatch(updateSellPrice({
+      id: successData.investment.id,
+      sellPrice: successData.investment.sellPrice,
+      sellDate: successData.investment.sellDate
+    }));
+
+    // Close modal
+    onOpenChange(false);
+
+    // Reset state after 100ms delay to avoid race conditions
+    const timer = setTimeout(() => {
+      // dispatch({ type: 'RESET_INVESTMENT_STATE' });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }
+  else if (state.status === 500) {
+    toast.error(state.message || "Failed to process sale");
+  }
+}, [state?.status]); // More specific dependency
+  
 
   // const handleSubmit = (formData: FormData) => {
   //   // if (!investment) return
@@ -152,32 +170,32 @@ export function SellInvestmentDialog({
   // }
 
   const calculateProfitLoss = () => {
-    if (!investment) return 0
-    return (formData.sellPrice - investment.buyPrice) * formData.quantitySold
-  }
+    if (!investment) return 0;
+    return (formData.sellPrice - investment.buyPrice) * formData.quantitySold;
+  };
 
   const calculateROI = () => {
-    if (!investment || investment.buyPrice === 0) return 0
+    if (!investment || investment.buyPrice === 0) return 0;
     return (
       ((formData.sellPrice - investment.buyPrice) / investment.buyPrice) * 100
-    )
-  }
+    );
+  };
 
   const getProfitLossColor = (value: number) => {
-    if (value === 0) return "text-foreground"
+    if (value === 0) return "text-foreground";
     return value > 0
       ? "text-green-600 dark:text-green-400"
-      : "text-red-600 dark:text-red-400"
-  }
+      : "text-red-600 dark:text-red-400";
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(value)
-  }
+    }).format(value);
+  };
 
-  if (!investment) return null
+  if (!investment) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -262,7 +280,7 @@ export function SellInvestmentDialog({
                     type="number"
                     step="0.1"
                     min="0"
-                    value={(formData.sellPrice)}
+                    value={formData.sellPrice}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
@@ -275,7 +293,8 @@ export function SellInvestmentDialog({
                     variant="outline"
                     size="sm"
                     onClick={fetchCurrentPrice}
-                    disabled={priceLoading}>
+                    disabled={priceLoading}
+                  >
                     {priceLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
@@ -286,7 +305,8 @@ export function SellInvestmentDialog({
                 {state?.errors?.sellPrice?.map((error, index) => (
                   <p
                     key={index}
-                    className="col-span-3 col-start-2 text-sm text-red-500">
+                    className="col-span-3 col-start-2 text-sm text-red-500"
+                  >
                     {error}
                   </p>
                 ))}
@@ -331,7 +351,8 @@ export function SellInvestmentDialog({
                   <div
                     className={`col-span-3 font-medium ${getProfitLossColor(
                       calculateProfitLoss()
-                    )}`}>
+                    )}`}
+                  >
                     {formatCurrency(calculateProfitLoss())}
                   </div>
                 </div>
@@ -340,7 +361,8 @@ export function SellInvestmentDialog({
                   <div
                     className={`col-span-3 font-medium ${getProfitLossColor(
                       calculateROI()
-                    )}`}>
+                    )}`}
+                  >
                     {calculateROI().toFixed(2)}%
                   </div>
                 </div>
@@ -352,7 +374,8 @@ export function SellInvestmentDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}>
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <SubmitButton />
@@ -360,7 +383,7 @@ export function SellInvestmentDialog({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // // Mock function - replace with your actual stock price fetching logic
