@@ -64,7 +64,7 @@ export const reset_password = async (
       where: { email: payload.email },
     })
 
-    return res.json({
+    return res.status(200).json({
       message: "Password reset successfully! please try to login now.",
     })
   } catch (error) {

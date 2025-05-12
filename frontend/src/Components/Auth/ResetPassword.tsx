@@ -32,7 +32,7 @@ export default function ResetPassword() {
       toast.success(state.message)
       var timeOut = setTimeout(() => {
         router.replace("/login")
-      }, 1500)
+      }, 300)
     }
 
     return () => {

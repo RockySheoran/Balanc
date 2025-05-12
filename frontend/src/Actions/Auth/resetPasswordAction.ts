@@ -45,16 +45,15 @@ export async function resetPasswordAction(
     })
 
     // Redirect to login page if successful
-    if (data.success) {
-      redirect("/login")
-    }
+    // if (data.success) {
+    //   redirect("/login")
+    // }
 
     return {
       status: 200,
       message: data?.message || "Password reset successfully",
       data: {
         success: true,
-        redirect: "/login",
       },
     }
   } catch (error) {
