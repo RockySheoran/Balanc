@@ -28,6 +28,7 @@ interface Investment {
   updatedAt: string;
   lastPriceUpdate?: string;
   nextRefreshTime?: string;
+  refreshAttempts?: number;
 }
 
 interface CachedPrice {
@@ -57,6 +58,7 @@ interface InvestmentState {
     lastSuccessfulKey: string | null;
   };
   lastAutoRefresh: string | null;
+  refreshIntervalId: NodeJS.Timeout | null;
 }
 
 // Constants
@@ -72,6 +74,10 @@ const API_CONFIG = {
   keyResetIntervalMs: 24 * 60 * 60 * 1000, // 24 hours
   backgroundRefreshDelay: 5000, // 5 seconds delay between background refreshes
   maxBackgroundRefreshAttempts: 3, // Max attempts for background refresh
+  backgroundRefreshInitialDelay: 30 * 1000, // 30 seconds delay before first refresh
+  backgroundRefreshInterval: 12 * 60 * 60 * 1000, // 12 hours between refreshes
+  maxConcurrentRefreshes: 3, // Max concurrent refresh operations
+  refreshJitter: 0.2, // ±20% random variation in refresh timing
 };
 
 // Helper to get fresh API keys from environment
@@ -96,9 +102,11 @@ function getCurrentApiKeys(): string[] {
   return keys;
 }
 
-// Helper to calculate next refresh time
+// Helper to calculate next refresh time with jitter
 function calculateNextRefreshTime(): string {
-  return new Date(Date.now() + API_CONFIG.priceRefreshIntervalMs).toISOString();
+  const jitter = 1 + (Math.random() * 2 - 1) * API_CONFIG.refreshJitter;
+  const refreshTime = Date.now() + API_CONFIG.priceRefreshIntervalMs * jitter;
+  return new Date(refreshTime).toISOString();
 }
 
 // Error logging with more context
@@ -170,6 +178,7 @@ const initialState: InvestmentState = {
     lastSuccessfulKey: null,
   },
   lastAutoRefresh: null,
+  refreshIntervalId: null,
 };
 
 // Fetch stock price with automatic key rotation and cache management
@@ -285,7 +294,7 @@ export const fetchStockPrice = createAsyncThunk(
 export const addInvestment = createAsyncThunk(
   "investments/add",
   async (
-    investmentData: Omit<Investment,  "lastPriceUpdate" | "nextRefreshTime">,
+    investmentData: Omit<Investment, "lastPriceUpdate" | "nextRefreshTime" | "refreshAttempts">,
     { dispatch, rejectWithValue }
   ) => {
     try {
@@ -295,7 +304,7 @@ export const addInvestment = createAsyncThunk(
        
         lastPriceUpdate: new Date().toISOString(),
         nextRefreshTime: calculateNextRefreshTime(),
-        
+        refreshAttempts: 0,
       };
 
       // Add to state first (optimistic update)
@@ -321,29 +330,6 @@ export const addInvestment = createAsyncThunk(
       logApiError(error, "addInvestment", { investmentData });
       return rejectWithValue(error instanceof Error ? error.message : "Failed to add investment");
     }
-  }
-);
-
-// Add multiple investments with consistent key usage
-export const addInvestments = createAsyncThunk(
-  "investments/addMultiple",
-  async (
-    investmentsData: Omit<Investment, "id" | "createdAt" | "updatedAt" | "lastPriceUpdate" | "nextRefreshTime">[],
-    { dispatch, rejectWithValue }
-  ) => {
-    const results = [];
-    
-    for (const investmentData of investmentsData) {
-      try {
-        const result = await dispatch(addInvestment(investmentData)).unwrap();
-        results.push(result);
-      } catch (error) {
-        console.error(`Failed to add investment ${investmentData.symbol}:`, error);
-        continue;
-      }
-    }
-
-    return results;
   }
 );
 
@@ -409,6 +395,25 @@ export const refreshStaleInvestments = createAsyncThunk(
   }
 );
 
+// Start auto refresh background process
+export const startAutoRefresh = createAsyncThunk(
+  "investments/startAutoRefresh",
+  async (_, { dispatch }) => {
+    // Initial delay before first refresh
+    await new Promise(resolve => setTimeout(resolve, API_CONFIG.backgroundRefreshInitialDelay));
+    
+    // First refresh
+    await dispatch(refreshStaleInvestments());
+    
+    // Set up interval for periodic refreshes
+    const intervalId = setInterval(async () => {
+      await dispatch(refreshStaleInvestments());
+    }, API_CONFIG.backgroundRefreshInterval);
+    
+    dispatch(setRefreshInterval(intervalId));
+  }
+);
+
 // Slice definition
 const investmentSlice = createSlice({
   name: "investments",
@@ -429,7 +434,7 @@ const investmentSlice = createSlice({
       const { id, price, lastPriceUpdate, nextRefreshTime } = action.payload;
       const investment = state.investments.find((inv) => inv.id === id);
       if (investment) {
-        investment.currentValue = price;
+        investment.currentValue = price * investment.quantity;
         investment.lastPriceUpdate = lastPriceUpdate;
         investment.updatedAt = new Date().toISOString();
         if (nextRefreshTime) {
@@ -466,6 +471,12 @@ const investmentSlice = createSlice({
     },
     setLastAutoRefresh: (state, action: PayloadAction<string>) => {
       state.lastAutoRefresh = action.payload;
+    },
+    setRefreshInterval: (state, action: PayloadAction<NodeJS.Timeout>) => {
+      if (state.refreshIntervalId) {
+        clearInterval(state.refreshIntervalId);
+      }
+      state.refreshIntervalId = action.payload;
     },
     markApiKeySuccess: (state, action: PayloadAction<{ key: string; index: number }>) => {
       const { key, index } = action.payload;
@@ -510,7 +521,12 @@ const investmentSlice = createSlice({
         }
       });
     },
-    clearInvestments: () => initialState,
+    clearInvestments: (state) => {
+      if (state.refreshIntervalId) {
+        clearInterval(state.refreshIntervalId);
+      }
+      return initialState;
+    },
     setFilter: (state, action: PayloadAction<Partial<Filters>>) => {
       state.filters = { ...state.filters, ...action.payload };
     },
@@ -559,10 +575,12 @@ const investmentSlice = createSlice({
       })
       .addCase(refreshStaleInvestments.fulfilled, (state, action) => {
         console.log(`Refreshed ${action.payload} investments`);
+      })
+      .addCase(startAutoRefresh.fulfilled, () => {
+        console.log("Auto refresh process started");
       });
   },
 });
-
 
 // Export all actions
 export const {
@@ -570,6 +588,7 @@ export const {
   updateInvestmentValue,
   updateInvestmentRefreshTime,
   setLastAutoRefresh,
+  setRefreshInterval,
   markApiKeySuccess,
   markApiKeyFailure,
   resetApiKeys,
