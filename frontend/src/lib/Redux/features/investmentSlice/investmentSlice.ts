@@ -19,16 +19,16 @@ interface Investment {
   type: "STOCK" | "CRYPTO" | "MUTUAL_FUND" | "EXPENSE";
   amount: number;
   quantity: number;
-  buyDate: string;
+  buyDate: string | Date | null | undefined;
   sellDate: string | null;
   buyPrice: number;
   sellPrice: number | null;
   currentValue: number;
   createdAt: string;
   updatedAt: string;
-  lastPriceUpdate?: string;
-  nextRefreshTime?: string;
-  refreshAttempts?: number;
+  lastPriceUpdate: string;
+  nextRefreshTime: string;
+  refreshAttempts: number;
 }
 
 interface CachedPrice {
@@ -80,7 +80,7 @@ const API_CONFIG = {
   refreshJitter: 0.2, // ±20% random variation in refresh timing
 };
 
-// Helper to get fresh API keys from environment
+// Helper functions
 function getCurrentApiKeys(): string[] {
   const keys = [
     process.env.NEXT_PUBLIC_RAPIDAPI1,
@@ -98,18 +98,15 @@ function getCurrentApiKeys(): string[] {
   if (keys.length === 0) {
     throw new Error("No valid API keys found in environment variables!");
   }
-
   return keys;
 }
 
-// Helper to calculate next refresh time with jitter
 function calculateNextRefreshTime(): string {
   const jitter = 1 + (Math.random() * 2 - 1) * API_CONFIG.refreshJitter;
   const refreshTime = Date.now() + API_CONFIG.priceRefreshIntervalMs * jitter;
   return new Date(refreshTime).toISOString();
 }
 
-// Error logging with more context
 function logApiError(error: unknown, context: string, extra?: Record<string, unknown>) {
   if (axios.isAxiosError(error)) {
     console.error(`API Error (${context}):`, {
@@ -123,7 +120,6 @@ function logApiError(error: unknown, context: string, extra?: Record<string, unk
   }
 }
 
-// Calculate cooldown based on error
 function calculateCooldown(error: AxiosError): number {
   if (error.response?.status === 429) {
     const retryAfter = error.response.headers['retry-after'];
@@ -132,26 +128,20 @@ function calculateCooldown(error: AxiosError): number {
   return API_CONFIG.retryDelayMs;
 }
 
-// Get next valid API key with rotation
 function getNextValidKey(state: InvestmentState): { key: string; index: number } | null {
   const { keys, status, lastSuccessfulKey } = state.apiKeys;
   
-  // Try last successful key first if valid
   if (lastSuccessfulKey) {
     const keyStatus = status[lastSuccessfulKey] || { valid: true, errorCount: 0 };
     if (keyStatus.valid && (!keyStatus.retryAfter || Date.now() > keyStatus.retryAfter)) {
       const index = keys.indexOf(lastSuccessfulKey);
-      if (index !== -1) {
-        return { key: lastSuccessfulKey, index };
-      }
+      if (index !== -1) return { key: lastSuccessfulKey, index };
     }
   }
 
-  // Try all keys in order
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     const keyStatus = status[key] || { valid: true, errorCount: 0 };
-    
     if (keyStatus.valid && (!keyStatus.retryAfter || Date.now() > keyStatus.retryAfter)) {
       return { key, index: i };
     }
@@ -181,7 +171,7 @@ const initialState: InvestmentState = {
   refreshIntervalId: null,
 };
 
-// Fetch stock price with automatic key rotation and cache management
+// Thunks
 export const fetchStockPrice = createAsyncThunk(
   "investments/fetchPrice",
   async (
@@ -197,7 +187,6 @@ export const fetchStockPrice = createAsyncThunk(
     const isIndianStock = cleanSymbol.endsWith(".NS");
     const cacheKey = `${cleanSymbol}-${isIndianStock ? "INR" : "USD"}`;
 
-    // Check cache first (skip if background refresh)
     if (!backgroundRefresh) {
       const cachedPrice = state.priceCache[cacheKey];
       if (cachedPrice && Date.now() - cachedPrice.timestamp < API_CONFIG.stalePriceThresholdMs) {
@@ -211,9 +200,7 @@ export const fetchStockPrice = createAsyncThunk(
     }
 
     const keyInfo = getNextValidKey(state);
-    if (!keyInfo) {
-      return rejectWithValue("No valid API keys available");
-    }
+    if (!keyInfo) return rejectWithValue("No valid API keys available");
 
     const { key, index } = keyInfo;
 
@@ -234,14 +221,11 @@ export const fetchStockPrice = createAsyncThunk(
       );
 
       const price = response.data?.quoteSummary?.result?.[0]?.price?.regularMarketPrice?.raw;
-      if (typeof price !== "number") {
-        throw new Error("Invalid price data in response");
-      }
+      if (typeof price !== "number") throw new Error("Invalid price data in response");
 
       const finalPrice = isIndianStock ? price / API_CONFIG.inrToUsdRate : price;
       const currency = isIndianStock ? "INR" : "USD";
 
-      // Mark key as successful
       dispatch(markApiKeySuccess({ key, index }));
       
       return {
@@ -255,13 +239,8 @@ export const fetchStockPrice = createAsyncThunk(
 
       if (axios.isAxiosError(error)) {
         const cooldownMs = calculateCooldown(error);
-        dispatch(markApiKeyFailure({ 
-          key, 
-          cooldownMs, 
-          error: error.message 
-        }));
+        dispatch(markApiKeyFailure({ key, cooldownMs, error: error.message }));
 
-        // If rate limited, try again with next key
         if (error.response?.status === 429 && attempt < API_CONFIG.maxRetriesPerKey) {
           return dispatch(fetchStockPrice({ 
             symbol, 
@@ -271,7 +250,6 @@ export const fetchStockPrice = createAsyncThunk(
         }
       }
 
-      // Fallback to stale cache (only if not background refresh)
       if (!backgroundRefresh) {
         const cachedPrice = state.priceCache[cacheKey];
         if (cachedPrice) {
@@ -290,27 +268,24 @@ export const fetchStockPrice = createAsyncThunk(
   }
 );
 
-// Add new investment with automatic price fetch
-export const addInvestment = createAsyncThunk(
+export const addInvestments = createAsyncThunk(
   "investments/add",
   async (
-    investmentData: Omit<Investment, "lastPriceUpdate" | "nextRefreshTime" | "refreshAttempts">,
+    investmentData: Omit<Investment,  "updatedAt" | "lastPriceUpdate" | "nextRefreshTime" | "refreshAttempts">,
     { dispatch, rejectWithValue }
   ) => {
     try {
-      // Create new investment object
       const newInvestment: Investment = {
-        ...investmentData,
-       
+        ...investmentData,  
+        updatedAt: new Date().toISOString(),
         lastPriceUpdate: new Date().toISOString(),
         nextRefreshTime: calculateNextRefreshTime(),
         refreshAttempts: 0,
+       
       };
 
-      // Add to state first (optimistic update)
       dispatch(addInvestmentToState(newInvestment));
 
-      // Fetch current price if it's not a sold investment
       if (newInvestment.sellPrice === null) {
         const priceResult = await dispatch(
           fetchStockPrice({ symbol: newInvestment.symbol })
@@ -333,24 +308,18 @@ export const addInvestment = createAsyncThunk(
   }
 );
 
-// Refresh investments that need updating
 export const refreshStaleInvestments = createAsyncThunk(
   "investments/refreshStale",
   async (_, { getState, dispatch }) => {
     const state = (getState() as RootState).investments;
     const now = new Date();
     
-    // Find investments that need refreshing
     const investmentsToRefresh = state.investments.filter(investment => {
-      // Skip sold investments
       if (investment.sellPrice !== null) return false;
-      
-      // Check if refresh is needed
       if (!investment.nextRefreshTime) return true;
       return new Date(investment.nextRefreshTime) <= now;
     });
 
-    // Refresh each investment with a small delay between them
     for (const investment of investmentsToRefresh) {
       try {
         await new Promise(resolve => setTimeout(resolve, API_CONFIG.backgroundRefreshDelay));
@@ -372,9 +341,8 @@ export const refreshStaleInvestments = createAsyncThunk(
         );
       } catch (error) {
         console.error(`Failed to refresh ${investment.symbol}:`, error);
-        // Schedule retry sooner for failed refreshes
         const retryDelay = Math.min(
-          API_CONFIG.priceRefreshIntervalMs / 4, // Max 3 hours for retry
+          API_CONFIG.priceRefreshIntervalMs / 4,
           API_CONFIG.retryDelayMs * Math.pow(2, investment.refreshAttempts || 1)
         );
         
@@ -388,24 +356,17 @@ export const refreshStaleInvestments = createAsyncThunk(
       }
     }
 
-    // Update last auto-refresh time
     dispatch(setLastAutoRefresh(new Date().toISOString()));
-    
     return investmentsToRefresh.length;
   }
 );
 
-// Start auto refresh background process
 export const startAutoRefresh = createAsyncThunk(
   "investments/startAutoRefresh",
   async (_, { dispatch }) => {
-    // Initial delay before first refresh
     await new Promise(resolve => setTimeout(resolve, API_CONFIG.backgroundRefreshInitialDelay));
-    
-    // First refresh
     await dispatch(refreshStaleInvestments());
     
-    // Set up interval for periodic refreshes
     const intervalId = setInterval(async () => {
       await dispatch(refreshStaleInvestments());
     }, API_CONFIG.backgroundRefreshInterval);
@@ -414,7 +375,7 @@ export const startAutoRefresh = createAsyncThunk(
   }
 );
 
-// Slice definition
+// Slice
 const investmentSlice = createSlice({
   name: "investments",
   initialState,
@@ -434,13 +395,11 @@ const investmentSlice = createSlice({
       const { id, price, lastPriceUpdate, nextRefreshTime } = action.payload;
       const investment = state.investments.find((inv) => inv.id === id);
       if (investment) {
-        investment.currentValue = price * investment.quantity;
+        investment.currentValue = price ;
         investment.lastPriceUpdate = lastPriceUpdate;
         investment.updatedAt = new Date().toISOString();
-        if (nextRefreshTime) {
-          investment.nextRefreshTime = nextRefreshTime;
-        }
-        investment.refreshAttempts = 0; // Reset attempts on success
+        if (nextRefreshTime) investment.nextRefreshTime = nextRefreshTime;
+        investment.refreshAttempts = 0;
         
         const isIndianStock = investment.symbol.endsWith(".NS");
         const cacheKey = `${investment.symbol}-${isIndianStock ? "INR" : "USD"}`;
@@ -473,18 +432,12 @@ const investmentSlice = createSlice({
       state.lastAutoRefresh = action.payload;
     },
     setRefreshInterval: (state, action: PayloadAction<NodeJS.Timeout>) => {
-      if (state.refreshIntervalId) {
-        clearInterval(state.refreshIntervalId);
-      }
+      if (state.refreshIntervalId) clearInterval(state.refreshIntervalId);
       state.refreshIntervalId = action.payload;
     },
     markApiKeySuccess: (state, action: PayloadAction<{ key: string; index: number }>) => {
       const { key, index } = action.payload;
-      state.apiKeys.status[key] = {
-        valid: true,
-        lastUsed: Date.now(),
-        errorCount: 0,
-      };
+      state.apiKeys.status[key] = { valid: true, lastUsed: Date.now(), errorCount: 0 };
       state.apiKeys.lastSuccessfulKey = key;
       state.apiKeys.currentIndex = index;
     },
@@ -493,12 +446,7 @@ const investmentSlice = createSlice({
       action: PayloadAction<{ key: string; cooldownMs: number; error?: string }>
     ) => {
       const { key, cooldownMs, error } = action.payload;
-      const currentStatus = state.apiKeys.status[key] || {
-        valid: true,
-        lastUsed: 0,
-        errorCount: 0,
-      };
-      
+      const currentStatus = state.apiKeys.status[key] || { valid: true, lastUsed: 0, errorCount: 0 };
       state.apiKeys.status[key] = {
         valid: currentStatus.errorCount < API_CONFIG.maxErrorsBeforeDisable,
         lastUsed: Date.now(),
@@ -522,9 +470,7 @@ const investmentSlice = createSlice({
       });
     },
     clearInvestments: (state) => {
-      if (state.refreshIntervalId) {
-        clearInterval(state.refreshIntervalId);
-      }
+      if (state.refreshIntervalId) clearInterval(state.refreshIntervalId);
       return initialState;
     },
     setFilter: (state, action: PayloadAction<Partial<Filters>>) => {
@@ -540,7 +486,6 @@ const investmentSlice = createSlice({
     ) => {
       const { id, sellPrice, sellDate } = action.payload;
       const index = state.investments.findIndex((inv) => inv.id === id);
-
       if (index >= 0) {
         state.investments[index] = {
           ...state.investments[index],
@@ -563,13 +508,13 @@ const investmentSlice = createSlice({
         state.status = "failed";
         state.error = action.payload as string;
       })
-      .addCase(addInvestment.pending, (state) => {
+      .addCase(addInvestments.pending, (state) => {
         state.status = "loading";
       })
-      .addCase(addInvestment.fulfilled, (state) => {
+      .addCase(addInvestments.fulfilled, (state) => {
         state.status = "succeeded";
       })
-      .addCase(addInvestment.rejected, (state, action) => {
+      .addCase(addInvestments.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload as string;
       })
@@ -582,7 +527,7 @@ const investmentSlice = createSlice({
   },
 });
 
-// Export all actions
+// Export actions
 export const {
   addInvestmentToState,
   updateInvestmentValue,

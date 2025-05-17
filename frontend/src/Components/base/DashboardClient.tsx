@@ -161,7 +161,9 @@ export default function DashboardClient({ session }: SessionProps) {
       shouldRetryOnError: false,
       onSuccess: (data) => {
         dispatch(clearInvestments());
-        dispatch(addInvestments(data));
+        data?.forEach(element  => {
+          dispatch(addInvestments(element));
+        });
         // if (selectedAccount?.id) {
         //   dispatch(previousAccount(selectedAccount.id));
         // }

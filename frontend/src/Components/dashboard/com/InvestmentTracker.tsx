@@ -1,8 +1,14 @@
 /** @format */
-"use client"
+"use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { Line, Pie } from "react-chartjs-2"
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { Line, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,8 +21,8 @@ import {
   Legend,
   Filler,
   TimeScale,
-} from "chart.js"
-import { motion } from "framer-motion"
+} from "chart.js";
+import { motion } from "framer-motion";
 import {
   FiArrowUp,
   FiArrowDown,
@@ -26,21 +32,21 @@ import {
   FiRefreshCw,
   FiAlertTriangle,
   FiInfo,
-} from "react-icons/fi"
-import { Skeleton } from "@/Components/ui/skeleton"
+} from "react-icons/fi";
+import { Skeleton } from "@/Components/ui/skeleton";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/Components/ui/select"
-import { Button } from "@/Components/ui/button"
-import { toast } from "sonner"
-import { Investment } from "@/Components/investment/investment"
-import { useAppSelector } from "@/lib/Redux/store/hooks"
-import axios, { AxiosError } from "axios"
-import { format, formatDistanceToNow, subDays } from "date-fns"
+} from "@/Components/ui/select";
+import { Button } from "@/Components/ui/button";
+import { toast } from "sonner";
+import { Investment } from "@/Components/investment/investment";
+import { useAppSelector } from "@/lib/Redux/store/hooks";
+import axios, { AxiosError } from "axios";
+import { format, formatDistanceToNow, subDays } from "date-fns";
 
 // Register ChartJS components
 ChartJS.register(
@@ -54,7 +60,7 @@ ChartJS.register(
   Legend,
   Filler,
   TimeScale
-)
+);
 
 // Constants
 const COLOR_PALETTE = [
@@ -72,7 +78,7 @@ const COLOR_PALETTE = [
   "#00a950",
   "#58595b",
   "#8549ba",
-]
+];
 
 const RANGE_OPTIONS = [
   { value: "1d", label: "1 Day" },
@@ -81,29 +87,29 @@ const RANGE_OPTIONS = [
   { value: "3mo", label: "3 Months" },
   { value: "6mo", label: "6 Months" },
   { value: "1y", label: "1 Year" },
-] as const
+] as const;
 
 const INTERVAL_OPTIONS = [
   { value: "1d", label: "1 Day" },
   { value: "1wk", label: "1 Week" },
   { value: "1mo", label: "1 Month" },
-] as const
+] as const;
 
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
-const API_RETRY_DELAY = 700 // 0.5 second between retries
-const MAX_RETRIES_PER_KEY = 2 // Max retries per API key
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+const API_RETRY_DELAY = 700; // 0.5 second between retries
+const MAX_RETRIES_PER_KEY = 2; // Max retries per API key
 
-type TimeRange = (typeof RANGE_OPTIONS)[number]["value"]
-type Interval = (typeof INTERVAL_OPTIONS)[number]["value"]
+type TimeRange = (typeof RANGE_OPTIONS)[number]["value"];
+type Interval = (typeof INTERVAL_OPTIONS)[number]["value"];
 
 interface PortfolioSummary {
-  totalInvested: number
-  currentValue: number
-  profitLoss: number
-  profitLossPercentage: number
-  bestPerformer: Investment | null
-  worstPerformer: Investment | null
-  totalSold: number
+  totalInvested: number;
+  currentValue: number;
+  profitLoss: number;
+  profitLossPercentage: number;
+  bestPerformer: Investment | null;
+  worstPerformer: Investment | null;
+  totalSold: number;
 }
 
 const DEFAULT_SUMMARY: PortfolioSummary = {
@@ -114,37 +120,40 @@ const DEFAULT_SUMMARY: PortfolioSummary = {
   bestPerformer: null,
   worstPerformer: null,
   totalSold: 0,
-}
+};
 
 const InvestmentTracker = () => {
   // State
-  const investments = useAppSelector((state) => state.investments.investments)
-  const [loading, setLoading] = useState(false)
-  const [summary, setSummary] = useState<PortfolioSummary>(DEFAULT_SUMMARY)
-  const [timeRange, setTimeRange] = useState<TimeRange>("1mo")
-  const [interval, setInterval] = useState<Interval>("1d")
-  const [apiError, setApiError] = useState<string | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [chartData, setChartData] = useState<any[]>([])
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
-  const activeToastId = useRef<string | null>(null)
+  const investments = useAppSelector((state) => state.investments.investments);
+  console.log(investments)
+  const [investments1,setInvestment1] = useState([])
+  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<PortfolioSummary>(DEFAULT_SUMMARY);
+  const [timeRange, setTimeRange] = useState<TimeRange>("1mo");
+  const [interval, setInterval] = useState<Interval>("1d");
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const activeToastId = useRef<string | null>(null);
   const apiKeyStatus = useRef<
     Record<
       string,
       {
-        valid: boolean
-        lastUsed: number
-        errorCount: number
+        valid: boolean;
+        lastUsed: number;
+        errorCount: number;
       }
     >
-  >({})
+  >({});
+ 
 
 
   // Filter out sold investments
   const activeInvestments = useMemo(
     () => investments.filter((inv) => !inv.sellPrice),
     [investments]
-  )
+  );
 
   // API Keys configuration
   const API_KEYS = useMemo(
@@ -162,20 +171,20 @@ const InvestmentTracker = () => {
         process.env.NEXT_PUBLIC_RAPIDAPI10,
       ].filter(Boolean) as string[],
     []
-  )
+  );
 
   // Initialize API key status
   useEffect(() => {
-    const initialStatus: Record<string, any> = {}
+    const initialStatus: Record<string, any> = {};
     API_KEYS.forEach((key) => {
       initialStatus[key] = {
         valid: true,
         lastUsed: 0,
         errorCount: 0,
-      }
-    })
-    apiKeyStatus.current = initialStatus
-  }, [API_KEYS])
+      };
+    });
+    apiKeyStatus.current = initialStatus;
+  }, [API_KEYS]);
 
   // Memoized derived values
   const topInvestments = useMemo(
@@ -184,12 +193,12 @@ const InvestmentTracker = () => {
         .sort((a, b) => b.buyPrice * b.quantity - a.buyPrice * a.quantity)
         .slice(0, 5),
     [activeInvestments]
-  )
+  );
 
   const hasInvestments = useMemo(
     () => activeInvestments.length > 0,
     [activeInvestments]
-  )
+  );
 
   // Formatting utilities
   const formatCurrency = useCallback(
@@ -201,35 +210,46 @@ const InvestmentTracker = () => {
         maximumFractionDigits: 2,
       }).format(amount),
     []
-  )
+  );
 
   const formatPercentage = useCallback(
     (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`,
     []
-  )
+  );
 
   // Portfolio calculations
   const calculateSummary = useCallback((investments: Investment[]) => {
-    const activeInvestments = investments.filter((inv) => !inv.sellPrice)
-    const soldInvestments = investments.filter((inv) => inv.sellPrice)
+    const activeInvestments = investments.filter((inv) => !inv.sellPrice);
+    const soldInvestments = investments.filter((inv) => inv.sellPrice);
 
     const totalInvested = activeInvestments.reduce(
       (sum, investment) => sum + investment.buyPrice * investment.quantity,
       0
-    )
+    );
 
     const currentValue = activeInvestments.reduce(
       (sum, investment) =>
-        sum + (investment.sellPrice !== undefined ? (investment.currentValue || investment.buyPrice) * investment.quantity : 0), 0)
+        sum +
+        (investment.sellPrice !== undefined
+          ? (investment.currentValue || investment.buyPrice) *
+            investment.quantity
+          : 0),
+      0
+    );
 
     const totalSold = soldInvestments.reduce(
-      (sum, investment) => sum + (investment.sellPrice? investment.sellPrice-investment.buyPrice  : 0) * investment.quantity,
+      (sum, investment) =>
+        sum +
+        (investment.sellPrice
+          ? investment.sellPrice - investment.buyPrice
+          : 0) *
+          investment.quantity,
       0
-    )
+    );
 
-    const profitLoss = currentValue - totalInvested + totalSold
+    const profitLoss = currentValue - totalInvested + totalSold;
     const profitLossPercentage =
-      totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0
+      totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0;
 
     const performers = activeInvestments
       .map((investment) => ({
@@ -242,7 +262,7 @@ const InvestmentTracker = () => {
               100
             : 0,
       }))
-      .sort((a, b) => b.performance - a.performance)
+      .sort((a, b) => b.performance - a.performance);
 
     setSummary({
       totalInvested,
@@ -252,8 +272,8 @@ const InvestmentTracker = () => {
       bestPerformer: performers[0] || null,
       worstPerformer: performers[performers.length - 1] || null,
       totalSold,
-    })
-  }, [])
+    });
+  }, []);
 
   // Cache implementation
   const chartDataCache = useMemo(
@@ -261,57 +281,58 @@ const InvestmentTracker = () => {
       new Map<
         string,
         {
-          data: any
-          timestamp: number
+          data: any;
+          timestamp: number;
         }
       >(),
     []
-  )
+  );
 
   // Get the next available API key with smart rotation
   const getNextApiKey = useCallback(() => {
     // Filter out invalid keys (those with too many errors)
     const validKeys = API_KEYS.filter(
-      (key) => (apiKeyStatus.current[key]?.errorCount || 0) < MAX_RETRIES_PER_KEY
-    )
+      (key) =>
+        (apiKeyStatus.current[key]?.errorCount || 0) < MAX_RETRIES_PER_KEY
+    );
 
     if (validKeys.length === 0) {
-      return null // No valid keys left
+      return null; // No valid keys left
     }
 
     // Sort by least recently used and then by error count
     return [...validKeys].sort((a, b) => {
-      const aStatus = apiKeyStatus.current[a] || { errorCount: 0, lastUsed: 0 }
-      const bStatus = apiKeyStatus.current[b] || { errorCount: 0, lastUsed: 0 }
+      const aStatus = apiKeyStatus.current[a] || { errorCount: 0, lastUsed: 0 };
+      const bStatus = apiKeyStatus.current[b] || { errorCount: 0, lastUsed: 0 };
 
       // First sort by last used time (oldest first)
       if (aStatus.lastUsed !== bStatus.lastUsed) {
-        return aStatus.lastUsed - bStatus.lastUsed
+        return aStatus.lastUsed - bStatus.lastUsed;
       }
 
       // Then by error count (fewest errors first)
-      return aStatus.errorCount - bStatus.errorCount
-    })[0]
-  }, [API_KEYS])
+      return aStatus.errorCount - bStatus.errorCount;
+    })[0];
+  }, [API_KEYS]);
 
   // Enhanced fetch function with smart key rotation and error handling
   const fetchStockChartData = useCallback(
     async (symbol: string): Promise<any> => {
-      const cacheKey = `${symbol}-${timeRange}-${interval}`
-      const cachedData = chartDataCache.get(cacheKey)
+      const cacheKey = `${symbol}-${timeRange}-${interval}`;
+      const cachedData = chartDataCache.get(cacheKey);
 
       // Return cached data if valid
       if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
-        return cachedData.data
+        return cachedData.data;
       }
 
-      let attempts = 0
-      const maxAttempts = API_KEYS.length * MAX_RETRIES_PER_KEY
+      let attempts = 0;
+      const maxAttempts = API_KEYS.length * MAX_RETRIES_PER_KEY;
 
       while (attempts < maxAttempts) {
-        const apiKey = getNextApiKey()
+        const apiKey = getNextApiKey();
         if (!apiKey) {
-          throw new Error("All API keys exhausted")
+          throw new Error("All API keys exhausted");
         }
 
         try {
@@ -330,10 +351,10 @@ const InvestmentTracker = () => {
               },
               timeout: 8000,
             }
-          )
+          );
 
           if (!response.data?.chart?.result?.[0]) {
-            throw new Error("Invalid response structure")
+            throw new Error("Invalid response structure");
           }
 
           // Update key status on success
@@ -341,20 +362,20 @@ const InvestmentTracker = () => {
             valid: true,
             lastUsed: Date.now(),
             errorCount: 0,
-          }
+          };
 
           // Update cache
           chartDataCache.set(cacheKey, {
             data: response.data,
             timestamp: Date.now(),
-          })
+          });
 
-          return response.data
+          return response.data;
         } catch (error) {
-          attempts++
+          attempts++;
           const isRateLimit =
             axios.isAxiosError(error) &&
-            (error.response?.status === 429 || error.response?.status === 403)
+            (error.response?.status === 429 || error.response?.status === 403);
 
           // Update key status on failure
           if (apiKeyStatus.current[apiKey]) {
@@ -363,65 +384,69 @@ const InvestmentTracker = () => {
               valid: !isRateLimit,
               lastUsed: Date.now(),
               errorCount: (apiKeyStatus.current[apiKey].errorCount || 0) + 1,
-            }
+            };
           }
 
           if (isRateLimit) {
-            await new Promise((resolve) => setTimeout(resolve, API_RETRY_DELAY))
+            await new Promise((resolve) =>
+              setTimeout(resolve, API_RETRY_DELAY)
+            );
           }
 
           // If this was our last attempt, throw the error
           if (attempts >= maxAttempts) {
-            throw error
+            throw error;
           }
         }
       }
 
-      throw new Error("Failed to fetch data after multiple attempts")
+      throw new Error("Failed to fetch data after multiple attempts");
     },
     [API_KEYS, timeRange, interval, chartDataCache, getNextApiKey]
-  )
+  );
 
   // Fetch all investment data with error handling
   const fetchAllData = useCallback(async () => {
     try {
       // setLoading(true) // Show loading state
-      setApiError(null)
+      setApiError(null);
 
       if (activeToastId.current) {
-        toast.dismiss(activeToastId.current)
+        toast.dismiss(activeToastId.current);
       }
 
       if (!hasInvestments) {
-        setChartData([])
-        calculateSummary([])
-        setInitialLoadComplete(true)
-        return
+        setChartData([]);
+        calculateSummary([]);
+        setInitialLoadComplete(true);
+        return;
       }
 
       // Only fetch data for active investments
       const results = await Promise.allSettled(
         topInvestments.map((inv) => fetchStockChartData(inv.symbol))
-      )
+      );
 
-      const successfulData: any[] = []
-      const failedSymbols: string[] = []
+      const successfulData: any[] = [];
+      const failedSymbols: string[] = [];
 
       results.forEach((result, index) => {
         if (result.status === "fulfilled") {
-          successfulData.push(result.value)
+          successfulData.push(result.value);
         } else {
-          failedSymbols.push(topInvestments[index]?.symbol || "Unknown")
+          failedSymbols.push(topInvestments[index]?.symbol || "Unknown");
         }
-      })
+      });
 
-      setChartData(successfulData)
-      calculateSummary(investments) // Calculate summary for all investments (including sold ones)
-      setLastUpdated(new Date())
-      setInitialLoadComplete(true)
+      setChartData(successfulData);
+      calculateSummary(investments); // Calculate summary for all investments (including sold ones)
+      setLastUpdated(new Date());
+      setInitialLoadComplete(true);
 
       if (successfulData.length === 0) {
-        setApiError("Failed to load investment data. API limit may be reached.")
+        setApiError(
+          "Failed to load investment data. API limit may be reached."
+        );
         // toast.error("Failed to load investment data", {
         //   id: activeToastId.current,
         // })
@@ -435,20 +460,20 @@ const InvestmentTracker = () => {
                 ? `${failedSymbols.length} investments failed to load`
                 : `Failed to load: ${failedSymbols.join(", ")}`,
           }
-        )
+        );
       } else {
         // toast.success("Investment data loaded successfully")
       }
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to load data"
-      setApiError(errorMessage)
+        error instanceof Error ? error.message : "Failed to load data";
+      setApiError(errorMessage);
       // toast.error("Failed to load investment data", {
       //   id: activeToastId.current,
       //   description: errorMessage,
       // })
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }, [
     topInvestments,
@@ -456,12 +481,12 @@ const InvestmentTracker = () => {
     calculateSummary,
     hasInvestments,
     investments,
-  ])
+  ]);
 
   // Initial data load and refresh on range/interval change
   useEffect(() => {
-    fetchAllData()
-  }, [fetchAllData])
+    fetchAllData();
+  }, [fetchAllData]);
 
   // Chart data preparation
   const lineChartData = useMemo(() => {
@@ -477,35 +502,35 @@ const InvestmentTracker = () => {
             borderWidth: 1,
           },
         ],
-      }
+      };
     }
 
     const referenceTimestamps =
-      chartData[0]?.chart?.result?.[0]?.timestamp || []
+      chartData[0]?.chart?.result?.[0]?.timestamp || [];
 
     const formatLabel = (timestamp: number) => {
-      const date = new Date(timestamp * 1000)
+      const date = new Date(timestamp * 1000);
       switch (timeRange) {
         case "1d":
-          return format(date, "HH:mm")
+          return format(date, "HH:mm");
         case "5d":
         case "1mo":
-          return format(date, "MMM dd")
+          return format(date, "MMM dd");
         case "3mo":
         case "6mo":
-          return format(date, "MMM")
+          return format(date, "MMM");
         default:
-          return format(date, "MMM yyyy")
+          return format(date, "MMM yyyy");
       }
-    }
+    };
 
     return {
       labels: referenceTimestamps.map(formatLabel),
       datasets: chartData.map((data, index) => {
-        const result = data.chart.result[0]
-        const meta = result.meta
-        const quotes = result.indicators.quote[0]
-        const color = COLOR_PALETTE[index % COLOR_PALETTE.length]
+        const result = data.chart.result[0];
+        const meta = result.meta;
+        const quotes = result.indicators.quote[0];
+        const color = COLOR_PALETTE[index % COLOR_PALETTE.length];
 
         return {
           label: `${meta.symbol} - ${meta.shortName.substring(0, 15)}${
@@ -518,10 +543,10 @@ const InvestmentTracker = () => {
           pointRadius: timeRange === "1d" ? 3 : 0,
           tension: 0.1,
           fill: { target: "origin", above: `${color}10` },
-        }
+        };
       }),
-    }
-  }, [chartData, timeRange, hasInvestments])
+    };
+  }, [chartData, timeRange, hasInvestments]);
 
   // const pieChartData = useMemo(
   //   () => ({
@@ -559,14 +584,14 @@ const InvestmentTracker = () => {
             borderWidth: 1,
           },
         ],
-      }
+      };
     }
 
     const holdingsData = topInvestments.map((inv) => ({
       symbol: inv.symbol,
       value: (inv.currentValue || inv.buyPrice) * inv.quantity,
       name: inv.name,
-    }))
+    }));
 
     return {
       labels: holdingsData.map((item) => item.symbol),
@@ -579,8 +604,8 @@ const InvestmentTracker = () => {
           borderWidth: 1,
         },
       ],
-    }
-  }, [topInvestments, hasInvestments])
+    };
+  }, [topInvestments, hasInvestments]);
   // const chartOptions = useMemo(
   //   () => ({
   //     responsive: true,
@@ -626,78 +651,84 @@ const InvestmentTracker = () => {
   // )
 
   // Event handlers
-  
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "bottom" as const,
-        labels: {
-          boxWidth: 12,
-          padding: 20,
-          usePointStyle: true,
-          font: {
-            size: window.innerWidth < 768 ? 10 : 12,
-          },
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            const label = context.label || ''
-            const value = context.raw
-            const dataset = context.dataset
-            const total = dataset.data.reduce((acc: number, data: number) => acc + data, 0)
-            const percentage = Math.round((value / total) * 100)
-            
-            // For pie chart, show both value and percentage
-            if (context.chart.config.type === 'pie') {
-              const investment = topInvestments[context.dataIndex]
-              const currency = investment?.symbol?.includes(".NS") ? "INR" : "USD"
-              return [
-                `${label}: ${new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency,
-                }).format(value)}`,
-                `${percentage}% of portfolio`
-              ]
-            }
-            
-            // For line chart, keep original behavior
-            return `${label}: ${new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: label.includes(".NS") ? "INR" : "USD",
-            }).format(value)}`
-          },
-        },
-      },
-    },
-    interaction: {
-      mode: "nearest" as const,
-      axis: "x" as const,
-      intersect: false,
-    },
-  }), [topInvestments])
 
-  
-  
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom" as const,
+          labels: {
+            boxWidth: 12,
+            padding: 20,
+            usePointStyle: true,
+            font: {
+              size: window.innerWidth < 768 ? 10 : 12,
+            },
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context: any) => {
+              const label = context.label || "";
+              const value = context.raw;
+              const dataset = context.dataset;
+              const total = dataset.data.reduce(
+                (acc: number, data: number) => acc + data,
+                0
+              );
+              const percentage = Math.round((value / total) * 100);
+
+              // For pie chart, show both value and percentage
+              if (context.chart.config.type === "pie") {
+                const investment = topInvestments[context.dataIndex];
+                const currency = investment?.symbol?.includes(".NS")
+                  ? "INR"
+                  : "USD";
+                return [
+                  `${label}: ${new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency,
+                  }).format(value)}`,
+                  `${percentage}% of portfolio`,
+                ];
+              }
+
+              // For line chart, keep original behavior
+              return `${label}: ${new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: label.includes(".NS") ? "INR" : "USD",
+              }).format(value)}`;
+            },
+          },
+        },
+      },
+      interaction: {
+        mode: "nearest" as const,
+        axis: "x" as const,
+        intersect: false,
+      },
+    }),
+    [topInvestments]
+  );
+
   const handleRefresh = useCallback(() => {
     // Clear cache for current range/interval
     topInvestments.forEach((inv) => {
-      const cacheKey = `${inv.symbol}-${timeRange}-${interval}`
-      chartDataCache.delete(cacheKey)
-    })
-    fetchAllData()
-  }, [fetchAllData, topInvestments, timeRange, interval, chartDataCache])
+      const cacheKey = `${inv.symbol}-${timeRange}-${interval}`;
+      chartDataCache.delete(cacheKey);
+    });
+    fetchAllData();
+  }, [fetchAllData, topInvestments, timeRange, interval, chartDataCache]);
 
   const handleRangeChange = useCallback((value: TimeRange) => {
-    setTimeRange(value)
-    setInterval(value === "1d" || value === "5d" ? "1d" : "1wk")
-  }, [])
+    setTimeRange(value);
+    setInterval(value === "1d" || value === "5d" ? "1d" : "1wk");
+  }, []);
 
   // Show loading state only if it's the initial load or we have investments
-  const showLoadingState = loading && (!initialLoadComplete || hasInvestments)
+  const showLoadingState = loading && (!initialLoadComplete || hasInvestments);
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
@@ -718,7 +749,8 @@ const InvestmentTracker = () => {
           <Select
             value={timeRange}
             onValueChange={handleRangeChange}
-            disabled={showLoadingState}>
+            disabled={showLoadingState}
+          >
             <SelectTrigger className="w-full md:w-[150px]">
               <SelectValue placeholder="Time Range" />
             </SelectTrigger>
@@ -736,7 +768,8 @@ const InvestmentTracker = () => {
             disabled={showLoadingState}
             variant="outline"
             size="sm"
-            className="shrink-0">
+            className="shrink-0"
+          >
             {showLoadingState ? (
               <FiRefreshCw className="animate-spin h-4 w-4" />
             ) : (
@@ -754,7 +787,8 @@ const InvestmentTracker = () => {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-3 md:p-4 rounded mb-6">
+          className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-3 md:p-4 rounded mb-6"
+        >
           <div className="flex items-start">
             <FiAlertTriangle className="flex-shrink-0 h-5 w-5 text-red-500 mt-0.5" />
             <div className="ml-3">
@@ -770,7 +804,8 @@ const InvestmentTracker = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-3 md:p-4 rounded mb-6">
+          className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-3 md:p-4 rounded mb-6"
+        >
           <div className="flex items-start">
             <FiInfo className="flex-shrink-0 h-5 w-5 text-blue-500 mt-0.5" />
             <div className="ml-3">
@@ -870,7 +905,7 @@ const InvestmentTracker = () => {
             hasInvestments={hasInvestments}
             loading={showLoadingState}
           />
-          
+
           <ChartSection
             title={
               hasInvestments
@@ -889,12 +924,12 @@ const InvestmentTracker = () => {
                         ...chartOptions.plugins?.tooltip?.callbacks,
                         // Add additional tooltip formatting for pie chart
                         afterLabel: (context: any) => {
-                          const investment = topInvestments[context.dataIndex]
-                          return investment?.name || ''
-                        }
-                      }
-                    }
-                  }
+                          const investment = topInvestments[context.dataIndex];
+                          return investment?.name || "";
+                        },
+                      },
+                    },
+                  },
                 }}
                 className="h-80"
               />
@@ -913,20 +948,20 @@ const InvestmentTracker = () => {
         loading={showLoadingState}
       />
     </div>
-  )
-}
+  );
+};
 
 // Sub-components (keep the same as before)
 interface SummaryCardProps {
-  title: string
-  value: number
-  icon: React.ReactNode
-  color: "blue" | "green" | "red" | "purple"
-  description?: string
-  percentage?: number
-  formatValue: (value: number) => string
-  formatPercentage?: (value: number) => string
-  loading?: boolean
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  color: "blue" | "green" | "red" | "purple";
+  description?: string;
+  percentage?: number;
+  formatValue: (value: number) => string;
+  formatPercentage?: (value: number) => string;
+  loading?: boolean;
 }
 
 const SummaryCard: React.FC<SummaryCardProps> = ({
@@ -961,19 +996,21 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
       text: "text-purple-600 dark:text-purple-400",
       border: "border-purple-100 dark:border-purple-800",
     },
-  }
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border ${colorClasses[color].border} h-full`}>
+      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border ${colorClasses[color].border} h-full`}
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-sm md:text-base font-medium text-gray-600 dark:text-gray-300">
           {title}
         </h3>
         <div
-          className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
+          className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}
+        >
           {icon}
         </div>
       </div>
@@ -995,7 +1032,8 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
                   percentage >= 0
                     ? "text-green-600 dark:text-green-400"
                     : "text-red-600 dark:text-red-400"
-                }`}>
+                }`}
+              >
                 {formatPercentage?.(percentage) ?? percentage}
               </span>
             </div>
@@ -1007,17 +1045,17 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         </>
       )}
     </motion.div>
-  )
-}
+  );
+};
 
 interface PerformanceCardProps {
-  performer: Investment | null
-  title: string
-  icon: React.ReactNode
-  color: "blue" | "green" | "red" | "purple"
-  formatPercentage?: (value: number) => string
-  loading?: boolean
-  hasInvestments?: boolean
+  performer: Investment | null;
+  title: string;
+  icon: React.ReactNode;
+  color: "blue" | "green" | "red" | "purple";
+  formatPercentage?: (value: number) => string;
+  loading?: boolean;
+  hasInvestments?: boolean;
 }
 
 const PerformanceCard: React.FC<PerformanceCardProps> = ({
@@ -1046,26 +1084,28 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
       bg: "bg-purple-50 dark:bg-purple-900/30",
       text: "text-purple-600 dark:text-purple-400",
     },
-  }
+  };
 
   const performanceValue =
     performer && performer.buyPrice > 0 && !performer.sellPrice
       ? (((performer.currentValue || performer.buyPrice) - performer.buyPrice) /
           performer.buyPrice) *
         100
-      : 0
+      : 0;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-100 dark:border-gray-700 h-full">
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-100 dark:border-gray-700 h-full"
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-sm md:text-base font-medium text-gray-600 dark:text-gray-300">
           {title}
         </h3>
         <div
-          className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}>
+          className={`p-2 rounded-full ${colorClasses[color].bg} ${colorClasses[color].text}`}
+        >
           {icon}
         </div>
       </div>
@@ -1091,7 +1131,8 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
                   performanceValue >= 0
                     ? "text-green-600 dark:text-green-400"
                     : "text-red-600 dark:text-red-400"
-                }`}>
+                }`}
+              >
                 {formatPercentage?.(performanceValue) ??
                   `${performanceValue.toFixed(2)}%`}
               </p>
@@ -1112,16 +1153,16 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
         </div>
       )}
     </motion.div>
-  )
-}
+  );
+};
 
 interface ChartSectionProps {
-  title: string
-  chart: React.ReactNode
-  timeRange?: TimeRange
-  onRangeChange?: (value: TimeRange) => void
-  hasInvestments?: boolean
-  loading?: boolean
+  title: string;
+  chart: React.ReactNode;
+  timeRange?: TimeRange;
+  onRangeChange?: (value: TimeRange) => void;
+  hasInvestments?: boolean;
+  loading?: boolean;
 }
 
 const ChartSection: React.FC<ChartSectionProps> = ({
@@ -1135,7 +1176,8 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   <motion.div
     initial={{ opacity: 0, x: title.includes("Performance") ? -10 : 10 }}
     animate={{ opacity: 1, x: 0 }}
-    className="bg-white dark:bg-gray-800 p-2 md:p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+    className="bg-white dark:bg-gray-800 p-2 md:p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700"
+  >
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
       <h3 className="text-base md:text-lg font-semibold text-gray-800 dark:text-gray-200">
         {title}
@@ -1144,7 +1186,8 @@ const ChartSection: React.FC<ChartSectionProps> = ({
         <Select
           value={timeRange}
           onValueChange={onRangeChange}
-          disabled={!hasInvestments || loading}>
+          disabled={!hasInvestments || loading}
+        >
           <SelectTrigger className="w-[120px]">
             <SelectValue placeholder="Range" />
           </SelectTrigger>
@@ -1160,13 +1203,14 @@ const ChartSection: React.FC<ChartSectionProps> = ({
     </div>
     <div className="h-64 md:h-80">{chart}</div>
   </motion.div>
-)
+);
 
 const ChartSectionSkeleton = () => (
   <motion.div
     initial={{ opacity: 0, x: 10 }}
     animate={{ opacity: 1, x: 0 }}
-    className="bg-white dark:bg-gray-800 p-2 md:p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+    className="bg-white dark:bg-gray-800 p-2 md:p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700"
+  >
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
       <Skeleton className="h-6 w-1/3 dark:bg-gray-700" />
       <Skeleton className="h-9 w-[120px] dark:bg-gray-700" />
@@ -1175,14 +1219,14 @@ const ChartSectionSkeleton = () => (
       <Skeleton className="h-full w-full dark:bg-gray-700" />
     </div>
   </motion.div>
-)
+);
 
 interface HoldingsTableProps {
-  investments: Investment[]
-  formatCurrency: (value: number) => string
-  formatPercentage: (value: number) => string
-  hasInvestments?: boolean
-  loading?: boolean
+  investments: Investment[];
+  formatCurrency: (value: number) => string;
+  formatPercentage: (value: number) => string;
+  hasInvestments?: boolean;
+  loading?: boolean;
 }
 
 const HoldingsTable: React.FC<HoldingsTableProps> = ({
@@ -1195,7 +1239,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
   <motion.div
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700">
+    className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700"
+  >
     <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
       <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-200">
         Your Holdings
@@ -1220,7 +1265,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
             ].map((header) => (
               <th
                 key={header}
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap"
+              >
                 {header}
               </th>
             ))}
@@ -1239,22 +1285,23 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
             ))
           ) : hasInvestments ? (
             investments.map((investment) => {
-              const isSold = !!investment.sellPrice
-              const invested = investment.buyPrice * investment.quantity
+              const isSold = !!investment.sellPrice;
+              const invested = investment.buyPrice * investment.quantity;
               const currentValue = isSold
                 ? investment.sellPrice! * investment.quantity
                 : (investment.currentValue || investment.buyPrice) *
-                  investment.quantity
-              const profitLoss = currentValue - invested
+                  investment.quantity;
+              const profitLoss = currentValue - invested;
               const profitLossPercentage =
-                invested > 0 ? (profitLoss / invested) * 100 : 0
+                invested > 0 ? (profitLoss / invested) * 100 : 0;
 
               return (
                 <tr
-                  key={investment.id}
+                  key={investment.id }
                   className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
                     isSold ? "opacity-70" : ""
-                  }`}>
+                  }`}
+                >
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {investment.symbol}
                   </td>
@@ -1262,7 +1309,9 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
                     {investment.name}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {format(new Date(investment.buyDate), "MMM dd, yyyy")}
+                    {isValidDate(investment.buyDate)
+                      ? format(new Date(investment.buyDate), "MMM dd, yyyy")
+                      : "N/A"}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {formatCurrency(investment.buyPrice)}
@@ -1271,8 +1320,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
                     {isSold
                       ? formatCurrency(investment.sellPrice!)
                       : investment.currentValue
-                      ? formatCurrency(investment.currentValue)
-                      : "--"}
+                        ? formatCurrency(investment.currentValue)
+                        : "--"}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {investment.quantity}
@@ -1289,7 +1338,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
                         profitLoss >= 0
                           ? "text-green-600 dark:text-green-400"
                           : "text-red-600 dark:text-red-400"
-                      }`}>
+                      }`}
+                    >
                       {profitLoss >= 0 ? (
                         <FiArrowUp className="mr-1 flex-shrink-0" />
                       ) : (
@@ -1307,18 +1357,20 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
                         isSold
                           ? "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                           : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"
-                      }`}>
+                      }`}
+                    >
                       {isSold ? "Sold" : "Active"}
                     </span>
                   </td>
                 </tr>
-              )
+              );
             })
           ) : (
             <tr>
               <td
                 colSpan={10}
-                className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400"
+              >
                 No investment data available
               </td>
             </tr>
@@ -1327,6 +1379,12 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
       </table>
     </div>
   </motion.div>
-)
+);
 
-export default InvestmentTracker
+export default InvestmentTracker;
+
+ const isValidDate = (date: any): date is Date | string => {
+  if (!date) return false;
+  const d = new Date(date);
+  return !isNaN(d.getTime());
+};

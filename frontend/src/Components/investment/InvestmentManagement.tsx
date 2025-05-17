@@ -78,8 +78,8 @@ const InvestmentManagement = () => {
 
     return investments.filter((inv) => {
       const matchesSearch =
-        inv.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-        inv.symbol.toLowerCase().includes(filters.searchTerm.toLowerCase());
+        inv?.name?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        inv?.symbol?.toLowerCase().includes(filters.searchTerm.toLowerCase());
 
       switch (filters.performanceFilter) {
         case "profit":
