@@ -8,6 +8,9 @@ interface MiddlewareRequest extends NextRequest {}
 
 
 
+
+
+
 export async function middleware(req: MiddlewareRequest): Promise<NextResponse> {
   const token: JWT | null = await getToken({ req });
   const { pathname, origin } = req.nextUrl;
