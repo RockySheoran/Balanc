@@ -2,53 +2,19 @@
 // middleware.ts
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
+import { JWT } from "next-auth/jwt";
 
-export async function middleware(req: NextRequest) {
-  const { pathname, origin, searchParams } = req.nextUrl;
-  
-  // Skip middleware for static files and API routes
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/static") ||
-    pathname.includes(".")
-  ) {
-    return NextResponse.next();
-  }
+interface MiddlewareRequest extends NextRequest {}
 
-  // Get token with enhanced error handling
-  let token;
-  try {
-    token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
-  } catch (error) {
-    console.error("Token verification failed:", error);
-    return NextResponse.redirect(new URL("/login?error=session_invalid", origin));
-  }
-console.log(token)
-  // Define session duration in seconds (e.g., 1 hour = 3600 seconds)
-  const SESSION_DURATION = 3600;
 
-  // Check if token exists and is not expired
-  const now = Math.floor(Date.now() / 1000);
-  const initialTokenTime = typeof token?.initialTokenTime === "number" ? token.initialTokenTime : Number(token?.initialTokenTime);
-  const isTokenExpired = token?.initialTokenTime && !isNaN(initialTokenTime)
-    ? now - initialTokenTime > SESSION_DURATION
-    : true;
 
-  // Handle root path redirect
-  if (pathname === "/") {
-    if (!token || isTokenExpired) {
-      return NextResponse.redirect(new URL("/login", origin));
-    }
-    return NextResponse.redirect(new URL("/dashboard", origin));
-  }
+export async function middleware(req: MiddlewareRequest): Promise<NextResponse> {
+  const token: JWT | null = await getToken({ req });
+  const { pathname, origin } = req.nextUrl;
 
-  // Handle protected routes
-  const protectedRoutes = [
+  // Protected routes
+  const protectedRoutes: string[] = [
+    "/",
     "/dashboard",
     "/investment",
     "/expense",
