@@ -2,6 +2,9 @@
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
+// Define session duration in seconds (e.g., 1 hour = 3600 seconds)
+const SESSION_DURATION = 60 * 60;
+
 export async function middleware(req: NextRequest) {
   const { pathname, origin, searchParams } = req.nextUrl;
   
@@ -30,7 +33,7 @@ export async function middleware(req: NextRequest) {
 
   // Check if token exists and is not expired
   const now = Math.floor(Date.now() / 1000);
-  const isTokenExpired = token?.initialTokenTime 
+  const isTokenExpired = typeof token?.initialTokenTime === "number"
     ? now - token.initialTokenTime > SESSION_DURATION
     : true;
 
@@ -63,7 +66,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Handle auth routes (login/register)
-  if (pathname.startsWith("/login") || pathname.startsWith("/register"))) {
+  if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
     if (token && !isTokenExpired) {
       const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
       return NextResponse.redirect(new URL(callbackUrl, origin));
