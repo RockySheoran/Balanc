@@ -3,7 +3,7 @@ import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
 // Define session duration in seconds (e.g., 1 hour = 3600 seconds)
-const SESSION_DURATION = 60 * 60;
+const SESSION_DURATION = 5*24*60 * 60;
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin, searchParams } = req.nextUrl;
