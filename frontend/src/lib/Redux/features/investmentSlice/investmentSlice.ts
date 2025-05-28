@@ -63,19 +63,19 @@ interface InvestmentState {
 
 // Constants
 const API_CONFIG = {
-  stalePriceThresholdMs: 10 * 60 * 1000, // 10 minutes
+  stalePriceThresholdMs: 60 * 60 * 1000, // 1 hour (changed from 10 minutes)
   retryDelayMs: 1000,
   maxRetriesPerKey: 2,
   keyCooldownMs: 60 * 60 * 1000, // 1 hour
   maxErrorsBeforeDisable: 5,
   inrToUsdRate: 85,
-  priceRefreshIntervalMs: 12 * 60 * 60 * 1000, // 12 hours
+  priceRefreshIntervalMs: 60 * 60 * 1000, // 1 hour (changed from 12 hours)
   cacheExpiryMs: 24 * 60 * 60 * 1000, // 24 hours
   keyResetIntervalMs: 24 * 60 * 60 * 1000, // 24 hours
   backgroundRefreshDelay: 5000, // 5 seconds delay between background refreshes
   maxBackgroundRefreshAttempts: 3, // Max attempts for background refresh
   backgroundRefreshInitialDelay: 30 * 1000, // 30 seconds delay before first refresh
-  backgroundRefreshInterval: 12 * 60 * 60 * 1000, // 12 hours between refreshes
+  backgroundRefreshInterval: 60 * 60 * 1000, // 1 hour between refreshes (changed from 12 hours)
   maxConcurrentRefreshes: 3, // Max concurrent refresh operations
   refreshJitter: 0.2, // ±20% random variation in refresh timing
 };
@@ -281,7 +281,6 @@ export const addInvestments = createAsyncThunk(
         lastPriceUpdate: new Date().toISOString(),
         nextRefreshTime: calculateNextRefreshTime(),
         refreshAttempts: 0,
-       
       };
 
       dispatch(addInvestmentToState(newInvestment));
@@ -315,45 +314,50 @@ export const refreshStaleInvestments = createAsyncThunk(
     const now = new Date();
     
     const investmentsToRefresh = state.investments.filter(investment => {
-      if (investment.sellPrice !== null) return false;
+      if (investment.sellPrice !== null) return false; // Skip sold investments
       if (!investment.nextRefreshTime) return true;
       return new Date(investment.nextRefreshTime) <= now;
     });
 
-    for (const investment of investmentsToRefresh) {
-      try {
-        await new Promise(resolve => setTimeout(resolve, API_CONFIG.backgroundRefreshDelay));
-        
-        const priceResult = await dispatch(
-          fetchStockPrice({ 
-            symbol: investment.symbol, 
-            backgroundRefresh: true 
-          })
-        ).unwrap();
-        
-        dispatch(
-          updateInvestmentValue({
-            id: investment.id,
-            price: priceResult.price,
-            lastPriceUpdate: new Date().toISOString(),
-            nextRefreshTime: calculateNextRefreshTime(),
-          })
-        );
-      } catch (error) {
-        console.error(`Failed to refresh ${investment.symbol}:`, error);
-        const retryDelay = Math.min(
-          API_CONFIG.priceRefreshIntervalMs / 4,
-          API_CONFIG.retryDelayMs * Math.pow(2, investment.refreshAttempts || 1)
-        );
-        
-        dispatch(
-          updateInvestmentRefreshTime({
-            id: investment.id,
-            nextRefreshTime: new Date(Date.now() + retryDelay).toISOString(),
-            refreshAttempts: (investment.refreshAttempts || 0) + 1,
-          })
-        );
-      }
+    // Process investments in batches to avoid rate limiting
+    const batchSize = API_CONFIG.maxConcurrentRefreshes;
+    for (let i = 0; i < investmentsToRefresh.length; i += batchSize) {
+      const batch = investmentsToRefresh.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (investment) => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, API_CONFIG.backgroundRefreshDelay));
+          
+          const priceResult = await dispatch(
+            fetchStockPrice({ 
+              symbol: investment.symbol, 
+              backgroundRefresh: true 
+            })
+          ).unwrap();
+          
+          dispatch(
+            updateInvestmentValue({
+              id: investment.id,
+              price: priceResult.price,
+              lastPriceUpdate: new Date().toISOString(),
+              nextRefreshTime: calculateNextRefreshTime(),
+            })
+          );
+        } catch (error) {
+          console.error(`Failed to refresh ${investment.symbol}:`, error);
+          const retryDelay = Math.min(
+            API_CONFIG.priceRefreshIntervalMs / 4,
+            API_CONFIG.retryDelayMs * Math.pow(2, investment.refreshAttempts || 1)
+          );
+          
+          dispatch(
+            updateInvestmentRefreshTime({
+              id: investment.id,
+              nextRefreshTime: new Date(Date.now() + retryDelay).toISOString(),
+              refreshAttempts: (investment.refreshAttempts || 0) + 1,
+            })
+          );
+        }
+      }));
     }
 
     dispatch(setLastAutoRefresh(new Date().toISOString()));
@@ -364,14 +368,33 @@ export const refreshStaleInvestments = createAsyncThunk(
 export const startAutoRefresh = createAsyncThunk(
   "investments/startAutoRefresh",
   async (_, { dispatch }) => {
+    // Initial delay before first refresh
     await new Promise(resolve => setTimeout(resolve, API_CONFIG.backgroundRefreshInitialDelay));
+    
+    // Perform initial refresh
     await dispatch(refreshStaleInvestments());
     
+    // Set up hourly refresh interval
     const intervalId = setInterval(async () => {
-      await dispatch(refreshStaleInvestments());
+      try {
+        await dispatch(refreshStaleInvestments());
+      } catch (error) {
+        console.error("Error during auto refresh:", error);
+      }
     }, API_CONFIG.backgroundRefreshInterval);
     
     dispatch(setRefreshInterval(intervalId));
+    return intervalId;
+  }
+);
+
+export const stopAutoRefresh = createAsyncThunk(
+  "investments/stopAutoRefresh",
+  async (_, { getState }) => {
+    const state = (getState() as RootState).investments;
+    if (state.refreshIntervalId) {
+      clearInterval(state.refreshIntervalId);
+    }
   }
 );
 
@@ -395,7 +418,7 @@ const investmentSlice = createSlice({
       const { id, price, lastPriceUpdate, nextRefreshTime } = action.payload;
       const investment = state.investments.find((inv) => inv.id === id);
       if (investment) {
-        investment.currentValue = price ;
+        investment.currentValue = price * investment.quantity;
         investment.lastPriceUpdate = lastPriceUpdate;
         investment.updatedAt = new Date().toISOString();
         if (nextRefreshTime) investment.nextRefreshTime = nextRefreshTime;
@@ -521,8 +544,12 @@ const investmentSlice = createSlice({
       .addCase(refreshStaleInvestments.fulfilled, (state, action) => {
         console.log(`Refreshed ${action.payload} investments`);
       })
-      .addCase(startAutoRefresh.fulfilled, () => {
+      .addCase(startAutoRefresh.fulfilled, (state, action) => {
         console.log("Auto refresh process started");
+        state.refreshIntervalId = action.payload;
+      })
+      .addCase(stopAutoRefresh.fulfilled, (state) => {
+        state.refreshIntervalId = null;
       });
   },
 });

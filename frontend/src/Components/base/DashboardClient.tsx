@@ -30,6 +30,8 @@ import {
 import {
   addInvestments,
   clearInvestments,
+  startAutoRefresh,
+  stopAutoRefresh,
 } from "@/lib/Redux/features/investmentSlice/investmentSlice";
 
 // API Actions
@@ -176,7 +178,20 @@ export default function DashboardClient({ session }: SessionProps) {
       },
     }
   );
+// Start auto-refresh when component mounts
+useEffect(() => {
+  dispatch(startAutoRefresh());
+  
+  return () => {
+    // Clean up on unmount
+    dispatch(stopAutoRefresh());
+  };
+}, [dispatch]);
 
+// Manually trigger a refresh
+// const handleRefresh = () => {
+//   dispatch(refreshStaleInvestments());
+// };
   // Session management
   useEffect(() => {
     if (!session) {

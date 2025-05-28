@@ -34,7 +34,7 @@ const getEnvVar = (key: string): string => {
   return value;
 };
 
-// 3. Session Duration (7 days in seconds)
+// 3. Session Duration (5 days in seconds)
 const SESSION_DURATION = 5 * 24 * 60 * 60;
 
 export const authOptions: NextAuthOptions = {
