@@ -85,7 +85,7 @@
 | MongoDB | Database (with Mongoose) |
 | Redis | Caching layer |
 | JWT | Authentication tokens |
-| Prisma | ODM for MongoDB |
+| Prisma | ORM for MongoDB |
 | Bcrypt | Password hashing |
 | Nodemailer | Email notifications |
 
