@@ -109,9 +109,10 @@ export function InvestmentTable({
             <TableHead>Sell Date</TableHead>
             <TableHead>Quantity</TableHead>
             <TableHead>Buy Price</TableHead>
-            <TableHead>Sell Price</TableHead>
-            <TableHead>Stock Value</TableHead>
             <TableHead>Current Price</TableHead>
+            <TableHead>Invested</TableHead>
+            <TableHead>Value</TableHead>
+            <TableHead>Sell Price</TableHead>
             <TableHead>P/L</TableHead>
             <TableHead>ROI</TableHead>
             <TableHead>Status</TableHead>
@@ -134,17 +135,18 @@ export function InvestmentTable({
                 <TableCell>{formatDate(investment.sellDate)}</TableCell>
                 <TableCell>{investment.quantity}</TableCell>
                 <TableCell>{formatCurrency(investment.buyPrice)}</TableCell>
-                <TableCell>{formatCurrency(investment.sellPrice)}</TableCell>
-                <TableCell  className={getProfitLossColor(
-                    (investment.currentValue || 0) - investment.buyPrice
-                  )}>{formatCurrency(investment.currentValue)}</TableCell>
                 <TableCell
                   className={getProfitLossColor(
                     (investment.currentValue  || 0) - investment.buyPrice
                   )}
-                >
-                  {formatCurrency(investment?.currentValue * investment?.quantity)}
+                  >
+                  {formatCurrency(investment?.currentValue)}
                 </TableCell>
+                  <TableCell>{formatCurrency(investment.buyPrice * investment.quantity)}</TableCell>
+                <TableCell  className={getProfitLossColor(
+                  (investment.currentValue || 0) - investment.buyPrice
+                )}>{formatCurrency(investment.currentValue  * investment.quantity)}</TableCell>
+                <TableCell>{formatCurrency(investment.sellPrice)}</TableCell>
                 <TableCell className={getProfitLossColor(profitLoss)}>
                   {formatCurrency(profitLoss)}
                 </TableCell>
