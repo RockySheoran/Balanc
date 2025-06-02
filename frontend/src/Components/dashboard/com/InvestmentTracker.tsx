@@ -1294,6 +1294,11 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
               const profitLoss = currentValue - invested;
               const profitLossPercentage =
                 invested > 0 ? (profitLoss / invested) * 100 : 0;
+                
+
+                if(isSold){
+                  return
+                }
 
               return (
                 <tr

@@ -418,7 +418,7 @@ const investmentSlice = createSlice({
       const { id, price, lastPriceUpdate, nextRefreshTime } = action.payload;
       const investment = state.investments.find((inv) => inv.id === id);
       if (investment) {
-        investment.currentValue = price * investment.quantity;
+        investment.currentValue = investment.quantity;
         investment.lastPriceUpdate = lastPriceUpdate;
         investment.updatedAt = new Date().toISOString();
         if (nextRefreshTime) investment.nextRefreshTime = nextRefreshTime;

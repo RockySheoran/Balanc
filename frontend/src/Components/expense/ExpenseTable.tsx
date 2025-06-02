@@ -58,6 +58,8 @@ const ExpenseTable: React.FC = memo(() => {
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [expenseToEdit, setExpenseToEdit] = useState<any>(null);
   const { token } = useAppSelector((state) => state.user);
+    const[deletePending,setDeletePending] = useState(false)
+  
   const { allAccounts, selectedAccount } = useAppSelector(
     (state) => state.account
   );
@@ -154,6 +156,8 @@ const ExpenseTable: React.FC = memo(() => {
 
   const handleConfirmDelete = useCallback(async () => {
     if (expenseToDelete) {
+      setDeletePending(true);
+      // Call the delete action
       try {
         const data = await DeleteTransAction({
           id: expenseToDelete,
@@ -172,6 +176,7 @@ const ExpenseTable: React.FC = memo(() => {
       } finally {
         setDeleteDialogOpen(false);
         setExpenseToDelete(null);
+        setDeletePending(false);
       }
     }
   }, [expenseToDelete, dispatch, token]);
@@ -355,15 +360,18 @@ const ExpenseTable: React.FC = memo(() => {
           <AlertDialogFooter>
             <AlertDialogCancel
               className="cursor-pointer"
+              
+
               onClick={handleCancelDelete}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600"
+              className="bg-red-600 cursor-pointer text-white hover:bg-red-700 focus-visible:ring-red-600"
+             disabled={deletePending}
             >
-              Delete
+              {deletePending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

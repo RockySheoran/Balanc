@@ -47,6 +47,7 @@ const IncomeRow = ({ income }: IncomeRowProps) => {
   const [incomeToEdit, setIncomeToEdit] = useState<any>(null)
   const { token } = useAppSelector((state) => state.user)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const[deletePending,setDeletePending] = useState(false)
 
   const handleDeleteClick = useCallback((incomeId: string) => {
     setDeleteIncomeId(incomeId)
@@ -96,6 +97,7 @@ const IncomeRow = ({ income }: IncomeRowProps) => {
 
   const handleConfirmDelete = useCallback(async () => {
     if (deleteIncomeId) {
+      setDeletePending(true)
       try {
         const data = await DeleteTransAction({
           id: deleteIncomeId,
@@ -114,6 +116,7 @@ const IncomeRow = ({ income }: IncomeRowProps) => {
       } finally {
         setIsDeleteDialogOpen(false)
         setDeleteIncomeId("")
+        setDeletePending(false)
       }
     }
   }, [deleteIncomeId, dispatch, token])
@@ -189,14 +192,18 @@ const IncomeRow = ({ income }: IncomeRowProps) => {
             <Button
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
+              className="cursor-pointer"
+
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
+              disabled={deletePending}
+              className="cursor-pointer"
             >
-              Delete
+              {deletePending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

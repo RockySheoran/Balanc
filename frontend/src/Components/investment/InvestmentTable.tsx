@@ -110,6 +110,7 @@ export function InvestmentTable({
             <TableHead>Quantity</TableHead>
             <TableHead>Buy Price</TableHead>
             <TableHead>Sell Price</TableHead>
+            <TableHead>Stock Value</TableHead>
             <TableHead>Current Price</TableHead>
             <TableHead>P/L</TableHead>
             <TableHead>ROI</TableHead>
@@ -134,12 +135,15 @@ export function InvestmentTable({
                 <TableCell>{investment.quantity}</TableCell>
                 <TableCell>{formatCurrency(investment.buyPrice)}</TableCell>
                 <TableCell>{formatCurrency(investment.sellPrice)}</TableCell>
+                <TableCell  className={getProfitLossColor(
+                    (investment.currentValue || 0) - investment.buyPrice
+                  )}>{formatCurrency(investment.currentValue)}</TableCell>
                 <TableCell
                   className={getProfitLossColor(
-                    (investment.currentValue || 0) - investment.buyPrice
+                    (investment.currentValue  || 0) - investment.buyPrice
                   )}
                 >
-                  {formatCurrency(investment.currentValue)}
+                  {formatCurrency(investment?.currentValue * investment?.quantity)}
                 </TableCell>
                 <TableCell className={getProfitLossColor(profitLoss)}>
                   {formatCurrency(profitLoss)}

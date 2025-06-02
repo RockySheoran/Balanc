@@ -394,6 +394,7 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
                       min="0.1"
                       step="0.1"
                       value={formData.buyPrice || ""}
+                      readOnly={true}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
@@ -409,8 +410,8 @@ const InvestmentForm = ({ open, onClose }: InvestmentFormProps) => {
                     <Input
                       name="quantity"
                       type="number"
-                      min="0.00000001"
-                      step="0.00000001"
+                      min="1"
+                      step="1"
                       value={formData.quantity}
                       onChange={(e) =>
                         setFormData({
