@@ -13,7 +13,6 @@ import { clearExpense } from "@/lib/Redux/features/expense/expenseSlice"
 import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
 import { clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
 
-// Dynamic import with loading and error fallback
 const LoginForm = dynamic(
   () =>
     import("@/Components/Auth/Login")
@@ -28,7 +27,7 @@ const LoginForm = dynamic(
         return {
           default: () => (
             <div className="text-red-500 text-center py-4">
-              Error loading login form
+              Failed to load login form. Please try refreshing the page.
             </div>
           ),
         }
@@ -36,8 +35,9 @@ const LoginForm = dynamic(
   {
     loading: () => (
       <div className="space-y-4" aria-busy="true" role="status">
-        <div className="h-12 bg-gray-200 rounded animate-pulse" />
-        <div className="h-12 bg-gray-200 rounded animate-pulse" />
+        <div className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-1/2 mx-auto" />
       </div>
     ),
     ssr: false,
@@ -45,50 +45,76 @@ const LoginForm = dynamic(
 )
 
 export default function LoginPage() {
-  // const searchParams = useSearchParams()
-  // const error = searchParams.get("error")
+  const searchParams = useSearchParams()
+  const error = searchParams.get("error")
   const dispatch = useAppDispatch()
   
-  useEffect(()=>{
-        dispatch(clearUser())
-         dispatch(clearIncome())
-         dispatch(clearTransactions())
-         dispatch(clearExpense())
-         dispatch(clearAccount())
-         dispatch(clearInvestments())
-      },[])
-      
+  useEffect(() => {
+    // Clear all relevant state on mount
+    dispatch(clearUser())
+    dispatch(clearIncome())
+    dispatch(clearTransactions())
+    dispatch(clearExpense())
+    dispatch(clearAccount())
+    dispatch(clearInvestments())
+  }, [dispatch])
+  
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
-      <div className="w-full px-4 sm:px-10 max-w-[550px] py-5 mx-4 bg-white rounded-xl shadow-xl">
-        <div className="text-center">
-          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-pink-400 to-purple-500 text-transparent bg-clip-text">
-           BALANC
-          </h1>
-          <h1 className="text-3xl font-bold">Login</h1>
-          <p className="text-gray-600">Welcome back</p>
-          {/* {error && (
-            <p className="text-sm text-red-500 mt-2">
-              {decodeURIComponent(error)}
-            </p>
-          )} */}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+        {/* Decorative header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-center">
+          <Link href="/" className="inline-block">
+            <h1 className="text-3xl font-bold text-white tracking-tight">
+              BALANC<span className="text-pink-300">.</span>
+            </h1>
+          </Link>
+          <p className="mt-1 text-indigo-100">Your personal finance companion</p>
         </div>
+        
+        <div className="p-6 sm:p-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">Welcome back</h2>
+            <p className="text-gray-600 mt-1">Sign in to manage your finances</p>
+            
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+                {decodeURIComponent(error)}
+              </div>
+            )}
+          </div>
 
-        <Suspense fallback={<div>Loading login form...</div>}>
-          <LoginForm />
-        </Suspense>
+          <Suspense fallback={
+            <div className="space-y-4">
+              <div className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-10 bg-gray-100 rounded-lg animate-pulse w-full" />
+            </div>
+          }>
+            <LoginForm />
+          </Suspense>
 
-        <p className="text-center mt-4 text-sm text-gray-700">
-          Don't have an account?{" "}
-          <strong>
-            <Link
-              href="/register"
+          <div className="mt-6 text-center text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link 
+              href="/register" 
+              className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
               prefetch
-              className="text-blue-600 hover:underline">
-              Register
+            >
+              Create one
             </Link>
-          </strong>
-        </p>
+          </div>
+          
+          {/* <div className="mt-6 pt-6 border-t border-gray-100 text-center">
+            <Link 
+              href="/forgot-password" 
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              prefetch
+            >
+              Forgot password?
+            </Link>
+          </div> */}
+        </div>
       </div>
     </div>
   )

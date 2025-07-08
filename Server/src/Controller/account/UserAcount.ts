@@ -188,7 +188,7 @@ export const AccountController = {
         prisma.investment.deleteMany({
           where: { accountId },
         }),
-        prisma.account.delete({
+        prisma.account.deleteMany({
           where: { id: accountId },
         }),
       ])

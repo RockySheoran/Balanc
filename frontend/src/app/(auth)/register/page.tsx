@@ -1,65 +1,105 @@
 /** @format */
 "use client"
 
-import Link from "next/link"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
-import type { NextPage } from "next"
+import Link from "next/link"
+import { useAppDispatch } from "@/lib/Redux/store/hooks"
+import { clearUser } from "@/lib/Redux/features/user/userSlice"
+import { clearIncome } from "@/lib/Redux/features/income/incomeSlices"
+import { clearTransactions } from "@/lib/Redux/features/transactions/transactionsSlice"
+import { clearExpense } from "@/lib/Redux/features/expense/expenseSlice"
+import { clearAccount } from "@/lib/Redux/features/account/accountSlice"
+import { clearInvestments } from "@/lib/Redux/features/investmentSlice/investmentSlice"
+import { useEffect } from "react"
 
-// Components
-const SkeletonLoader = () => (
-  <div className="space-y-4 animate-pulse">
-    {[...Array(3)].map((_, i) => (
-      <div key={i} className="h-12 bg-gray-200 rounded-md" />
-    ))}
-  </div>
-)
-
-// Optimized dynamic import with type safety
 const RegisterForm = dynamic(
-  () => import("@/Components/Auth/Register").then((mod) => mod.default),
+  () =>
+    import("@/Components/Auth/Register")
+      .then((mod) => {
+        if (!("default" in mod)) {
+          throw new Error("Register component has no default export")
+        }
+        return mod.default
+      })
+      .catch((err) => {
+        console.error("Register component load error:", err)
+        return {
+          default: () => (
+            <div className="text-red-500 text-center py-4">
+              Failed to load registration form. Please try refreshing the page.
+            </div>
+          ),
+        }
+      }),
   {
-    loading: () => <SkeletonLoader />,
+    loading: () => (
+      <div className="space-y-4" aria-busy="true" role="status">
+        <div className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-1/2 mx-auto" />
+      </div>
+    ),
     ssr: false,
   }
 )
 
-const RegisterPage: NextPage = () => {
-  return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-cyan-500 to-blue-500">
-      <div className="w-full px-4 sm:px-10 max-w-[550px] py-5 mx-4 bg-white rounded-xl shadow-xl">
-        <header className="text-center">
-          <h1 className="bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-3xl sm:text-4xl font-extrabold text-transparent">
-            BALANC
-          </h1>
-          <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-gray-800">
-            Register
-          </h2>
-          <p className="text-gray-600 text-sm sm:text-base">
-            Start your journey now
-          </p>
-        </header>
+export default function RegisterPage() {
+  const dispatch = useAppDispatch()
+  
+  useEffect(() => {
+    // Clear all relevant state on mount (consistent with login page)
+    dispatch(clearUser())
+    dispatch(clearIncome())
+    dispatch(clearTransactions())
+    dispatch(clearExpense())
+    dispatch(clearAccount())
+    dispatch(clearInvestments())
+  }, [dispatch])
 
-        <main className="mt-6">
-          <Suspense fallback={<SkeletonLoader />}>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+        {/* Decorative header - matches login page */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-center">
+          <Link href="/" className="inline-block">
+            <h1 className="text-3xl font-bold text-white tracking-tight">
+              BALANC<span className="text-pink-300">.</span>
+            </h1>
+          </Link>
+          <p className="mt-1 text-indigo-100">Your personal finance companion</p>
+        </div>
+        
+        <div className="p-6 sm:p-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">Create your account</h2>
+            <p className="text-gray-600 mt-1">Start managing your finances today</p>
+          </div>
+
+          <Suspense fallback={
+            <div className="space-y-4">
+              <div className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-10 bg-gray-100 rounded-lg animate-pulse w-full" />
+            </div>
+          }>
             <RegisterForm />
           </Suspense>
-        </main>
 
-        <footer className="mt-6 text-center">
-          <p className="text-gray-600 text-sm sm:text-base">
+          <div className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{" "}
-            <Link
-              href="/login"
-              className="font-medium text-purple-600 hover:underline hover:text-purple-700 transition-colors duration-200"
-              prefetch={true}>
-              Login
+            <Link 
+              href="/login" 
+              className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+              prefetch
+            >
+              Sign in
             </Link>
-          </p>
-        </footer>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
-
-export default RegisterPage

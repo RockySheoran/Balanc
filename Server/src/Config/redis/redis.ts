@@ -1,4 +1,5 @@
 import { createClient } from 'redis';
+
 const client = createClient({
   password: process.env.REDIS_PASSWORD,
   socket: {

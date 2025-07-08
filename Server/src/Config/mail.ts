@@ -25,6 +25,7 @@ export const sendMail = async (to: string, subject: string, html: string) => {
       subject: subject,
       html: html,
     })
+    
   } catch (error) {
     logger.error({ type: "Email Error", error })
     console.log("dsf")
