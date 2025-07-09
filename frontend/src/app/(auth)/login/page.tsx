@@ -63,10 +63,10 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
         {/* Decorative header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-center">
+        <div className="bg-gradient-to-r from-indigo-400 to-purple-400 p-6 text-center">
           <Link href="/" className="inline-block">
-            <h1 className="text-3xl font-bold text-white tracking-tight">
-              BALANC<span className="text-pink-300">.</span>
+            <h1 className="text-3xl font-extrabold bg-gradient-to-r text-transparent bg-clip-text from-pink-500 via-purple-600 to-indigo-700 tracking-tight">
+              BALANC  
             </h1>
           </Link>
           <p className="mt-1 text-indigo-100">Your personal finance companion</p>
