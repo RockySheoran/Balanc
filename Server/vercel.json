@@ -17,9 +17,5 @@
   ],
   "buildCommand": "npm run vercel-build",
   "installCommand": "npm install",
-  "functions": {
-    "src/index.ts": {
-      "maxDuration": 30
-    }
-  }
+  
 }
