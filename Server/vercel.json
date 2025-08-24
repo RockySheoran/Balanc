@@ -12,5 +12,6 @@
             "dest": "dist/index.js"
         }
     ],
-    "buildCommand": "npm run build"
+    "buildCommand": "npm run build",
+    "startCommand": "npm run start"
 }
