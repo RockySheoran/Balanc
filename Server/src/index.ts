@@ -11,6 +11,7 @@ import route from "./Routes/mainRoutes.js"
 import cors from "cors"
 
 
+import "./Service/index.js"
 import { emailQueue, emailQueueName } from "./Service/emailJob.js"
 import { promises } from "dns"
 import asyncHandler from "./Config/asyncHandler.js"
