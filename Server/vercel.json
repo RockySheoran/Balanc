@@ -3,8 +3,7 @@
   "builds": [
     {
       "src": "dist/index.js",
-      "use": "@vercel/node",
-      "config": { "includeFiles": ["dist/**"] }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -12,5 +11,12 @@
       "src": "/(.*)",
       "dest": "dist/index.js"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+ 
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "devCommand": "npm run start"
 }
