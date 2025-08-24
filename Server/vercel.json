@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "/dist/index.js",
+      "src": "package.json",
       "use": "@vercel/node"
     }
   ],
@@ -11,6 +11,12 @@
       "src": "/(.*)",
       "dest": "/dist/index.js"
     }
-  ]
-  
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "dist/index.js": {
+      "runtime": "nodejs18.x"
+    }
+  }
 }
