@@ -2,21 +2,25 @@
   "version": 2,
   "builds": [
     {
-      "src": "dist/index.js",
-      "use": "@vercel/node"
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["dist/**"]
+      }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "dist/index.js"
+      "dest": "/dist/index.js"
     }
   ],
   "env": {
     "NODE_ENV": "production"
   },
- 
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "devCommand": "npm run start"
+  "functions": {
+    "dist/index.js": {
+      "includeFiles": "dist/**"
+    }
+  }
 }
