@@ -67,10 +67,8 @@ app.use(helmet());
 //! redis config
 import "./Config/redis/redis.js";
 //! Start the server (only in non-Vercel environment)
-if (!process.env.VERCEL) {
-    app.listen(PORT, () => {
-        console.log(`Server started on port ${PORT}`);
-    });
-}
+app.listen(PORT, () => {
+    console.log(`Server started on port ${PORT}`);
+});
 //! Export for Vercel
 export default app;
