@@ -26,3 +26,10 @@ export const checkDataDiffent = (data) => {
     const diffence = moment.duration(now.diff(tokenSendAt)).asHours();
     return diffence;
 };
+// "start": "node ./dist/index.js",
+//     "watch": "tsc -w",
+//     "build": "concurrently \"tsc\" \"npm run copy-files\" ",
+//     "server": "nodemon ./dist/index.js",
+//     "dev": "concurrently \"npm run watch\" \"npm run server\" \"npm run watch-views\"",
+//     "copy-files": "copyfiles -u 1 \"src/views/**/*\" dist/",
+//     "watch-views": "nodemon --watch src/views -e ejs -x \"npm run copy-files\""
