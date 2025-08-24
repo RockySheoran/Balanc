@@ -5,7 +5,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import route from "./Routes/mainRoutes.js";
 import cors from "cors";
-import "./Service/index.js";
 import { limiter } from "./Config/rateLimit.js";
 import { dirname } from 'path';
 import helmet from "helmet";
