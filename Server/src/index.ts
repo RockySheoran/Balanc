@@ -76,7 +76,7 @@ app.set("views", path.resolve(__dirname, "./views"))
 
 //Queue radis
 
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (req: Request, res: Response):any => {
   return res.json({ message: "Server running ..." });
 });
 
