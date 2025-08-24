@@ -49,6 +49,9 @@ app.set("views", path.resolve(__dirname, "./views"));
 //   })
 // )
 //Queue radis
+app.get("/", (req, res) => {
+    return res.json({ message: "Server running ..." });
+});
 //! Routes and secure the https request like it only the accpect that request that come from by the origion
 const corsOption = {
     origin: ["http://localhost:3000", "https://balanc.vercel.app"],
