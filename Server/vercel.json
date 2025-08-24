@@ -1,25 +1,20 @@
 {
-    "version": 2,
-    "builds": [
-      {
-        "src": "src/index.ts",
-        "use": "@vercel/node",
-        "config": {
-          "maxLambdaSize": "50mb"
-        }
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "/src/index.ts",
-        "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
-      }
-    ],
-    "buildCommand": "npm run build",
-    "installCommand": "npm install",
-
-    "env": {
-      "NODE_ENV": "production"
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
     }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.js"
+    }
+  ],
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "env": {
+    "NODE_ENV": "production"
   }
+}
