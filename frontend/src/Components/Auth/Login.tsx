@@ -151,7 +151,7 @@ export default function Login() {
           onClick={handleGoogleSignIn}
           className="w-full text-center  px-auto content-center cursor-pointer"
           disabled={googlePending}>
-          <GoogleSubmitBtn pending={googlePending} />
+          <GoogleSubmitBtn pending={googlePending}  setPending={setGooglePending}/>
         </Button>
       </div>
     </div>

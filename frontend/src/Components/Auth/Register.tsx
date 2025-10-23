@@ -187,7 +187,7 @@ export default function Register() {
           onClick={handleGoogleSignIn}
           className="w-full cursor-pointer"
           disabled={googlePending}>
-          <GoogleSubmitBtn pending={googlePending} />
+          <GoogleSubmitBtn pending={googlePending} setPending={setGooglePending} />
         </Button>
       </div>
     </div>

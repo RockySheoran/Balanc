@@ -47,6 +47,7 @@ import { Investment } from "@/Components/investment/investment";
 import { useAppSelector } from "@/lib/Redux/store/hooks";
 import axios, { AxiosError } from "axios";
 import { format, formatDistanceToNow, subDays } from "date-fns";
+import { CloudCog } from "lucide-react";
 
 // Register ChartJS components
 ChartJS.register(
@@ -125,8 +126,8 @@ const DEFAULT_SUMMARY: PortfolioSummary = {
 const InvestmentTracker = () => {
   // State
   const investments = useAppSelector((state) => state.investments.investments);
-  console.log(investments)
-  const [investments1,setInvestment1] = useState([])
+  console.log(investments);
+  const [investments1, setInvestment1] = useState([]);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<PortfolioSummary>(DEFAULT_SUMMARY);
   const [timeRange, setTimeRange] = useState<TimeRange>("1mo");
@@ -146,8 +147,6 @@ const InvestmentTracker = () => {
       }
     >
   >({});
- 
-
 
   // Filter out sold investments
   const activeInvestments = useMemo(
@@ -671,17 +670,17 @@ const InvestmentTracker = () => {
         tooltip: {
           callbacks: {
             label: (context: any) => {
-              const label = context.label || "";
               const value = context.raw;
               const dataset = context.dataset;
-              const total = dataset.data.reduce(
-                (acc: number, data: number) => acc + data,
-                0
-              );
-              const percentage = Math.round((value / total) * 100);
 
               // For pie chart, show both value and percentage
               if (context.chart.config.type === "pie") {
+                const label = context.label || "";
+                const total = dataset.data.reduce(
+                  (acc: number, data: number) => acc + data,
+                  0
+                );
+                const percentage = Math.round((value / total) * 100);
                 const investment = topInvestments[context.dataIndex];
                 const currency = investment?.symbol?.includes(".NS")
                   ? "INR"
@@ -695,11 +694,20 @@ const InvestmentTracker = () => {
                 ];
               }
 
-              // For line chart, keep original behavior
-              return `${label}: ${new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: label.includes(".NS") ? "INR" : "USD",
-              }).format(value)}`;
+              // For line chart, get symbol from dataset label
+              if (context.chart.config.type === "line") {
+                const datasetLabel = dataset.label || "";
+                // Extract symbol from dataset label (format: "SYMBOL - Company Name")
+                const symbol = datasetLabel.split(" - ")[0] || "";
+                const currency = symbol.includes(".NS") ? "INR" : "USD";
+
+                return `${datasetLabel}: ${new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency,
+                }).format(value)}`;
+              }
+
+              return `${dataset.label}: ${value}`;
             },
           },
         },
@@ -1294,15 +1302,14 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
               const profitLoss = currentValue - invested;
               const profitLossPercentage =
                 invested > 0 ? (profitLoss / invested) * 100 : 0;
-                
 
-                if(isSold){
-                  return
-                }
+              if (isSold) {
+                return;
+              }
 
               return (
                 <tr
-                  key={investment.id }
+                  key={investment.id}
                   className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
                     isSold ? "opacity-70" : ""
                   }`}
@@ -1388,7 +1395,7 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
 
 export default InvestmentTracker;
 
- const isValidDate = (date: any): date is Date | string => {
+const isValidDate = (date: any): date is Date | string => {
   if (!date) return false;
   const d = new Date(date);
   return !isNaN(d.getTime());

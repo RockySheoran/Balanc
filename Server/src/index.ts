@@ -114,8 +114,10 @@ app.use(helmet());
 
 
 //! redis config
-
 import "./Config/redis/redis.js"
+
+//! Auto Redis cleanup service
+import "./Services/RedisAutoCleanup.js"
 
 //! Start the server (only in non-Vercel environment)
 
