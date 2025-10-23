@@ -43,7 +43,10 @@ export class RedisHelper {
    */
   static async delete(...keys: string[]): Promise<number> {
     if (keys.length === 0) return 0
-    return await redisClient.del(...keys)
+    if (keys.length === 1) {
+      return await redisClient.del(keys[0])
+    }
+    return await redisClient.del(keys)
   }
 
   /**

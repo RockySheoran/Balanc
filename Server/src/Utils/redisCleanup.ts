@@ -62,7 +62,7 @@ export class RedisCleanup {
       const allCacheKeys = [...cacheKeys, ...transactionKeys, ...investmentKeys]
 
       if (allCacheKeys.length > 0) {
-        await redisClient.del(...allCacheKeys)
+        await redisClient.del(allCacheKeys)
         console.log(`Cleared ${allCacheKeys.length} cache keys`)
       } else {
         console.log("No cache keys found to clear")
